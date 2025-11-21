@@ -2,7 +2,7 @@ import json
 
 from veracity.analyzers import AnalyzerSpec, run_all_analyzers
 from conftest import _make_test_image_bytes
-from veracity.human_analyzer import run_human_consensus
+from veracity.analyzers.human import run_human_consensus
 
 
 def test_run_all_analyzers_preserves_order():
@@ -45,7 +45,7 @@ def test_run_all_analyzers_handles_exceptions():
 
 def test_c2pa_analyzer_not_available(monkeypatch):
     # Simulate missing c2pa dependency
-    from veracity import c2pa_analyzer
+    from veracity.analyzers import c2pa as c2pa_analyzer
 
     monkeypatch.setattr(c2pa_analyzer, "Reader", None)
     result = c2pa_analyzer.run_c2pa(_make_test_image_bytes())
@@ -77,7 +77,7 @@ def test_c2pa_analyzer_writes_signer(monkeypatch):
         def json(self):
             return self._json
 
-    from veracity import c2pa_analyzer
+    from veracity.analyzers import c2pa as c2pa_analyzer
 
     monkeypatch.setattr(c2pa_analyzer, "Reader", DummyReader)
     result = c2pa_analyzer.run_c2pa(_make_test_image_bytes())
