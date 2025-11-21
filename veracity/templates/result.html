@@ -41,6 +41,7 @@
                     Showing {{ matches|length }} matches (distance ≤ {{ row.data.threshold }}).
                     Combined votes:
                     Real {{ totals.vote_real or 0 }},
+                    AI-edited {{ totals.vote_edited or 0 }},
                     AI {{ totals.vote_ai or 0 }}
                     (total {{ totals.total_votes or 0 }}).
                   </p>
@@ -50,7 +51,7 @@
                       <tr>
                         <th style="text-align: left;">phash</th>
                         <th>Distance</th>
-                        <th>Votes (Real / AI)</th>
+                        <th>Votes (Real / AI-edited / AI)</th>
                         <th>Total</th>
                       </tr>
                     </thead>
@@ -59,7 +60,7 @@
                         <tr>
                           <td><code>{{ match.phash }}</code></td>
                           <td style="text-align: center;">{{ match.distance }}</td>
-                          <td style="text-align: center;">{{ match.vote_real }} / {{ match.vote_ai }}</td>
+                          <td style="text-align: center;">{{ match.vote_real }} / {{ match.vote_edited }} / {{ match.vote_ai }}</td>
                           <td style="text-align: center;">{{ match.total_votes }}</td>
                         </tr>
                       {% endfor %}
@@ -76,11 +77,18 @@
                   <button type="submit">Mark as Real</button>
                 </form>
 
+                <form action="{{ url_for('main.vote') }}" method="post" style="display: inline-block; margin-right: 0.5rem;">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                  <input type="hidden" name="phash" value="{{ row.data.phash }}">
+                  <input type="hidden" name="vote" value="edited">
+                  <button type="submit">Mark as AI-edited</button>
+                </form>
+
                 <form action="{{ url_for('main.vote') }}" method="post" style="display: inline-block;">
                   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                   <input type="hidden" name="phash" value="{{ row.data.phash }}">
                   <input type="hidden" name="vote" value="ai">
-                  <button type="submit">Mark as AI</button>
+                  <button type="submit">Mark as AI-generated</button>
                 </form>
               </div>
             {% endif %}

@@ -64,7 +64,7 @@ def vote():
     phash = (request.form.get("phash") or "").strip()
     vote_kind = (request.form.get("vote") or "").strip().lower()
 
-    if not phash or vote_kind not in {"real", "ai"}:
+    if not phash or vote_kind not in {"real", "edited", "ai"}:
         flash("Invalid vote request.")
         return redirect(url_for("main.index"))
 
@@ -86,6 +86,8 @@ def vote():
 
     if vote_kind == "real":
         record.vote_real = (record.vote_real or 0) + 1
+    elif vote_kind == "edited":
+        record.vote_edited = (record.vote_edited or 0) + 1
     else:
         record.vote_ai = (record.vote_ai or 0) + 1
 

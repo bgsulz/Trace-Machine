@@ -42,15 +42,20 @@ def run_human_consensus(image_bytes: bytes) -> dict[str, object]:
 
     totals = {
         "vote_real": sum(entry["vote_real"] for entry in matches),
+        "vote_edited": sum(entry["vote_edited"] for entry in matches),
         "vote_ai": sum(entry["vote_ai"] for entry in matches),
     }
-    totals["total_votes"] = totals["vote_real"] + totals["vote_ai"]
+    totals["total_votes"] = (
+        totals["vote_real"] + totals["vote_edited"] + totals["vote_ai"]
+    )
 
     if matches:
         summary = (
             f"{len(matches)} consensus entries within distance ≤ "
             f"{_MAX_HAMMING_DISTANCE}. "
-            f"Combined votes: {totals['vote_ai']} AI / {totals['vote_real']} Real"
+            f"Combined votes: Real {totals['vote_real']} / "
+            f"AI-edited {totals['vote_edited']} / "
+            f"AI {totals['vote_ai']}"
         )
         status = "FOUND"
     else:
@@ -93,12 +98,13 @@ def _find_fuzzy_matches(target_hash: imagehash.ImageHash) -> list[dict[str, obje
         if distance > _MAX_HAMMING_DISTANCE:
             continue
 
-        total_votes = (row.vote_real or 0) + (row.vote_ai or 0)
+        total_votes = (row.vote_real or 0) + (row.vote_edited or 0) + (row.vote_ai or 0)
         matches.append(
             {
                 "phash": row.phash,
                 "distance": distance,
                 "vote_real": row.vote_real,
+                "vote_edited": row.vote_edited,
                 "vote_ai": row.vote_ai,
                 "total_votes": total_votes,
                 "created_at": row.created_at.isoformat() if row.created_at else "",

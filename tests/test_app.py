@@ -70,16 +70,25 @@ def test_vote_creates_record_and_increments_counts(client, app):
 
     # Act: submit two votes (one real, one ai)
     vote_data_real = {"phash": phash, "vote": "real"}
+    vote_data_edited = {"phash": phash, "vote": "edited"}
     vote_data_ai = {"phash": phash, "vote": "ai"}
 
     resp_real = client.post("/vote", data=vote_data_real, follow_redirects=True)
     assert resp_real.status_code == 200
 
+    resp_edited = client.post(
+        "/vote",
+        data=vote_data_edited,
+        follow_redirects=True,
+        headers={"X-Forwarded-For": "203.0.113.5"},
+    )
+    assert resp_edited.status_code == 200
+
     resp_ai = client.post(
         "/vote",
         data=vote_data_ai,
         follow_redirects=True,
-        headers={"X-Forwarded-For": "203.0.113.5"},
+        headers={"X-Forwarded-For": "198.51.100.8"},
     )
     assert resp_ai.status_code == 200
 
@@ -90,10 +99,11 @@ def test_vote_creates_record_and_increments_counts(client, app):
         row = ImageConsensus.query.filter_by(phash=phash).first()
         assert row is not None
         assert row.vote_real == 1
+        assert row.vote_edited == 1
         assert row.vote_ai == 1
 
         history_rows = VoteHistory.query.filter_by(phash=phash).all()
-        assert len(history_rows) == 2
+        assert len(history_rows) == 3
 
 
 def test_vote_rejects_duplicate_votes(client, app):
