@@ -3,3 +3,4 @@ Flask-WTF
 Pillow
 requests
 python-dotenv
+pytest
