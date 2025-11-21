@@ -38,55 +38,39 @@ def run_human_consensus(image_bytes: bytes) -> dict[str, object]:
 
     target_hex = str(target_hash)
 
-    # 1) Exact match (O(1))
-    match = ImageConsensus.query.filter_by(phash=target_hex).first()
-    if match:
-        summary = f"Consensus: {match.vote_ai} AI / {match.vote_real} Real"
-        return {
-            "status": "FOUND",
-            "summary": summary,
-            "data": {
-                "phash": target_hex,
-                "vote_ai": match.vote_ai,
-                "vote_real": match.vote_real,
-                "total_votes": match.vote_ai + match.vote_real,
-                "distance": 0,
-            },
-        }
+    matches = _find_fuzzy_matches(target_hash)
 
-    # 2) Fuzzy search (O(N)) for small N
-    candidate = _find_best_fuzzy_match(target_hex)
-    if candidate is None:
-        return {
-            "status": "NO DATA",
-            "summary": "No community consensus yet.",
-            "data": {"phash": target_hex, "matches": 0},
-        }
+    totals = {
+        "vote_real": sum(entry["vote_real"] for entry in matches),
+        "vote_ai": sum(entry["vote_ai"] for entry in matches),
+    }
+    totals["total_votes"] = totals["vote_real"] + totals["vote_ai"]
 
-    row, distance = candidate
-    summary = (
-        f"Approximate match (distance={distance}): "
-        f"{row.vote_ai} AI / {row.vote_real} Real"
-    )
+    if matches:
+        summary = (
+            f"{len(matches)} consensus entries within distance ≤ "
+            f"{_MAX_HAMMING_DISTANCE}. "
+            f"Combined votes: {totals['vote_ai']} AI / {totals['vote_real']} Real"
+        )
+        status = "FOUND"
+    else:
+        summary = "No community consensus yet."
+        status = "NO DATA"
+
     return {
-        "status": "FOUND",
+        "status": status,
         "summary": summary,
         "data": {
             "phash": target_hex,
-            "matched_phash": row.phash,
-            "vote_ai": row.vote_ai,
-            "vote_real": row.vote_real,
-            "total_votes": row.vote_ai + row.vote_real,
-            "distance": distance,
+            "matches": matches,
+            "totals": totals,
+            "threshold": _MAX_HAMMING_DISTANCE,
         },
     }
 
 
-def _find_best_fuzzy_match(target_hex: str) -> tuple[ImageConsensus, int] | None:
-    """Return (row, distance) for the closest hash within the threshold.
-
-    Fetches at most _MAX_FUZZY_ROWS rows to keep the prototype simple.
-    """
+def _find_fuzzy_matches(target_hash: imagehash.ImageHash) -> list[dict[str, object]]:
+    """Return all consensus rows within the Hamming threshold."""
 
     try:
         rows = (
@@ -96,35 +80,30 @@ def _find_best_fuzzy_match(target_hex: str) -> tuple[ImageConsensus, int] | None
         )
     except Exception:  # pragma: no cover - defensive
         logger.exception("Human consensus fuzzy query failed")
-        return None
+        return []
 
-    if not rows:
-        return None
-
-    try:
-        target_hash = imagehash.hex_to_hash(target_hex)
-    except Exception:  # pragma: no cover - defensive
-        logger.exception("Invalid target hash for fuzzy comparison: %s", target_hex)
-        return None
-
-    best_row: ImageConsensus | None = None
-    best_distance: int | None = None
-
+    matches: list[dict[str, object]] = []
     for row in rows:
         try:
             row_hash = imagehash.hex_to_hash(row.phash)
         except Exception:  # pragma: no cover - skip bad rows
             continue
 
-        distance = target_hash - row_hash
-        if best_distance is None or distance < best_distance:
-            best_row = row
-            best_distance = distance
+        distance = int(target_hash - row_hash)
+        if distance > _MAX_HAMMING_DISTANCE:
+            continue
 
-    if best_row is None or best_distance is None:
-        return None
+        total_votes = (row.vote_real or 0) + (row.vote_ai or 0)
+        matches.append(
+            {
+                "phash": row.phash,
+                "distance": distance,
+                "vote_real": row.vote_real,
+                "vote_ai": row.vote_ai,
+                "total_votes": total_votes,
+                "created_at": row.created_at.isoformat() if row.created_at else "",
+            }
+        )
 
-    if best_distance > _MAX_HAMMING_DISTANCE:
-        return None
-
-    return best_row, best_distance
+    matches.sort(key=lambda entry: (entry["distance"], entry["created_at"]))
+    return matches

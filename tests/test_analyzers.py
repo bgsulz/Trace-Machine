@@ -101,7 +101,10 @@ def test_c2pa_analyzer_writes_signer(monkeypatch):
 def test_human_consensus_returns_phash():
     result = run_human_consensus(_make_test_image_bytes())
     assert result["status"] == "NO DATA"
-    assert "phash" in result["data"]
+    data = result["data"]
+    assert "phash" in data
+    assert data["matches"] == []
+    assert (data["totals"].get("total_votes") or 0) == 0
 
 
 def test_human_consensus_uses_fuzzy_match(app):
@@ -129,7 +132,12 @@ def test_human_consensus_uses_fuzzy_match(app):
     assert result["status"] == "FOUND"
     data = result["data"]
     assert data["phash"] == target_hex
-    assert data["matched_phash"] == fuzzy_hex
-    assert data["vote_real"] == 3
-    assert data["vote_ai"] == 7
-    assert 0 < data["distance"] <= 4
+    matches = data["matches"]
+    assert len(matches) == 1
+    match = matches[0]
+    assert match["phash"] == fuzzy_hex
+    assert match["vote_real"] == 3
+    assert match["vote_ai"] == 7
+    assert 0 < match["distance"] <= 4
+    assert data["totals"]["vote_real"] == 3
+    assert data["totals"]["vote_ai"] == 7

@@ -29,16 +29,42 @@
             {% if row.name == "Human Consensus" and row.data.phash %}
               <div style="margin-top: 0.5rem; font-size: 0.9em;">
                 <p>
-                  Hash:
+                  Current hash:
                   <code>{{ row.data.phash }}</code>
                 </p>
-                {% if row.data.total_votes %}
+
+                {% set matches = row.data.matches or [] %}
+                {% set totals = row.data.totals or {} %}
+
+                {% if matches %}
                   <p>
-                    Votes:
-                    Real {{ row.data.vote_real or 0 }},
-                    AI {{ row.data.vote_ai or 0 }}
-                    (total {{ row.data.total_votes }})
+                    Showing {{ matches|length }} matches (distance ≤ {{ row.data.threshold }}).
+                    Combined votes:
+                    Real {{ totals.vote_real or 0 }},
+                    AI {{ totals.vote_ai or 0 }}
+                    (total {{ totals.total_votes or 0 }}).
                   </p>
+
+                  <table style="font-size: 0.9em; width: 100%;">
+                    <thead>
+                      <tr>
+                        <th style="text-align: left;">phash</th>
+                        <th>Distance</th>
+                        <th>Votes (Real / AI)</th>
+                        <th>Total</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {% for match in matches %}
+                        <tr>
+                          <td><code>{{ match.phash }}</code></td>
+                          <td style="text-align: center;">{{ match.distance }}</td>
+                          <td style="text-align: center;">{{ match.vote_real }} / {{ match.vote_ai }}</td>
+                          <td style="text-align: center;">{{ match.total_votes }}</td>
+                        </tr>
+                      {% endfor %}
+                    </tbody>
+                  </table>
                 {% else %}
                   <p>No votes yet.</p>
                 {% endif %}
