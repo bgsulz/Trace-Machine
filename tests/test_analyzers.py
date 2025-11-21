@@ -1,10 +1,15 @@
 import json
+from io import BytesIO
 
 import pytest
+import imagehash
+from PIL import Image
 
+from veracity import db
 from veracity.analyzers import AnalyzerSpec, run_all_analyzers
-from conftest import _make_test_image_bytes
 from veracity.analyzers.human import run_human_consensus
+from veracity.models import ImageConsensus
+from conftest import _make_test_image_bytes
 
 
 @pytest.fixture(autouse=True)
@@ -97,3 +102,34 @@ def test_human_consensus_returns_phash():
     result = run_human_consensus(_make_test_image_bytes())
     assert result["status"] == "NO DATA"
     assert "phash" in result["data"]
+
+
+def test_human_consensus_uses_fuzzy_match(app):
+    image_bytes = _make_test_image_bytes()
+
+    # Compute the target hash exactly as the analyzer does
+    with Image.open(BytesIO(image_bytes)) as img:
+        target_hash = imagehash.phash(img)
+    target_hex = str(target_hash)
+
+    # Flip a single bit to create a nearby hash with small Hamming distance
+    arr = target_hash.hash.copy()
+    arr[0, 0] = ~arr[0, 0]
+    fuzzy_hash = imagehash.ImageHash(arr)
+    fuzzy_hex = str(fuzzy_hash)
+
+    # Seed the DB with votes for the fuzzy hash
+    with app.app_context():
+        row = ImageConsensus(phash=fuzzy_hex, vote_real=3, vote_ai=7)
+        db.session.add(row)
+        db.session.commit()
+
+        result = run_human_consensus(image_bytes)
+
+    assert result["status"] == "FOUND"
+    data = result["data"]
+    assert data["phash"] == target_hex
+    assert data["matched_phash"] == fuzzy_hex
+    assert data["vote_real"] == 3
+    assert data["vote_ai"] == 7
+    assert 0 < data["distance"] <= 4

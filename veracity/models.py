@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import UTC, datetime
 
 from . import db
 
@@ -10,7 +10,7 @@ class ImageConsensus(db.Model):
     phash = db.Column(db.String(16), nullable=False, index=True)
     vote_real = db.Column(db.Integer, default=0)
     vote_ai = db.Column(db.Integer, default=0)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(UTC))
 
     def to_dict(self) -> dict[str, int | str]:
         total_votes = (self.vote_real or 0) + (self.vote_ai or 0)
