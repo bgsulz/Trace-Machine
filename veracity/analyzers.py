@@ -1,14 +1,24 @@
-"""Stub analyzer execution engine for Phase 2."""
+"""Analyzer execution engine and concrete implementations for Phase 3."""
 from __future__ import annotations
 
+import json
 import logging
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, Future, as_completed
 from dataclasses import dataclass
+from io import BytesIO
 from typing import Callable, Iterable, Sequence
 
+import imagehash
+from PIL import Image, UnidentifiedImageError
+
 logger = logging.getLogger(__name__)
+
+try:  # pragma: no cover - import guard
+    from c2pa import Reader
+except ImportError:  # pragma: no cover - handled at runtime
+    Reader = None
 
 
 @dataclass(frozen=True)
@@ -17,33 +27,79 @@ class AnalyzerSpec:
     func: Callable[[bytes], tuple[str, str]]
 
 
-def _digital_signature_stub(image_bytes: bytes) -> tuple[str, str]:
-    """Fake C2PA analyzer that toggles result based on payload parity."""
-    signed = len(image_bytes) % 2 == 0
-    if signed:
-        return "FOUND", "Signed by Placeholder Labs"
-    return "NOT FOUND", "No C2PA manifest detected (stub)."
+_FORMAT_TO_MIME = {
+    "JPEG": "image/jpeg",
+    "PNG": "image/png",
+    "WEBP": "image/webp",
+    "GIF": "image/gif",
+}
+
+
+def _detect_mime_type(image_bytes: bytes) -> str:
+    try:
+        with Image.open(BytesIO(image_bytes)) as img:
+            fmt = (img.format or "").upper()
+    except (UnidentifiedImageError, OSError):
+        return "application/octet-stream"
+    return _FORMAT_TO_MIME.get(fmt, "application/octet-stream")
+
+
+def _digital_signature_c2pa(image_bytes: bytes) -> tuple[str, str]:
+    """Run the real C2PA analyzer using the c2pa-python Reader."""
+    if Reader is None:
+        return "NOT AVAILABLE", "c2pa-python dependency is not installed."
+
+    mime_type = _detect_mime_type(image_bytes)
+    try:
+        with Reader(mime_type, BytesIO(image_bytes)) as reader:  # type: ignore[arg-type]
+            manifest_store = json.loads(reader.json())
+    except Exception as exc:  # pragma: no cover - defensive logging
+        logger.exception("C2PA analyzer failed")
+        return "ERROR", f"Failed to read C2PA manifest: {exc}"
+
+    manifests = manifest_store.get("manifests") or {}
+    active_id = manifest_store.get("active_manifest")
+    active_manifest = manifests.get(active_id) if active_id else None
+
+    if not active_manifest:
+        return "NOT FOUND", "No C2PA manifest detected."
+
+    signer = (
+        active_manifest.get("signature_info", {}).get("issuer")
+        or active_manifest.get("claim_generator")
+        or "Unknown signer"
+    )
+    details = f"Signed by {signer}"
+    return "FOUND", details
 
 
 def _synthid_stub(image_bytes: bytes) -> tuple[str, str]:
-    """Fake SynthID analyzer that hashes the first 32 bytes."""
+    """Placeholder SynthID analyzer (real API pending)."""
     checksum = sum(image_bytes[:32]) % 5 if image_bytes else 0
     detected = checksum == 0
     status = "DETECTED" if detected else "NOT DETECTED"
-    details = f"Checksum bucket={checksum} (demo only)."
+    details = "SynthID integration pending (stub output)."
+    if detected:
+        details += f" Checksum bucket={checksum}."
     return status, details
 
 
-def _human_consensus_stub(image_bytes: bytes) -> tuple[str, str]:
-    """Fake human consensus analyzer showing vote placeholders."""
-    pseudo_votes = len(image_bytes) % 7
-    return "UNKNOWN", f"Votes — Real: {pseudo_votes}, AI: {max(0, 3 - pseudo_votes)} (stub)"
+def _human_consensus_phash(image_bytes: bytes) -> tuple[str, str]:
+    """Compute a perceptual hash via ImageHash (DB wiring lands in Phase 4)."""
+    try:
+        with Image.open(BytesIO(image_bytes)) as img:
+            hash_value = imagehash.phash(img)
+    except (UnidentifiedImageError, OSError) as exc:  # pragma: no cover - defensive
+        logger.exception("Human consensus analyzer failed")
+        return "ERROR", f"Failed to compute perceptual hash: {exc}"
+
+    return "HASHED", f"phash={hash_value} (consensus DB pending)"
 
 
 ANALYZERS: Sequence[AnalyzerSpec] = (
-    AnalyzerSpec(name="Digital Signature (C2PA)", func=_digital_signature_stub),
+    AnalyzerSpec(name="Digital Signature (C2PA)", func=_digital_signature_c2pa),
     AnalyzerSpec(name="Google SynthID", func=_synthid_stub),
-    AnalyzerSpec(name="Human Consensus", func=_human_consensus_stub),
+    AnalyzerSpec(name="Human Consensus", func=_human_consensus_phash),
 )
 
 
