@@ -28,13 +28,6 @@ def analyze():
         if file and file.filename:
             source = "file"
             image_bytes = file.read()
-            max_bytes = (
-                request.app.config.get("MAX_CONTENT_LENGTH", 10 * 1024 * 1024)
-                if hasattr(request, "app")
-                else 10 * 1024 * 1024
-            )
-            if len(image_bytes) > max_bytes:
-                raise ingestion.IngestionError("Uploaded image is too large.")
             ingestion.validate_image_bytes(image_bytes)
             mime_type = file.mimetype or "application/octet-stream"
         elif image_url:
