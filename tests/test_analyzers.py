@@ -1,8 +1,16 @@
 import json
 
+import pytest
+
 from veracity.analyzers import AnalyzerSpec, run_all_analyzers
 from conftest import _make_test_image_bytes
 from veracity.analyzers.human import run_human_consensus
+
+
+@pytest.fixture(autouse=True)
+def _push_app_context(app):
+    with app.app_context():
+        yield
 
 
 def test_run_all_analyzers_preserves_order():
@@ -87,5 +95,5 @@ def test_c2pa_analyzer_writes_signer(monkeypatch):
 
 def test_human_consensus_returns_phash():
     result = run_human_consensus(_make_test_image_bytes())
-    assert result["status"] == "HASHED"
-    assert "phash=" in str(result["summary"])
+    assert result["status"] == "NO DATA"
+    assert "phash" in result["data"]

@@ -10,7 +10,7 @@ from flask import (
 )
 
 from . import ingestion
-from .analyzers import run_all_analyzers
+from .analyzers.manager import run_all_analyzers
 
 bp = Blueprint("main", __name__)
 

@@ -11,7 +11,7 @@ if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
 
-from veracity import create_app  # noqa: E402
+from veracity import create_app, db  # noqa: E402
 
 
 @pytest.fixture
@@ -21,6 +21,9 @@ def app():
         TESTING=True,
         WTF_CSRF_ENABLED=False,  # disable CSRF for most tests; covered separately
     )
+    with app.app_context():
+        db.drop_all()
+        db.create_all()
     yield app
 
 

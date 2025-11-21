@@ -5,6 +5,8 @@ from concurrent.futures import ThreadPoolExecutor, Future, as_completed
 from dataclasses import dataclass
 from typing import Callable, Iterable, Sequence
 
+from flask import current_app
+
 from .c2pa import run_c2pa
 from .human import run_human_consensus
 from .synthid import run_synthid_stub
@@ -48,12 +50,14 @@ def run_all_analyzers(
 
     max_workers = len(specs)
     logger.debug("Submitting %d analyzers using %d workers", len(specs), max_workers)
+    app = current_app._get_current_object()
+
     with ThreadPoolExecutor(
         max_workers=max_workers, thread_name_prefix="analyzer"
     ) as executor:
         for spec in specs:
             logger.info("Analyzer '%s' starting", spec.name)
-            future = executor.submit(spec.func, image_bytes)
+            future = executor.submit(_run_in_context, app, spec.func, image_bytes)
             future_spec[future] = spec
             start_times[future] = time.perf_counter()
 
@@ -108,3 +112,8 @@ def run_all_analyzers(
             }
 
     return [results_map[spec.name] for spec in specs]
+
+
+def _run_in_context(app, func: Callable[[bytes], AnalyzerOutput], payload: bytes) -> AnalyzerOutput:
+    with app.app_context():
+        return func(payload)

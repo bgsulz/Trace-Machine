@@ -1,9 +1,11 @@
 Flask
 Flask-WTF
+Flask-SQLAlchemy
 Pillow
 requests
 python-dotenv
 pytest
 c2pa-python
-ImageHash
+imagehash
+psycopg2-binary
 numpy
