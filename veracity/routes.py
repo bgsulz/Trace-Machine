@@ -1,14 +1,12 @@
-import os
+import base64
 import secrets
 
 from flask import (
     Blueprint,
-    current_app,
     flash,
     redirect,
     render_template,
     request,
-    send_from_directory,
     session,
     url_for,
 )
@@ -41,10 +39,19 @@ def analyze():
     try:
         if file and file.filename:
             source = "file"
-            filename = _save_uploaded_file(file)
+            image_bytes = file.read()
+            max_bytes = (
+                request.app.config.get("MAX_CONTENT_LENGTH", 10 * 1024 * 1024)
+                if hasattr(request, "app")
+                else 10 * 1024 * 1024
+            )
+            if len(image_bytes) > max_bytes:
+                raise ingestion.IngestionError("Uploaded image is too large.")
+            ingestion.validate_image_bytes(image_bytes)
+            mime_type = file.mimetype or "application/octet-stream"
         elif image_url:
             source = "url"
-            filename = ingestion.download_image_to_uploads(image_url)
+            image_bytes, mime_type = ingestion.fetch_image_bytes(image_url)
         else:
             flash("Please provide an image file or a URL.")
             return redirect(url_for("main.index"))
@@ -52,7 +59,8 @@ def analyze():
         flash(str(exc))
         return redirect(url_for("main.index"))
 
-    image_url_path = url_for("main.uploaded_file", filename=filename)
+    image_b64 = base64.b64encode(image_bytes).decode("ascii")
+    image_data_url = f"data:{mime_type};base64,{image_b64}"
 
     dummy_results = [
         {
@@ -74,36 +82,7 @@ def analyze():
 
     return render_template(
         "result.html",
-        image_url=image_url_path,
+        image_url=image_data_url,
         source=source,
         results=dummy_results,
     )
-
-
-@bp.route("/uploads/<path:filename>")
-def uploaded_file(filename):
-    upload_folder = current_app.config["UPLOAD_FOLDER"]
-    return send_from_directory(upload_folder, filename)
-
-
-def _save_uploaded_file(file_storage):
-    if not file_storage:
-        raise ingestion.IngestionError("No file provided.")
-
-    filename = file_storage.filename or ""
-    ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
-    allowed = current_app.config.get("ALLOWED_EXTENSIONS", set())
-
-    if ext not in allowed:
-        raise ingestion.IngestionError("Unsupported file type.")
-
-    upload_folder = current_app.config["UPLOAD_FOLDER"]
-    os.makedirs(upload_folder, exist_ok=True)
-
-    random_name = secrets.token_hex(16)
-    stored_name = f"{random_name}.{ext}" if ext else random_name
-    path = os.path.join(upload_folder, stored_name)
-
-    file_storage.save(path)
-
-    return stored_name
