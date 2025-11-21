@@ -1,8 +1,8 @@
 import json
 
-import veracity.analyzers as analyzers
 from veracity.analyzers import AnalyzerSpec, run_all_analyzers
 from conftest import _make_test_image_bytes
+from veracity.human_analyzer import run_human_consensus
 
 
 def test_run_all_analyzers_preserves_order():
@@ -44,8 +44,11 @@ def test_run_all_analyzers_handles_exceptions():
 
 
 def test_c2pa_analyzer_not_available(monkeypatch):
-    monkeypatch.setattr(analyzers, "Reader", None)
-    status, details = analyzers._digital_signature_c2pa(_make_test_image_bytes())
+    # Simulate missing c2pa dependency
+    from veracity import c2pa_analyzer
+
+    monkeypatch.setattr(c2pa_analyzer, "Reader", None)
+    status, details = c2pa_analyzer.run_c2pa(_make_test_image_bytes())
     assert status == "NOT AVAILABLE"
     assert "not installed" in details.lower()
 
@@ -74,13 +77,15 @@ def test_c2pa_analyzer_writes_signer(monkeypatch):
         def json(self):
             return self._json
 
-    monkeypatch.setattr(analyzers, "Reader", DummyReader)
-    status, details = analyzers._digital_signature_c2pa(_make_test_image_bytes())
+    from veracity import c2pa_analyzer
+
+    monkeypatch.setattr(c2pa_analyzer, "Reader", DummyReader)
+    status, details = c2pa_analyzer.run_c2pa(_make_test_image_bytes())
     assert status == "FOUND"
     assert "Adobe" in details
 
 
 def test_human_consensus_returns_phash():
-    status, details = analyzers._human_consensus_phash(_make_test_image_bytes())
+    status, details = run_human_consensus(_make_test_image_bytes())
     assert status == "HASHED"
     assert "phash=" in details
