@@ -9,7 +9,7 @@ from PIL import Image, UnidentifiedImageError
 logger = logging.getLogger(__name__)
 
 
-def run_human_consensus(image_bytes: bytes) -> tuple[str, str]:
+def run_human_consensus(image_bytes: bytes) -> dict[str, object]:
     """Compute a perceptual hash via ImageHash.
 
     Database wiring (votes, Hamming search) lands in Phase 4.
@@ -19,6 +19,15 @@ def run_human_consensus(image_bytes: bytes) -> tuple[str, str]:
             hash_value = imagehash.phash(img)
     except (UnidentifiedImageError, OSError) as exc:  # pragma: no cover - defensive
         logger.exception("Human consensus analyzer failed")
-        return "ERROR", f"Failed to compute perceptual hash: {exc}"
+        return {
+            "status": "ERROR",
+            "summary": f"Failed to compute perceptual hash: {exc}",
+            "data": {},
+        }
 
-    return "HASHED", f"phash={hash_value} (consensus DB pending)"
+    summary = f"phash={hash_value} (consensus DB pending)"
+    return {
+        "status": "HASHED",
+        "summary": summary,
+        "data": {"phash": str(hash_value)},
+    }

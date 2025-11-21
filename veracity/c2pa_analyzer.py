@@ -31,13 +31,17 @@ def _detect_mime_type(image_bytes: bytes) -> str:
     return _FORMAT_TO_MIME.get(fmt, "application/octet-stream")
 
 
-def run_c2pa(image_bytes: bytes) -> tuple[str, str]:
+def run_c2pa(image_bytes: bytes) -> dict[str, object]:
     """Run the C2PA analyzer using the c2pa-python Reader.
 
-    Returns (status, details) suitable for the analysis table.
+    Returns a dict with keys: status, summary, data.
     """
     if Reader is None:
-        return "NOT AVAILABLE", "c2pa-python dependency is not installed."
+        return {
+            "status": "NOT AVAILABLE",
+            "summary": "c2pa-python dependency is not installed.",
+            "data": {},
+        }
 
     mime_type = _detect_mime_type(image_bytes)
     try:
@@ -45,19 +49,34 @@ def run_c2pa(image_bytes: bytes) -> tuple[str, str]:
             manifest_store = json.loads(reader.json())
     except Exception as exc:  # pragma: no cover - defensive logging
         logger.exception("C2PA analyzer failed")
-        return "ERROR", f"Failed to read C2PA manifest: {exc}"
+        return {
+            "status": "ERROR",
+            "summary": f"Failed to read C2PA manifest: {exc}",
+            "data": {},
+        }
 
     manifests = manifest_store.get("manifests") or {}
     active_id = manifest_store.get("active_manifest")
     active_manifest = manifests.get(active_id) if active_id else None
 
     if not active_manifest:
-        return "NOT FOUND", "No C2PA manifest detected."
+        return {
+            "status": "NOT FOUND",
+            "summary": "No C2PA manifest detected.",
+            "data": {"has_manifest": False},
+        }
 
     signer = (
         active_manifest.get("signature_info", {}).get("issuer")
         or active_manifest.get("claim_generator")
         or "Unknown signer"
     )
-    details = f"Signed by {signer}"
-    return "FOUND", details
+    summary = f"Signed by {signer}"
+    return {
+        "status": "FOUND",
+        "summary": summary,
+        "data": {
+            "signer": signer,
+            "has_manifest": True,
+        },
+    }

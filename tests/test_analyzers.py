@@ -48,9 +48,9 @@ def test_c2pa_analyzer_not_available(monkeypatch):
     from veracity import c2pa_analyzer
 
     monkeypatch.setattr(c2pa_analyzer, "Reader", None)
-    status, details = c2pa_analyzer.run_c2pa(_make_test_image_bytes())
-    assert status == "NOT AVAILABLE"
-    assert "not installed" in details.lower()
+    result = c2pa_analyzer.run_c2pa(_make_test_image_bytes())
+    assert result["status"] == "NOT AVAILABLE"
+    assert "not installed" in str(result["summary"]).lower()
 
 
 def test_c2pa_analyzer_writes_signer(monkeypatch):
@@ -80,12 +80,12 @@ def test_c2pa_analyzer_writes_signer(monkeypatch):
     from veracity import c2pa_analyzer
 
     monkeypatch.setattr(c2pa_analyzer, "Reader", DummyReader)
-    status, details = c2pa_analyzer.run_c2pa(_make_test_image_bytes())
-    assert status == "FOUND"
-    assert "Adobe" in details
+    result = c2pa_analyzer.run_c2pa(_make_test_image_bytes())
+    assert result["status"] == "FOUND"
+    assert "Adobe" in str(result["summary"])
 
 
 def test_human_consensus_returns_phash():
-    status, details = run_human_consensus(_make_test_image_bytes())
-    assert status == "HASHED"
-    assert "phash=" in details
+    result = run_human_consensus(_make_test_image_bytes())
+    assert result["status"] == "HASHED"
+    assert "phash=" in str(result["summary"])

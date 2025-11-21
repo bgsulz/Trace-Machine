@@ -1,4 +1,3 @@
-
 import logging
 import threading
 import time
@@ -12,10 +11,15 @@ from .synthid_analyzer import run_synthid_stub
 
 logger = logging.getLogger(__name__)
 
+
+AnalyzerOutput = dict[str, object]
+
+
 @dataclass(frozen=True)
 class AnalyzerSpec:
     name: str
-    func: Callable[[bytes], tuple[str, str]]
+    func: Callable[[bytes], AnalyzerOutput]
+
 
 ANALYZERS: Sequence[AnalyzerSpec] = (
     AnalyzerSpec(name="Digital Signature (C2PA)", func=run_c2pa),
@@ -23,10 +27,11 @@ ANALYZERS: Sequence[AnalyzerSpec] = (
     AnalyzerSpec(name="Human Consensus", func=run_human_consensus),
 )
 
+
 def run_all_analyzers(
     image_bytes: bytes,
     analyzers: Iterable[AnalyzerSpec] | None = None,
-) -> list[dict[str, str]]:
+) -> list[dict[str, object]]:
     """Execute all analyzers in parallel and normalize their outputs."""
     specs: Sequence[AnalyzerSpec]
     if analyzers is None:
@@ -37,13 +42,15 @@ def run_all_analyzers(
     if not specs:
         return []
 
-    results_map: dict[str, dict[str, str]] = {}
-    future_spec: dict[Future[tuple[str, str]], AnalyzerSpec] = {}
-    start_times: dict[Future[tuple[str, str]], float] = {}
+    results_map: dict[str, AnalyzerOutput] = {}
+    future_spec: dict[Future[AnalyzerOutput], AnalyzerSpec] = {}
+    start_times: dict[Future[AnalyzerOutput], float] = {}
 
     max_workers = len(specs)
     logger.debug("Submitting %d analyzers using %d workers", len(specs), max_workers)
-    with ThreadPoolExecutor(max_workers=max_workers, thread_name_prefix="analyzer") as executor:
+    with ThreadPoolExecutor(
+        max_workers=max_workers, thread_name_prefix="analyzer"
+    ) as executor:
         for spec in specs:
             logger.info("Analyzer '%s' starting", spec.name)
             future = executor.submit(spec.func, image_bytes)
@@ -54,10 +61,14 @@ def run_all_analyzers(
             spec = future_spec[future]
             elapsed = time.perf_counter() - start_times[future]
             try:
-                status, details = future.result()
+                raw = future.result()
             except Exception as exc:  # pragma: no cover - defensive logging
                 logger.exception("Analyzer '%s' failed", spec.name)
-                status, details = "ERROR", str(exc)
+                raw_dict: dict[str, object] = {
+                    "status": "ERROR",
+                    "summary": str(exc),
+                    "data": {},
+                }
             else:
                 logger.info(
                     "Analyzer '%s' finished on %s in %.3fs",
@@ -65,10 +76,35 @@ def run_all_analyzers(
                     threading.current_thread().name,
                     elapsed,
                 )
+
+                # Backwards compatibility: allow analyzers to return either
+                # a dict or a (status, summary) tuple.
+                if isinstance(raw, tuple) and len(raw) == 2:
+                    status_val, summary_val = raw
+                    raw_dict = {
+                        "status": status_val,
+                        "summary": summary_val,
+                        "data": {},
+                    }
+                elif isinstance(raw, dict):
+                    raw_dict = raw
+                else:  # pragma: no cover - highly defensive
+                    raw_dict = {
+                        "status": "ERROR",
+                        "summary": f"Unexpected analyzer return type: {type(raw)!r}",
+                        "data": {},
+                    }
+
+            status = str(raw_dict.get("status", "UNKNOWN"))
+            summary = str(raw_dict.get("summary", ""))
+            data = raw_dict.get("data") or {}
+
             results_map[spec.name] = {
                 "name": spec.name,
                 "status": status,
-                "details": details,
+                "summary": summary,
+                "details": summary,
+                "data": data,
             }
 
     return [results_map[spec.name] for spec in specs]
