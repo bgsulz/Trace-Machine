@@ -1,5 +1,4 @@
 import base64
-import secrets
 
 from flask import (
     Blueprint,
@@ -7,7 +6,6 @@ from flask import (
     redirect,
     render_template,
     request,
-    session,
     url_for,
 )
 from . import ingestion
@@ -17,21 +15,11 @@ bp = Blueprint("main", __name__)
 
 @bp.route("/")
 def index():
-    if "csrf_token" not in session:
-        session["csrf_token"] = secrets.token_urlsafe(32)
-
-    return render_template("index.html", csrf_token=session["csrf_token"])
+    return render_template("index.html")
 
 
 @bp.route("/analyze", methods=["POST"])
 def analyze():
-    form_token = request.form.get("csrf_token")
-    session_token = session.get("csrf_token")
-
-    if not form_token or not session_token or not secrets.compare_digest(form_token, session_token):
-        flash("Invalid or missing CSRF token. Please try again.")
-        return redirect(url_for("main.index"))
-
     file = request.files.get("file")
     image_url = request.form.get("image_url", "").strip()
 
