@@ -1,4 +1,5 @@
 import base64
+import hashlib
 
 from flask import (
     Blueprint,
@@ -8,9 +9,11 @@ from flask import (
     request,
     url_for,
 )
+from flask import current_app
+from sqlalchemy.exc import IntegrityError
 
 from . import ingestion, db
-from .models import ImageConsensus
+from .models import ImageConsensus, VoteHistory
 from .analyzers.manager import run_all_analyzers
 
 bp = Blueprint("main", __name__)
@@ -65,6 +68,17 @@ def vote():
         flash("Invalid vote request.")
         return redirect(url_for("main.index"))
 
+    voter_id = _build_voter_id(_get_client_ip())
+
+    history_row = VoteHistory(phash=phash, voter_id=voter_id)
+    db.session.add(history_row)
+    try:
+        db.session.flush()
+    except IntegrityError:
+        db.session.rollback()
+        flash("You have already voted on this image.")
+        return redirect(url_for("main.index"))
+
     record = ImageConsensus.query.filter_by(phash=phash).first()
     if record is None:
         record = ImageConsensus(phash=phash)
@@ -79,3 +93,16 @@ def vote():
 
     flash("Thanks for your vote.")
     return redirect(url_for("main.index"))
+
+
+def _get_client_ip() -> str:
+    forwarded = request.headers.get("X-Forwarded-For", "").split(",")[0].strip()
+    if forwarded:
+        return forwarded
+    return request.remote_addr or "unknown"
+
+
+def _build_voter_id(ip_address: str) -> str:
+    secret = current_app.config.get("SECRET_KEY", "")
+    payload = f"{ip_address}:{secret}".encode("utf-8")
+    return hashlib.sha256(payload).hexdigest()

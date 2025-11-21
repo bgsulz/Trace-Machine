@@ -20,3 +20,14 @@ class ImageConsensus(db.Model):
             "vote_ai": self.vote_ai,
             "total_votes": total_votes,
         }
+
+
+class VoteHistory(db.Model):
+    __table_args__ = (
+        db.UniqueConstraint("phash", "voter_id", name="uq_vote_history_phash_voter"),
+    )
+
+    id = db.Column(db.Integer, primary_key=True)
+    phash = db.Column(db.String(16), nullable=False, index=True)
+    voter_id = db.Column(db.String(64), nullable=False)
+    created_at = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(UTC))
