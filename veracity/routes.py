@@ -9,7 +9,8 @@ from flask import (
     url_for,
 )
 
-from . import ingestion
+from . import ingestion, db
+from .models import ImageConsensus
 from .analyzers.manager import run_all_analyzers
 
 bp = Blueprint("main", __name__)
@@ -53,3 +54,28 @@ def analyze():
         source=source,
         results=analyzer_results,
     )
+
+
+@bp.route("/vote", methods=["POST"])
+def vote():
+    phash = (request.form.get("phash") or "").strip()
+    vote_kind = (request.form.get("vote") or "").strip().lower()
+
+    if not phash or vote_kind not in {"real", "ai"}:
+        flash("Invalid vote request.")
+        return redirect(url_for("main.index"))
+
+    record = ImageConsensus.query.filter_by(phash=phash).first()
+    if record is None:
+        record = ImageConsensus(phash=phash)
+        db.session.add(record)
+
+    if vote_kind == "real":
+        record.vote_real = (record.vote_real or 0) + 1
+    else:
+        record.vote_ai = (record.vote_ai or 0) + 1
+
+    db.session.commit()
+
+    flash("Thanks for your vote.")
+    return redirect(url_for("main.index"))
