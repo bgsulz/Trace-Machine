@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section>
+  <h2>Analysis result</h2>
+
+  <figure>
+    <img src="{{ image_url }}" alt="Analyzed image" style="max-width: 100%; height: auto;">
+    <figcaption>Source: {{ source }}</figcaption>
+  </figure>
+
+  <h3>Analyzers</h3>
+  <table>
+    <thead>
+      <tr>
+        <th>Analyzer</th>
+        <th>Status</th>
+        <th>Details</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in results %}
+        <tr>
+          <td>{{ row.name }}</td>
+          <td>{{ row.status }}</td>
+          <td>{{ row.details }}</td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <p>
+    <a href="{{ url_for('main.index') }}">Analyze another image</a>
+  </p>
+</section>
+{% endblock %}

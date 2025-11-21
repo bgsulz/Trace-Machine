@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section>
+  <h2>Analyze an image</h2>
+  <p>Upload an image file or provide an image URL. This is a Phase 1 prototype; analyzers are not yet implemented.</p>
+
+  <form action="{{ url_for('main.analyze') }}" method="post" enctype="multipart/form-data">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <label for="file">Image file</label>
+    <input type="file" id="file" name="file" accept="image/*">
+
+    <label for="image_url">Image URL</label>
+    <input type="url" id="image_url" name="image_url" placeholder="https://example.com/image.jpg">
+
+    <button type="submit">Analyze image</button>
+  </form>
+</section>
+{% endblock %}
