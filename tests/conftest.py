@@ -5,12 +5,13 @@ import sys
 import pytest
 from PIL import Image
 
-from veracity import create_app
-
 # Ensure project root (where the veracity package lives) is on sys.path
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
+
+
+from veracity import create_app  # noqa: E402
 
 
 @pytest.fixture

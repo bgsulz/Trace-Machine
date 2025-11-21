@@ -3,7 +3,7 @@ import requests
 
 from veracity import create_app
 from veracity.ingestion import IngestionError, fetch_image_bytes, validate_image_bytes
-from .conftest import _make_test_image_bytes
+from conftest import _make_test_image_bytes
 
 
 def test_validate_image_bytes_rejects_invalid():

@@ -1,7 +1,7 @@
 import io
 
 from veracity import create_app
-from .conftest import _make_test_image_bytes
+from conftest import _make_test_image_bytes
 
 
 def test_index_renders_ok(client):

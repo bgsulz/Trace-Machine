@@ -8,7 +8,9 @@ from flask import (
     request,
     url_for,
 )
+
 from . import ingestion
+from .analyzers import run_all_analyzers
 
 bp = Blueprint("main", __name__)
 
@@ -43,27 +45,11 @@ def analyze():
     image_b64 = base64.b64encode(image_bytes).decode("ascii")
     image_data_url = f"data:{mime_type};base64,{image_b64}"
 
-    dummy_results = [
-        {
-            "name": "Digital Signature (C2PA)",
-            "status": "N/A",
-            "details": "Analyzer not implemented yet (Phase 1)",
-        },
-        {
-            "name": "Google SynthID",
-            "status": "N/A",
-            "details": "Analyzer not implemented yet (Phase 1)",
-        },
-        {
-            "name": "Human Consensus",
-            "status": "N/A",
-            "details": "Analyzer not implemented yet (Phase 1)",
-        },
-    ]
+    analyzer_results = run_all_analyzers(image_bytes)
 
     return render_template(
         "result.html",
         image_url=image_data_url,
         source=source,
-        results=dummy_results,
+        results=analyzer_results,
     )
