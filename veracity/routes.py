@@ -13,7 +13,7 @@ from flask import current_app
 from sqlalchemy.exc import IntegrityError
 
 from . import ingestion, db
-from .models import ImageConsensus, VoteHistory
+from .models import ImageConsensus, VoteHistory, ImageSource
 from .analyzers.manager import run_all_analyzers
 
 bp = Blueprint("main", __name__)
@@ -44,6 +44,25 @@ def analyze():
         image_data_url = f"data:{mime_type};base64,{image_b64}"
 
         analyzer_results = run_all_analyzers(image_bytes)
+
+        # Persist the mapping from Human Consensus phash -> source URL so
+        # that future analyses can link back to this image by URL.
+        human_row = next(
+            (row for row in analyzer_results if row["name"] == "Human Consensus"),
+            None,
+        )
+        phash = None
+        if human_row is not None:
+            data = human_row.get("data") or {}
+            phash = data.get("phash")
+
+        if phash and image_url:
+            record = ImageSource(phash=phash, url=image_url)
+            db.session.add(record)
+            try:
+                db.session.commit()
+            except IntegrityError:
+                db.session.rollback()
 
         return render_template(
             "result.html",

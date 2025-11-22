@@ -32,6 +32,74 @@ def test_analyze_requires_input(client):
     assert "/" in resp.headers["Location"]
 
 
+def test_analyze_get_without_url_redirects(client):
+    resp = client.get("/analyze")
+    assert resp.status_code == 302
+    assert "/" in resp.headers["Location"]
+
+
+def test_analyze_url_creates_image_source(client, app, monkeypatch):
+    import veracity.ingestion as ingestion_module
+
+    dummy_image_bytes = _make_test_image_bytes()
+
+    def fake_fetch(url):
+        return dummy_image_bytes, "image/png"
+
+    monkeypatch.setattr(ingestion_module, "fetch_image_bytes", fake_fetch)
+
+    resp = client.get("/analyze?url=https://example.com/image.png")
+    assert resp.status_code == 200
+    assert b"Analysis result" in resp.data
+
+    from veracity.models import ImageSource
+
+    with app.app_context():
+        rows = ImageSource.query.all()
+        assert len(rows) == 1
+        row = rows[0]
+        assert row.url == "https://example.com/image.png"
+        assert row.phash
+
+
+def test_analyze_url_creates_image_source_only_once(client, app, monkeypatch):
+    import veracity.ingestion as ingestion_module
+
+    dummy_image_bytes = _make_test_image_bytes()
+
+    def fake_fetch(url):
+        return dummy_image_bytes, "image/png"
+
+    monkeypatch.setattr(ingestion_module, "fetch_image_bytes", fake_fetch)
+
+    url = "https://example.com/image.png"
+    resp1 = client.get(f"/analyze?url={url}")
+    assert resp1.status_code == 200
+    resp2 = client.get(f"/analyze?url={url}")
+    assert resp2.status_code == 200
+
+    from veracity.models import ImageSource
+
+    with app.app_context():
+        rows = ImageSource.query.filter_by(url=url).all()
+        assert len(rows) == 1
+
+
+def test_file_upload_does_not_create_image_source(client, app):
+    image_bytes = _make_test_image_bytes()
+    data = {
+        "file": (io.BytesIO(image_bytes), "test.png"),
+        "image_url": "",
+    }
+    resp = client.post("/analyze", data=data, content_type="multipart/form-data")
+    assert resp.status_code == 200
+
+    from veracity.models import ImageSource
+
+    with app.app_context():
+        assert ImageSource.query.count() == 0
+
+
 def test_csrf_protection_enabled_by_default():
     # New app where CSRF is active
     app = create_app()
