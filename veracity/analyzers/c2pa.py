@@ -48,6 +48,19 @@ def run_c2pa(image_bytes: bytes) -> dict[str, object]:
         with Reader(mime_type, BytesIO(image_bytes)) as reader:  # type: ignore[arg-type]
             manifest_store = json.loads(reader.json())
     except Exception as exc:  # pragma: no cover - defensive logging
+        message = str(exc)
+        if (
+            "ManifestNotFound" in type(exc).__name__
+            or "ManifestNotFound" in message
+            or "no JUMBF data found" in message
+        ):
+            logger.info("No C2PA manifest found: %s", exc)
+            return {
+                "status": "NOT FOUND",
+                "summary": "No C2PA manifest detected.",
+                "data": {"has_manifest": False},
+            }
+
         logger.exception("C2PA analyzer failed")
         return {
             "status": "ERROR",
