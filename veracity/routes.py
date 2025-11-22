@@ -24,21 +24,50 @@ def index():
     return render_template("index.html")
 
 
-@bp.route("/analyze", methods=["POST"])
+@bp.route("/analyze", methods=["GET", "POST"])
 def analyze():
-    file = request.files.get("file")
-    image_url = request.form.get("image_url", "").strip()
+    if request.method == "GET":
+        image_url = (request.args.get("url") or "").strip()
 
-    source = None
+        if not image_url:
+            # No URL provided in query string; nothing to analyze.
+            flash("Please provide an image URL to analyze.")
+            return redirect(url_for("main.index"))
+
+        try:
+            image_bytes, mime_type = ingestion.fetch_image_bytes(image_url)
+        except ingestion.IngestionError as exc:
+            flash(str(exc))
+            return redirect(url_for("main.index"))
+
+        image_b64 = base64.b64encode(image_bytes).decode("ascii")
+        image_data_url = f"data:{mime_type};base64,{image_b64}"
+
+        analyzer_results = run_all_analyzers(image_bytes)
+
+        return render_template(
+            "result.html",
+            image_url=image_data_url,
+            source="url",
+            results=analyzer_results,
+        )
+
+    # POST: form submission
+    file = request.files.get("file")
+    image_url = (request.form.get("image_url") or "").strip()
+
+    # If a URL was provided without a file, redirect to the GET endpoint so
+    # the resulting page has a shareable /analyze?url=... link.
+    if (not file or not file.filename) and image_url:
+        return redirect(url_for("main.analyze", url=image_url))
+
+    # Otherwise, handle file uploads as before.
     try:
         if file and file.filename:
             source = "file"
             image_bytes = file.read()
             ingestion.validate_image_bytes(image_bytes)
             mime_type = file.mimetype or "application/octet-stream"
-        elif image_url:
-            source = "url"
-            image_bytes, mime_type = ingestion.fetch_image_bytes(image_url)
         else:
             flash("Please provide an image file or a URL.")
             return redirect(url_for("main.index"))
