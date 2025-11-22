@@ -35,7 +35,7 @@
                 {% if c2pa.signature_status %}
                   <p>Signature: {{ c2pa.signature_status }}</p>
                 {% endif %}
-                {% if c2pa.provenance_depth is not none %}
+                {% if c2pa.provenance_depth %}
                   <p>Provenance chain length: {{ c2pa.provenance_depth }} prior assets</p>
                 {% endif %}
               </div>
@@ -73,7 +73,17 @@
                     <tbody>
                       {% for match in matches %}
                         <tr>
-                          <td><code>{{ match.phash }}</code></td>
+                          <td>
+                            <code>{{ match.phash }}</code>
+                            {% if match.sources %}
+                              <div style="margin-top: 0.25rem; font-size: 0.85em;">
+                                Sources:
+                                {% for src in match.sources %}
+                                  <a href="{{ url_for('main.analyze', url=src.url) }}">link {{ loop.index }}</a>{% if not loop.last %}, {% endif %}
+                                {% endfor %}
+                              </div>
+                            {% endif %}
+                          </td>
                           <td style="text-align: center;">{{ match.distance }}</td>
                           <td style="text-align: center;">{{ match.vote_real }} / {{ match.vote_edited }} / {{ match.vote_ai }}</td>
                           <td style="text-align: center;">{{ match.total_votes }}</td>

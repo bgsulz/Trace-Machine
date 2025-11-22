@@ -6,7 +6,7 @@ from io import BytesIO
 import imagehash
 from PIL import Image, UnidentifiedImageError
 
-from ..models import ImageConsensus
+from ..models import ImageConsensus, ImageSource
 
 logger = logging.getLogger(__name__)
 
@@ -39,6 +39,28 @@ def run_human_consensus(image_bytes: bytes) -> dict[str, object]:
     target_hex = str(target_hash)
 
     matches = _find_fuzzy_matches(target_hash)
+
+    # Attach up to a small number of known source URLs for each nearby hash.
+    phashes = [entry["phash"] for entry in matches]
+    sources_by_phash: dict[str, list[dict[str, str]]] = {}
+    if phashes:
+        try:
+            rows = (
+                ImageSource.query.filter(ImageSource.phash.in_(phashes))
+                .order_by(ImageSource.phash, ImageSource.created_at.desc())
+                .all()
+            )
+        except Exception:  # pragma: no cover - defensive
+            logger.exception("Human consensus source lookup failed")
+            rows = []
+
+        for row in rows:
+            bucket = sources_by_phash.setdefault(row.phash, [])
+            if len(bucket) < 3:
+                bucket.append({"url": row.url})
+
+    for entry in matches:
+        entry["sources"] = sources_by_phash.get(entry["phash"], [])
 
     totals = {
         "vote_real": sum(entry["vote_real"] for entry in matches),
