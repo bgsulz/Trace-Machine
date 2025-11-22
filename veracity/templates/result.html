@@ -26,6 +26,21 @@
           <td>
             {{ row.details }}
 
+            {% if row.name == "Digital Signature (C2PA)" %}
+              {% set c2pa = row.data %}
+              <div style="margin-top: 0.5rem; font-size: 0.9em;">
+                {% if c2pa.tool %}
+                  <p>Tool: {{ c2pa.tool }}</p>
+                {% endif %}
+                {% if c2pa.signature_status %}
+                  <p>Signature: {{ c2pa.signature_status }}</p>
+                {% endif %}
+                {% if c2pa.provenance_depth is not none %}
+                  <p>Provenance chain length: {{ c2pa.provenance_depth }} prior assets</p>
+                {% endif %}
+              </div>
+            {% endif %}
+
             {% if row.name == "Human Consensus" and row.data.phash %}
               <div style="margin-top: 0.5rem; font-size: 0.9em;">
                 <p>

@@ -84,12 +84,35 @@ def run_c2pa(image_bytes: bytes) -> dict[str, object]:
         or active_manifest.get("claim_generator")
         or "Unknown signer"
     )
+    claim_generator = active_manifest.get("claim_generator") or ""
+    ingredients = active_manifest.get("ingredients") or []
+    provenance_depth = len(ingredients) if isinstance(ingredients, list) else None
+
+    signature_status: str | None = None
+    if isinstance(ingredients, list) and ingredients:
+        first_ingredient = ingredients[0]
+        validation = (first_ingredient.get("validation_results") or {}).get(
+            "activeManifest", {}
+        )
+        if isinstance(validation, dict):
+            failures = validation.get("failure") or []
+            successes = validation.get("success") or []
+            if failures:
+                signature_status = "invalid"
+            elif successes:
+                signature_status = "valid"
+
     summary = f"Signed by {signer}"
+    data: dict[str, object] = {
+        "tool": claim_generator,
+        "has_manifest": True,
+        "provenance_depth": provenance_depth,
+    }
+    if signature_status is not None:
+        data["signature_status"] = signature_status
+
     return {
         "status": "FOUND",
         "summary": summary,
-        "data": {
-            "signer": signer,
-            "has_manifest": True,
-        },
+        "data": data,
     }
