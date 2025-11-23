@@ -24,29 +24,15 @@ def index():
     return render_template("index.html")
 
 
-@bp.route("/analyze", methods=["GET", "POST"])
-def analyze():
-    if request.method == "GET":
-        image_url = (request.args.get("url") or "").strip()
+def _perform_analysis(image_bytes: bytes, mime_type: str, source: str, image_url: str | None = None):
+    image_b64 = base64.b64encode(image_bytes).decode("ascii")
+    image_data_url = f"data:{mime_type};base64,{image_b64}"
 
-        if not image_url:
-            # No URL provided in query string; nothing to analyze.
-            flash("Please provide an image URL to analyze.")
-            return redirect(url_for("main.index"))
+    analyzer_results = run_all_analyzers(image_bytes)
 
-        try:
-            image_bytes, mime_type = ingestion.fetch_image_bytes(image_url)
-        except ingestion.IngestionError as exc:
-            flash(str(exc))
-            return redirect(url_for("main.index"))
-
-        image_b64 = base64.b64encode(image_bytes).decode("ascii")
-        image_data_url = f"data:{mime_type};base64,{image_b64}"
-
-        analyzer_results = run_all_analyzers(image_bytes)
-
-        # Persist the mapping from Human Consensus phash -> source URL so
-        # that future analyses can link back to this image by URL.
+    # Persist the mapping from Human Consensus phash -> source URL so
+    # that future analyses can link back to this image by URL.
+    if image_url:
         human_row = next(
             (row for row in analyzer_results if row["name"] == "Human Consensus"),
             None,
@@ -64,12 +50,31 @@ def analyze():
             except IntegrityError:
                 db.session.rollback()
 
-        return render_template(
-            "result.html",
-            image_url=image_data_url,
-            source="url",
-            results=analyzer_results,
-        )
+    return render_template(
+        "result.html",
+        image_url=image_data_url,
+        source=source,
+        results=analyzer_results,
+    )
+
+
+@bp.route("/analyze", methods=["GET", "POST"])
+def analyze():
+    if request.method == "GET":
+        image_url = (request.args.get("url") or "").strip()
+
+        if not image_url:
+            # No URL provided in query string; nothing to analyze.
+            flash("Please provide an image URL to analyze.")
+            return redirect(url_for("main.index"))
+
+        try:
+            image_bytes, mime_type = ingestion.fetch_image_bytes(image_url)
+        except ingestion.IngestionError as exc:
+            flash(str(exc))
+            return redirect(url_for("main.index"))
+
+        return _perform_analysis(image_bytes, mime_type, "url", image_url=image_url)
 
     # POST: form submission
     file = request.files.get("file")
@@ -94,17 +99,7 @@ def analyze():
         flash(str(exc))
         return redirect(url_for("main.index"))
 
-    image_b64 = base64.b64encode(image_bytes).decode("ascii")
-    image_data_url = f"data:{mime_type};base64,{image_b64}"
-
-    analyzer_results = run_all_analyzers(image_bytes)
-
-    return render_template(
-        "result.html",
-        image_url=image_data_url,
-        source=source,
-        results=analyzer_results,
-    )
+    return _perform_analysis(image_bytes, mime_type, source)
 
 
 @bp.route("/vote", methods=["POST"])

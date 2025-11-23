@@ -38,6 +38,16 @@ def test_analyze_get_without_url_redirects(client):
     assert "/" in resp.headers["Location"]
 
 
+def test_analyze_post_with_url_redirects_to_get(client):
+    url = "https://example.com/image.png"
+    data = {"image_url": url}
+    resp = client.post("/analyze", data=data, content_type="multipart/form-data")
+    assert resp.status_code == 302
+    location = resp.headers.get("Location", "")
+    assert "/analyze" in location
+    assert f"url={url}" in location
+
+
 def test_analyze_url_creates_image_source(client, app, monkeypatch):
     import veracity.ingestion as ingestion_module
 
