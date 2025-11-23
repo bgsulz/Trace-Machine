@@ -9,7 +9,7 @@ from flask import current_app
 
 from .c2pa import run_c2pa
 from .human import run_human_consensus
-from .synthid import run_synthid_stub
+# from .synthid import run_synthid_stub
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +25,7 @@ class AnalyzerSpec:
 
 ANALYZERS: Sequence[AnalyzerSpec] = (
     AnalyzerSpec(name="Digital Signature (C2PA)", func=run_c2pa),
-    AnalyzerSpec(name="Google SynthID", func=run_synthid_stub),
+    # AnalyzerSpec(name="Google SynthID", func=run_synthid_stub),
     AnalyzerSpec(name="Human Consensus", func=run_human_consensus),
 )
 

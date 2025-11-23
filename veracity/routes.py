@@ -132,14 +132,21 @@ def vote():
         record = ImageConsensus(phash=phash)
         db.session.add(record)
 
-    if vote_kind == "real":
-        record.vote_real = (record.vote_real or 0) + 1
-    elif vote_kind == "edited":
-        record.vote_edited = (record.vote_edited or 0) + 1
-    else:
-        record.vote_ai = (record.vote_ai or 0) + 1
+    _increment_vote_counts(record, vote_kind)
 
-    db.session.commit()
+    try:
+        db.session.commit()
+    except IntegrityError:
+        db.session.rollback()
+
+        record = ImageConsensus.query.filter_by(phash=phash).first()
+        if record is None:
+            flash("Voting is temporarily unavailable. Please try again.")
+            return redirect(url_for("main.index"))
+
+        _increment_vote_counts(record, vote_kind)
+
+        db.session.commit()
 
     flash("Thanks for your vote.")
     return redirect(url_for("main.index"))
@@ -150,6 +157,15 @@ def _get_client_ip() -> str:
     if forwarded:
         return forwarded
     return request.remote_addr or "unknown"
+
+
+def _increment_vote_counts(record: ImageConsensus, vote_kind: str) -> None:
+    if vote_kind == "real":
+        record.vote_real = (record.vote_real or 0) + 1
+    elif vote_kind == "edited":
+        record.vote_edited = (record.vote_edited or 0) + 1
+    else:
+        record.vote_ai = (record.vote_ai or 0) + 1
 
 
 def _build_voter_id(ip_address: str) -> str:

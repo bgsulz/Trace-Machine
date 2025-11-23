@@ -6,6 +6,10 @@ from . import db
 
 
 class ImageConsensus(db.Model):
+    __table_args__ = (
+        db.UniqueConstraint("phash", name="uq_image_consensus_phash"),
+    )
+
     id = db.Column(db.Integer, primary_key=True)
     phash = db.Column(db.String(16), nullable=False, index=True)
     vote_real = db.Column(db.Integer, default=0)
