@@ -26,7 +26,7 @@
           <td>
             {{ row.details }}
 
-            {% if row.name == "Digital Signature (C2PA)" %}
+            {% if row.slug == "c2pa" %}
               {% set c2pa = row.data %}
               <div style="margin-top: 0.5rem; font-size: 0.9em;">
                 {% if c2pa.tool %}
@@ -41,7 +41,7 @@
               </div>
             {% endif %}
 
-            {% if row.name == "Human Consensus" and row.data.phash %}
+            {% if row.slug == "human" and row.data.phash %}
               <div style="margin-top: 0.5rem; font-size: 0.9em;">
                 <p>
                   Current hash:
@@ -49,17 +49,9 @@
                 </p>
 
                 {% set matches = row.data.matches or [] %}
-                {% set totals = row.data.totals or {} %}
 
-                {% if matches %}
-                  <p>
-                    Showing {{ matches|length }} matches (distance ≤ {{ row.data.threshold }}).
-                    Combined votes:
-                    Real {{ totals.vote_real or 0 }},
-                    AI-edited {{ totals.vote_edited or 0 }},
-                    AI {{ totals.vote_ai or 0 }}
-                    (total {{ totals.total_votes or 0 }}).
-                  </p>
+                {% if row.data.has_matches %}
+                  <p>{{ row.data.matches_summary }}</p>
 
                   <table style="font-size: 0.9em; width: 100%;">
                     <thead>
@@ -92,7 +84,7 @@
                     </tbody>
                   </table>
                 {% else %}
-                  <p>No votes yet.</p>
+                  <p>{{ row.data.no_votes_message }}</p>
                 {% endif %}
 
                 <form action="{{ url_for('main.vote') }}" method="post" style="display: inline-block; margin-right: 0.5rem;">

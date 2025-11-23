@@ -71,6 +71,22 @@ def run_human_consensus(image_bytes: bytes) -> dict[str, object]:
         totals["vote_real"] + totals["vote_edited"] + totals["vote_ai"]
     )
 
+    has_matches = bool(matches)
+    total_votes = totals["total_votes"]
+
+    if has_matches:
+        matches_summary = (
+            f"Showing {len(matches)} matches (distance  {_MAX_HAMMING_DISTANCE}). "
+            f"Combined votes: Real {totals['vote_real']} / "
+            f"AI-edited {totals['vote_edited']} / "
+            f"AI {totals['vote_ai']} "
+            f"(total {total_votes})."
+        )
+    else:
+        matches_summary = ""
+
+    no_votes_message = "No votes yet."
+
     if matches:
         summary = (
             f"{len(matches)} consensus entries within distance ≤ "
@@ -92,6 +108,9 @@ def run_human_consensus(image_bytes: bytes) -> dict[str, object]:
             "matches": matches,
             "totals": totals,
             "threshold": _MAX_HAMMING_DISTANCE,
+            "has_matches": has_matches,
+            "matches_summary": matches_summary,
+            "no_votes_message": no_votes_message,
         },
     }
 
@@ -99,15 +118,11 @@ def run_human_consensus(image_bytes: bytes) -> dict[str, object]:
 def _find_fuzzy_matches(target_hash: imagehash.ImageHash) -> list[dict[str, object]]:
     """Return all consensus rows within the Hamming threshold."""
 
-    try:
-        rows = (
-            ImageConsensus.query.order_by(ImageConsensus.created_at.desc())
-            .limit(_MAX_FUZZY_ROWS)
-            .all()
-        )
-    except Exception:  # pragma: no cover - defensive
-        logger.exception("Human consensus fuzzy query failed")
-        return []
+    rows = (
+        ImageConsensus.query.order_by(ImageConsensus.created_at.desc())
+        .limit(_MAX_FUZZY_ROWS)
+        .all()
+    )
 
     matches: list[dict[str, object]] = []
     for row in rows:

@@ -20,13 +20,14 @@ AnalyzerOutput = dict[str, object]
 @dataclass(frozen=True)
 class AnalyzerSpec:
     name: str
+    slug: str
     func: Callable[[bytes], AnalyzerOutput]
 
 
 ANALYZERS: Sequence[AnalyzerSpec] = (
-    AnalyzerSpec(name="Digital Signature (C2PA)", func=run_c2pa),
+    AnalyzerSpec(name="Digital Signature (C2PA)", slug="c2pa", func=run_c2pa),
     # AnalyzerSpec(name="Google SynthID", func=run_synthid_stub),
-    AnalyzerSpec(name="Human Consensus", func=run_human_consensus),
+    AnalyzerSpec(name="Human Consensus", slug="human", func=run_human_consensus),
 )
 
 
@@ -105,6 +106,7 @@ def run_all_analyzers(
 
             results_map[spec.name] = {
                 "name": spec.name,
+                "slug": spec.slug,
                 "status": status,
                 "summary": summary,
                 "details": summary,

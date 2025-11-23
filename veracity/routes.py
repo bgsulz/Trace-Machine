@@ -34,7 +34,7 @@ def _perform_analysis(image_bytes: bytes, mime_type: str, source: str, image_url
     # that future analyses can link back to this image by URL.
     if image_url:
         human_row = next(
-            (row for row in analyzer_results if row["name"] == "Human Consensus"),
+            (row for row in analyzer_results if row.get("slug") == "human"),
             None,
         )
         phash = None

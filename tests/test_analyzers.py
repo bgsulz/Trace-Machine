@@ -21,18 +21,19 @@ def _push_app_context(app):
 def test_run_all_analyzers_preserves_order():
     events = []
 
-    def make_spec(name: str) -> AnalyzerSpec:
+    def make_spec(name: str, slug: str) -> AnalyzerSpec:
         def _fn(_: bytes):
             events.append(name)
             return "OK", f"details-{name}"
 
-        return AnalyzerSpec(name=name, func=_fn)
+        return AnalyzerSpec(name=name, slug=slug, func=_fn)
 
-    analyzers = [make_spec("A"), make_spec("B"), make_spec("C")]
+    analyzers = [make_spec("A", "a"), make_spec("B", "b"), make_spec("C", "c")]
 
     results = run_all_analyzers(b"payload", analyzers)
 
     assert [row["name"] for row in results] == [spec.name for spec in analyzers]
+    assert [row["slug"] for row in results] == [spec.slug for spec in analyzers]
     assert events == ["A", "B", "C"]
 
 
@@ -44,8 +45,8 @@ def test_run_all_analyzers_handles_exceptions():
         raise RuntimeError("boom")
 
     analyzers = [
-        AnalyzerSpec(name="Good", func=ok),
-        AnalyzerSpec(name="Bad", func=boom),
+        AnalyzerSpec(name="Good", slug="good", func=ok),
+        AnalyzerSpec(name="Bad", slug="bad", func=boom),
     ]
 
     results = run_all_analyzers(b"payload", analyzers)
@@ -105,6 +106,8 @@ def test_human_consensus_returns_phash():
     assert "phash" in data
     assert data["matches"] == []
     assert (data["totals"].get("total_votes") or 0) == 0
+    assert data["has_matches"] is False
+    assert data["no_votes_message"]
 
 
 def test_human_consensus_uses_fuzzy_match(app):
@@ -141,6 +144,8 @@ def test_human_consensus_uses_fuzzy_match(app):
     assert 0 < match["distance"] <= 4
     assert data["totals"]["vote_real"] == 3
     assert data["totals"]["vote_ai"] == 7
+    assert data["has_matches"] is True
+    assert "Showing" in data["matches_summary"]
 
 
 def test_human_consensus_attaches_sources(app):
