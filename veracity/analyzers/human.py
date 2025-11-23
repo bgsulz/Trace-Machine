@@ -76,7 +76,7 @@ def run_human_consensus(image_bytes: bytes) -> dict[str, object]:
 
     if has_matches:
         matches_summary = (
-            f"Showing {len(matches)} matches (distance  {_MAX_HAMMING_DISTANCE}). "
+            f"Showing {len(matches)} matches (distance ≤ {_MAX_HAMMING_DISTANCE}). "
             f"Combined votes: Real {totals['vote_real']} / "
             f"AI-edited {totals['vote_edited']} / "
             f"AI {totals['vote_ai']} "

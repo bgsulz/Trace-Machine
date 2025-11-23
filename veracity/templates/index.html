@@ -1,19 +1,51 @@
-{% extends "base.html" %}
-
-{% block content %}
+{% extends "base.html" %} {% block content %}
 <section>
-  <h2>Analyze an image</h2>
-  <p>Upload an image file or provide an image URL. This is a Phase 1 prototype; analyzers are not yet implemented.</p>
+  <div class="upload-card">
+    <hgroup style="margin-bottom: 3rem">
+      <h2>Analyze an image</h2>
+      <p>Upload a file or paste a URL to trace its provenance.</p>
+    </hgroup>
+    <form
+      action="{{ url_for('main.analyze') }}"
+      method="post"
+      enctype="multipart/form-data"
+    >
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
 
-  <form action="{{ url_for('main.analyze') }}" method="post" enctype="multipart/form-data">
-    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-    <label for="file">Image file</label>
-    <input type="file" id="file" name="file" accept="image/*">
+      <div class="grid">
+        <div>
+          <label for="file"><strong>Upload File</strong></label>
+          <input type="file" id="file" name="file" accept="image/*" />
+          <small>Supports JPG, PNG, WEBP</small>
+        </div>
 
-    <label for="image_url">Image URL</label>
-    <input type="url" id="image_url" name="image_url" placeholder="https://example.com/image.jpg">
+        <div
+          style="
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            color: var(--pico-muted-color);
+          "
+        >
+          OR
+        </div>
 
-    <button type="submit">Analyze image</button>
-  </form>
+        <div>
+          <label for="image_url"><strong>Paste URL</strong></label>
+          <input
+            type="url"
+            id="image_url"
+            name="image_url"
+            placeholder="https://example.com/image.jpg"
+          />
+        </div>
+      </div>
+
+      <footer style="margin-top: 2rem; text-align: center">
+        <button type="submit" class="contrast">Analyze</button>
+      </footer>
+    </form>
+  </div>
 </section>
 {% endblock %}

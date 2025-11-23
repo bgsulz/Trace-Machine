@@ -1,30 +1,34 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
   <head>
-    <meta charset="utf-8">
+    <meta charset="utf-8" />
     <title>Veracity</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <link rel="stylesheet" href="https://unpkg.com/@picocss/pico@2.0.6/css/pico.min.css">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/custom.css') }}">
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/@picocss/pico@2.0.6/css/pico.min.css"
+    />
+    <link
+      rel="stylesheet"
+      href="{{ url_for('static', filename='css/custom.css') }}"
+    />
   </head>
   <body>
     <main class="container">
-      <header>
-        <h1>Veracity</h1>
-        <p>The fact-based image provenance prototype.</p>
+      <header style="margin-top: 1.5rem; margin-bottom: 1.5rem">
+        <h1 class="brand-title">
+          <a href="{{ url_for('main.index') }}">Veracity</a>
+        </h1>
+        <p class="brand-subtitle">The fact-based image provenance platform.</p>
       </header>
 
-      {% with messages = get_flashed_messages() %}
-        {% if messages %}
-          <section>
-            {% for message in messages %}
-              <p class="flash">{{ message }}</p>
-            {% endfor %}
-          </section>
-        {% endif %}
-      {% endwith %}
-
-      {% block content %}{% endblock %}
+      {% with messages = get_flashed_messages() %} {% if messages %}
+      <section>
+        {% for message in messages %}
+        <p class="flash">{{ message }}</p>
+        {% endfor %}
+      </section>
+      {% endif %} {% endwith %} {% block content %}{% endblock %}
     </main>
   </body>
 </html>

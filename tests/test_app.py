@@ -20,7 +20,7 @@ def test_analyze_with_file_upload(client, app):
     resp = client.post("/analyze", data=data, content_type="multipart/form-data")
     assert resp.status_code == 200
     # result template header
-    assert b"Analysis result" in resp.data
+    assert b"Provenance Report" in resp.data
     assert b"Digital Signature (C2PA)" in resp.data
     assert b"Human Consensus" in resp.data
 
@@ -60,7 +60,7 @@ def test_analyze_url_creates_image_source(client, app, monkeypatch):
 
     resp = client.get("/analyze?url=https://example.com/image.png")
     assert resp.status_code == 200
-    assert b"Analysis result" in resp.data
+    assert b"Provenance Report" in resp.data
 
     from veracity.models import ImageSource
 

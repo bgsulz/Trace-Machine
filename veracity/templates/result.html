@@ -1,122 +1,162 @@
-{% extends "base.html" %}
-
-{% block content %}
+{% extends "base.html" %} {% block content %}
 <section>
-  <h2>Analysis result</h2>
+  <nav aria-label="breadcrumb">
+    <ul>
+      <li><a href="{{ url_for('main.index') }}">Home</a></li>
+      <li>Analysis Result</li>
+    </ul>
+  </nav>
 
-  <figure>
-    <img src="{{ image_url }}" alt="Analyzed image" style="max-width: 100%; height: auto;">
-    <figcaption>Source: {{ source }}</figcaption>
-  </figure>
+  <div class="result-image-container">
+    <figure>
+      <img src="{{ image_url }}" alt="Analyzed image" class="result-image" />
+      <figcaption>Source: {{ source }}</figcaption>
+    </figure>
+  </div>
 
-  <h3>Analyzers</h3>
-  <table>
-    <thead>
-      <tr>
-        <th>Analyzer</th>
-        <th>Status</th>
-        <th>Details</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for row in results %}
+  <h3>Provenance Report</h3>
+  <div class="overflow-auto">
+    <table class="striped">
+      <thead>
         <tr>
-          <td>{{ row.name }}</td>
-          <td>{{ row.status }}</td>
+          <th scope="col" style="width: 20%">Analyzer</th>
+          <th scope="col" style="width: 15%">Status</th>
+          <th scope="col">Details</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in results %}
+        <tr>
+          <td style="vertical-align: top"><strong>{{ row.name }}</strong></td>
+          <td style="vertical-align: top">
+            {% set status_class = row.status|lower|replace(' ', '-') %}
+            <span class="badge {{ status_class }}">{{ row.status }}</span>
+          </td>
           <td>
-            {{ row.details }}
-
-            {% if row.slug == "c2pa" %}
-              {% set c2pa = row.data %}
-              <div style="margin-top: 0.5rem; font-size: 0.9em;">
-                {% if c2pa.tool %}
-                  <p>Tool: {{ c2pa.tool }}</p>
-                {% endif %}
-                {% if c2pa.signature_status %}
-                  <p>Signature: {{ c2pa.signature_status }}</p>
-                {% endif %}
-                {% if c2pa.provenance_depth %}
-                  <p>Provenance chain length: {{ c2pa.provenance_depth }} prior assets</p>
-                {% endif %}
+            {{ row.details }} {% if row.slug == "c2pa" and row.data %}
+            <div class="analyzer-detail-block">
+              {% if row.data.tool %}
+              <div><strong>Tool:</strong> {{ row.data.tool }}</div>
+              {% endif %} {% if row.data.signature_status %}
+              <div>
+                <strong>Signature:</strong> {{ row.data.signature_status }}
               </div>
-            {% endif %}
-
-            {% if row.slug == "human" and row.data.phash %}
-              <div style="margin-top: 0.5rem; font-size: 0.9em;">
-                <p>
-                  Current hash:
-                  <code>{{ row.data.phash }}</code>
-                </p>
-
-                {% set matches = row.data.matches or [] %}
-
-                {% if row.data.has_matches %}
-                  <p>{{ row.data.matches_summary }}</p>
-
-                  <table style="font-size: 0.9em; width: 100%;">
-                    <thead>
-                      <tr>
-                        <th style="text-align: left;">phash</th>
-                        <th>Distance</th>
-                        <th>Votes (Real / AI-edited / AI)</th>
-                        <th>Total</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {% for match in matches %}
-                        <tr>
-                          <td>
-                            <code>{{ match.phash }}</code>
-                            {% if match.sources %}
-                              <div style="margin-top: 0.25rem; font-size: 0.85em;">
-                                Sources:
-                                {% for src in match.sources %}
-                                  <a href="{{ url_for('main.analyze', url=src.url) }}">link {{ loop.index }}</a>{% if not loop.last %}, {% endif %}
-                                {% endfor %}
-                              </div>
-                            {% endif %}
-                          </td>
-                          <td style="text-align: center;">{{ match.distance }}</td>
-                          <td style="text-align: center;">{{ match.vote_real }} / {{ match.vote_edited }} / {{ match.vote_ai }}</td>
-                          <td style="text-align: center;">{{ match.total_votes }}</td>
-                        </tr>
-                      {% endfor %}
-                    </tbody>
-                  </table>
-                {% else %}
-                  <p>{{ row.data.no_votes_message }}</p>
-                {% endif %}
-
-                <form action="{{ url_for('main.vote') }}" method="post" style="display: inline-block; margin-right: 0.5rem;">
-                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                  <input type="hidden" name="phash" value="{{ row.data.phash }}">
-                  <input type="hidden" name="vote" value="real">
-                  <button type="submit">Mark as Real</button>
-                </form>
-
-                <form action="{{ url_for('main.vote') }}" method="post" style="display: inline-block; margin-right: 0.5rem;">
-                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                  <input type="hidden" name="phash" value="{{ row.data.phash }}">
-                  <input type="hidden" name="vote" value="edited">
-                  <button type="submit">Mark as AI-edited</button>
-                </form>
-
-                <form action="{{ url_for('main.vote') }}" method="post" style="display: inline-block;">
-                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                  <input type="hidden" name="phash" value="{{ row.data.phash }}">
-                  <input type="hidden" name="vote" value="ai">
-                  <button type="submit">Mark as AI-generated</button>
-                </form>
+              {% endif %} {% if row.data.provenance_depth %}
+              <div>
+                <strong>Chain Length:</strong> {{ row.data.provenance_depth }}
+                prior assets
               </div>
+              {% endif %}
+            </div>
+            {% endif %} {% if row.slug == "human" and row.data.phash %}
+            <div class="analyzer-detail-block">
+              <p>
+                <strong>Current Hash:</strong> <code>{{ row.data.phash }}</code>
+              </p>
+
+              {% if row.data.has_matches %}
+              <p><strong>{{ row.data.matches_summary }}</strong></p>
+
+              <table style="font-size: 0.85rem; margin-bottom: 1rem">
+                <thead>
+                  <tr>
+                    <th>Matched Hash</th>
+                    <th>Distance</th>
+                    <th>Votes (Real / Edit / AI)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for match in row.data.matches %}
+                  <tr>
+                    <td>
+                      <code>{{ match.phash }}</code>
+                      {% if match.sources %}
+                      <br />
+                      <small>
+                        {% for src in match.sources %}
+                        <a href="{{ url_for('main.analyze', url=src.url) }}"
+                          >Source {{ loop.index }}</a
+                        >{% if not loop.last %}, {% endif %} {% endfor %}
+                      </small>
+                      {% endif %}
+                    </td>
+                    <td>{{ match.distance }}</td>
+                    <td>
+                      {{ match.vote_real }} / {{ match.vote_edited }} / {{
+                      match.vote_ai }}
+                    </td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+              {% else %}
+              <p><em>{{ row.data.no_votes_message }}</em></p>
+              {% endif %}
+
+              <div class="voting-area">
+                <small style="display: block; margin-bottom: 0.5rem"
+                  ><strong>Contribute to consensus:</strong></small
+                >
+                <div class="vote-buttons">
+                  <form action="{{ url_for('main.vote') }}" method="post">
+                    <input
+                      type="hidden"
+                      name="csrf_token"
+                      value="{{ csrf_token() }}"
+                    />
+                    <input
+                      type="hidden"
+                      name="phash"
+                      value="{{ row.data.phash }}"
+                    />
+                    <input type="hidden" name="vote" value="real" />
+                    <button type="submit" class="vote-btn-real">
+                      Mark as Real
+                    </button>
+                  </form>
+
+                  <form action="{{ url_for('main.vote') }}" method="post">
+                    <input
+                      type="hidden"
+                      name="csrf_token"
+                      value="{{ csrf_token() }}"
+                    />
+                    <input
+                      type="hidden"
+                      name="phash"
+                      value="{{ row.data.phash }}"
+                    />
+                    <input type="hidden" name="vote" value="edited" />
+                    <button type="submit" class="vote-btn-edited">
+                      Mark as AI-Edited
+                    </button>
+                  </form>
+
+                  <form action="{{ url_for('main.vote') }}" method="post">
+                    <input
+                      type="hidden"
+                      name="csrf_token"
+                      value="{{ csrf_token() }}"
+                    />
+                    <input
+                      type="hidden"
+                      name="phash"
+                      value="{{ row.data.phash }}"
+                    />
+                    <input type="hidden" name="vote" value="ai" />
+                    <button type="submit" class="vote-btn-ai">
+                      Mark as AI-Gen
+                    </button>
+                  </form>
+                </div>
+              </div>
+            </div>
             {% endif %}
           </td>
         </tr>
-      {% endfor %}
-    </tbody>
-  </table>
-
-  <p>
-    <a href="{{ url_for('main.index') }}">Analyze another image</a>
-  </p>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
 </section>
 {% endblock %}
