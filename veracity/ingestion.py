@@ -41,14 +41,25 @@ def fetch_image_bytes(url: str) -> tuple[bytes, str]:
                 raise IngestionError("URL does not point to an image.")
 
             max_bytes = current_app.config.get("MAX_CONTENT_LENGTH", 10 * 1024 * 1024)
+
+            content_length = resp.headers.get("Content-Length")
+            if content_length is not None:
+                try:
+                    length_val = int(content_length)
+                except ValueError:
+                    length_val = None
+                else:
+                    if length_val > max_bytes:
+                        raise IngestionError("Downloaded image is too large.")
+
             buf = bytearray()
 
             for chunk in resp.iter_content(chunk_size=8192):
                 if not chunk:
                     continue
-                buf.extend(chunk)
-                if len(buf) > max_bytes:
+                if len(buf) + len(chunk) > max_bytes:
                     raise IngestionError("Downloaded image is too large.")
+                buf.extend(chunk)
 
     except requests.RequestException:
         raise IngestionError("Failed to download image from URL.") from None
