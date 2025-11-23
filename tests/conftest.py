@@ -16,16 +16,22 @@ from veracity import create_app, db  # noqa: E402
 
 @pytest.fixture
 def app():
-    app = create_app()
-    app.config.update(
-        TESTING=True,
-        WTF_CSRF_ENABLED=False,  # disable CSRF for most tests; covered separately
-    )
+    yield _create_testing_app()
+
+@pytest.fixture
+def app_csrf():
+    yield _create_testing_app(enable_csrf=True)
+
+def _create_testing_app(enable_csrf=False):
+    app = create_app(test_config={
+        "TESTING": True,
+        "WTF_CSRF_ENABLED": enable_csrf,
+        "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:",
+    })
     with app.app_context():
         db.drop_all()
         db.create_all()
-    yield app
-
+    return app
 
 @pytest.fixture
 def client(app):

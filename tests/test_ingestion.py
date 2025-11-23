@@ -1,7 +1,6 @@
 import pytest
 import requests
 
-from veracity import create_app
 from veracity.ingestion import IngestionError, fetch_image_bytes, validate_image_bytes
 from conftest import _make_test_image_bytes
 
@@ -11,7 +10,7 @@ def test_validate_image_bytes_rejects_invalid():
         validate_image_bytes(b"not an image")
 
 
-def test_fetch_image_bytes_success(monkeypatch):
+def test_fetch_image_bytes_success(app, monkeypatch):
     class DummyResponse:
         status_code = 200
         headers = {"Content-Type": "image/png"}
@@ -35,7 +34,6 @@ def test_fetch_image_bytes_success(monkeypatch):
 
     monkeypatch.setattr("veracity.ingestion.requests.get", fake_get)
 
-    app = create_app()
     with app.app_context():
         data, mime_type = fetch_image_bytes("https://example.com/image.png")
     assert isinstance(data, (bytes, bytearray))
@@ -65,13 +63,12 @@ def test_fetch_image_bytes_non_image_content_type(monkeypatch):
         fetch_image_bytes("https://example.com/not-image")
 
 
-def test_fetch_image_bytes_request_exception(monkeypatch):
+def test_fetch_image_bytes_request_exception(app, monkeypatch):
     def fake_get(url, timeout=5, stream=True):  # noqa: ARG001
         raise requests.RequestException("network error")
 
     monkeypatch.setattr("veracity.ingestion.requests.get", fake_get)
 
-    app = create_app()
     with app.app_context():
         with pytest.raises(IngestionError):
             fetch_image_bytes("https://example.com/image.png")

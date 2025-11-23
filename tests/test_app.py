@@ -1,6 +1,5 @@
 import io
 
-from veracity import create_app
 from conftest import _make_test_image_bytes
 
 
@@ -110,11 +109,8 @@ def test_file_upload_does_not_create_image_source(client, app):
         assert ImageSource.query.count() == 0
 
 
-def test_csrf_protection_enabled_by_default():
-    # New app where CSRF is active
-    app = create_app()
-    app.config.update(TESTING=True)
-    client = app.test_client()
+def test_csrf_protection_enabled_by_default(app_csrf):
+    client = app_csrf.test_client()
 
     image_bytes = _make_test_image_bytes()
     data = {
