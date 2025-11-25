@@ -13,7 +13,8 @@ from flask import current_app
 from sqlalchemy.exc import IntegrityError
 
 from . import ingestion, db
-from .models import ImageConsensus, VoteHistory, ImageSource
+from .models import ImageConsensus, VoteHistory, ImageSource, ImageRegistry
+from .registry import prepare_analysis_context
 from .analyzers.manager import run_all_analyzers
 
 bp = Blueprint("main", __name__)
@@ -28,7 +29,8 @@ def _perform_analysis(image_bytes: bytes, mime_type: str, source: str, image_url
     image_b64 = base64.b64encode(image_bytes).decode("ascii")
     image_data_url = f"data:{mime_type};base64,{image_b64}"
 
-    analyzer_results = run_all_analyzers(image_bytes)
+    context = prepare_analysis_context(image_bytes)
+    analyzer_results = run_all_analyzers(context)
 
     # Persist the mapping from Human Consensus phash -> source URL so
     # that future analyses can link back to this image by URL.
@@ -43,7 +45,15 @@ def _perform_analysis(image_bytes: bytes, mime_type: str, source: str, image_url
             phash = data.get("phash")
 
         if phash and image_url:
-            record = ImageSource(phash=phash, url=image_url)
+            # Look up the registry row for this perceptual hash so we can
+            # associate the source URL with the canonical image record.
+            registry_row = ImageRegistry.query.filter_by(phash=phash).first()
+            if registry_row is None:
+                registry_row = ImageRegistry(phash=phash)
+                db.session.add(registry_row)
+                db.session.flush()
+
+            record = ImageSource(image_id=registry_row.id, url=image_url)
             db.session.add(record)
             try:
                 db.session.commit()
@@ -113,7 +123,15 @@ def vote():
 
     voter_id = _build_voter_id(_get_client_ip())
 
-    history_row = VoteHistory(phash=phash, voter_id=voter_id)
+    # Resolve or create the ImageRegistry row for this perceptual hash so we
+    # can store vote history and consensus against a stable image_id.
+    registry_row = ImageRegistry.query.filter_by(phash=phash).first()
+    if registry_row is None:
+        registry_row = ImageRegistry(phash=phash)
+        db.session.add(registry_row)
+        db.session.flush()
+
+    history_row = VoteHistory(image_id=registry_row.id, voter_id=voter_id)
     db.session.add(history_row)
     try:
         db.session.flush()
@@ -122,9 +140,9 @@ def vote():
         flash("You have already voted on this image.")
         return redirect(url_for("main.index"))
 
-    record = ImageConsensus.query.filter_by(phash=phash).first()
+    record = ImageConsensus.query.filter_by(image_id=registry_row.id).first()
     if record is None:
-        record = ImageConsensus(phash=phash)
+        record = ImageConsensus(image_id=registry_row.id)
         db.session.add(record)
 
     _increment_vote_counts(record, vote_kind)
@@ -134,7 +152,7 @@ def vote():
     except IntegrityError:
         db.session.rollback()
 
-        record = ImageConsensus.query.filter_by(phash=phash).first()
+        record = ImageConsensus.query.filter_by(image_id=registry_row.id).first()
         if record is None:
             flash("Voting is temporarily unavailable. Please try again.")
             return redirect(url_for("main.index"))

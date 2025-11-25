@@ -3,8 +3,15 @@ from __future__ import annotations
 import json
 import logging
 from io import BytesIO
+from typing import TYPE_CHECKING
 
 from PIL import Image, UnidentifiedImageError
+
+from .. import db
+from ..models import ProvenanceFact
+
+if TYPE_CHECKING:  # pragma: no cover - type checking only
+    from .manager import AnalysisContext
 
 try:  # pragma: no cover - import guard
     from c2pa import Reader
@@ -31,8 +38,8 @@ def _detect_mime_type(image_bytes: bytes) -> str:
     return _FORMAT_TO_MIME.get(fmt, "application/octet-stream")
 
 
-def run_c2pa(image_bytes: bytes) -> dict[str, object]:
-    """Run the C2PA analyzer using the c2pa-python Reader.
+def _run_c2pa_tool(image_bytes: bytes) -> dict[str, object]:
+    """Run the low-level C2PA tool on raw bytes.
 
     Returns a dict with keys: status, summary, data.
     """
@@ -115,4 +122,53 @@ def run_c2pa(image_bytes: bytes) -> dict[str, object]:
         "status": "FOUND",
         "summary": summary,
         "data": data,
+    }
+
+
+def run_c2pa(context: "AnalysisContext") -> dict[str, object]:
+    """Run the C2PA analyzer with caching based on the analysis context."""
+
+    # 1. Run the tool on the raw bytes ("new" analysis).
+    result = _run_c2pa_tool(context.image_bytes)
+
+    # If the tool is unavailable or errored, just return that directly.
+    if result["status"] in {"NOT AVAILABLE", "ERROR"}:
+        return result
+
+    # 2. If we found fresh metadata, save it to the DB and return.
+    if result["status"] == "FOUND":
+        try:
+            fact = ProvenanceFact(
+                image_id=context.registry_id,
+                analyzer="c2pa",
+                data=str(result.get("summary", "")),
+            )
+            db.session.add(fact)
+            db.session.commit()
+        except Exception:  # pragma: no cover - defensive
+            db.session.rollback()
+            logger.exception("Failed to persist C2PA provenance fact")
+        return result
+
+    # 3. If NOT found, check the neighbors (cached analysis from similar images).
+    for neighbor in context.neighbors:
+        for fact in getattr(neighbor, "facts", []) or []:
+            if fact.analyzer == "c2pa":
+                return {
+                    "status": "FOUND (MATCH)",
+                    "summary": (
+                        f"Visual match (hash {neighbor.phash}) had C2PA: {fact.data}"
+                    ),
+                    "data": {
+                        "has_manifest": True,
+                        "source": "neighbor-cache",
+                        "neighbor_phash": neighbor.phash,
+                    },
+                }
+
+    # Still nothing: propagate a NOT FOUND status.
+    return {
+        "status": "NOT FOUND",
+        "summary": "No C2PA signature found.",
+        "data": {"has_manifest": False},
     }

@@ -3,7 +3,7 @@ import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, Future, as_completed
 from dataclasses import dataclass
-from typing import Callable, Iterable, Sequence
+from typing import Callable, Iterable, Sequence, List
 
 from flask import current_app
 
@@ -14,6 +14,14 @@ from .human import run_human_consensus
 logger = logging.getLogger(__name__)
 
 
+@dataclass
+class AnalysisContext:
+    image_bytes: bytes
+    phash: str
+    registry_id: int
+    neighbors: List[object]
+
+
 AnalyzerOutput = dict[str, object]
 
 
@@ -21,7 +29,7 @@ AnalyzerOutput = dict[str, object]
 class AnalyzerSpec:
     name: str
     slug: str
-    func: Callable[[bytes], AnalyzerOutput]
+    func: Callable[["AnalysisContext"], AnalyzerOutput]
 
 
 ANALYZERS: Sequence[AnalyzerSpec] = (
@@ -32,7 +40,7 @@ ANALYZERS: Sequence[AnalyzerSpec] = (
 
 
 def run_all_analyzers(
-    image_bytes: bytes,
+    context: AnalysisContext,
     analyzers: Iterable[AnalyzerSpec] | None = None,
 ) -> list[dict[str, object]]:
     """Execute all analyzers in parallel and normalize their outputs."""
@@ -58,7 +66,7 @@ def run_all_analyzers(
     ) as executor:
         for spec in specs:
             logger.info("Analyzer '%s' starting", spec.name)
-            future = executor.submit(_run_in_context, app, spec.func, image_bytes)
+            future = executor.submit(_run_in_context, app, spec.func, context)
             future_spec[future] = spec
             start_times[future] = time.perf_counter()
 
@@ -82,16 +90,7 @@ def run_all_analyzers(
                     elapsed,
                 )
 
-                # Backwards compatibility: allow analyzers to return either
-                # a dict or a (status, summary) tuple.
-                if isinstance(raw, tuple) and len(raw) == 2:
-                    status_val, summary_val = raw
-                    raw_dict = {
-                        "status": status_val,
-                        "summary": summary_val,
-                        "data": {},
-                    }
-                elif isinstance(raw, dict):
+                if isinstance(raw, dict):
                     raw_dict = raw
                 else:  # pragma: no cover - highly defensive
                     raw_dict = {
@@ -116,6 +115,8 @@ def run_all_analyzers(
     return [results_map[spec.name] for spec in specs]
 
 
-def _run_in_context(app, func: Callable[[bytes], AnalyzerOutput], payload: bytes) -> AnalyzerOutput:
+def _run_in_context(
+    app, func: Callable[[AnalysisContext], AnalyzerOutput], payload: AnalysisContext
+) -> AnalyzerOutput:
     with app.app_context():
         return func(payload)

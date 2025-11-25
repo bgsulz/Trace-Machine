@@ -5,10 +5,9 @@ import pytest
 import imagehash
 from PIL import Image
 
-from veracity import db
 from veracity.analyzers import AnalyzerSpec, run_all_analyzers
 from veracity.analyzers.human import run_human_consensus
-from veracity.models import ImageConsensus, ImageSource
+from veracity.analyzers.manager import AnalysisContext
 from conftest import _make_test_image_bytes
 
 
@@ -22,15 +21,25 @@ def test_run_all_analyzers_preserves_order():
     events = []
 
     def make_spec(name: str, slug: str) -> AnalyzerSpec:
-        def _fn(_: bytes):
+        def _fn(_context: AnalysisContext):
             events.append(name)
-            return "OK", f"details-{name}"
+            return {
+                "status": "OK",
+                "summary": f"details-{name}",
+                "data": {},
+            }
 
         return AnalyzerSpec(name=name, slug=slug, func=_fn)
 
     analyzers = [make_spec("A", "a"), make_spec("B", "b"), make_spec("C", "c")]
 
-    results = run_all_analyzers(b"payload", analyzers)
+    context = AnalysisContext(
+        image_bytes=b"payload",
+        phash="deadbeefdeadbeef",
+        registry_id=1,
+        neighbors=[],
+    )
+    results = run_all_analyzers(context, analyzers)
 
     assert [row["name"] for row in results] == [spec.name for spec in analyzers]
     assert [row["slug"] for row in results] == [spec.slug for spec in analyzers]
@@ -38,10 +47,14 @@ def test_run_all_analyzers_preserves_order():
 
 
 def test_run_all_analyzers_handles_exceptions():
-    def ok(_: bytes):
-        return "OK", "fine"
+    def ok(_context: AnalysisContext):
+        return {
+            "status": "OK",
+            "summary": "fine",
+            "data": {},
+        }
 
-    def boom(_: bytes):  # pragma: no cover - executed in thread
+    def boom(_context: AnalysisContext):  # pragma: no cover - executed in thread
         raise RuntimeError("boom")
 
     analyzers = [
@@ -49,7 +62,13 @@ def test_run_all_analyzers_handles_exceptions():
         AnalyzerSpec(name="Bad", slug="bad", func=boom),
     ]
 
-    results = run_all_analyzers(b"payload", analyzers)
+    context = AnalysisContext(
+        image_bytes=b"payload",
+        phash="deadbeefdeadbeef",
+        registry_id=1,
+        neighbors=[],
+    )
+    results = run_all_analyzers(context, analyzers)
 
     result_map = {row["name"]: row for row in results}
     assert result_map["Good"]["status"] == "OK"
@@ -62,7 +81,14 @@ def test_c2pa_analyzer_not_available(monkeypatch):
     from veracity.analyzers import c2pa as c2pa_analyzer
 
     monkeypatch.setattr(c2pa_analyzer, "Reader", None)
-    result = c2pa_analyzer.run_c2pa(_make_test_image_bytes())
+    image_bytes = _make_test_image_bytes()
+    context = AnalysisContext(
+        image_bytes=image_bytes,
+        phash="deadbeefdeadbeef",
+        registry_id=1,
+        neighbors=[],
+    )
+    result = c2pa_analyzer.run_c2pa(context)
     assert result["status"] == "NOT AVAILABLE"
     assert "not installed" in str(result["summary"]).lower()
 
@@ -94,13 +120,34 @@ def test_c2pa_analyzer_writes_signer(monkeypatch):
     from veracity.analyzers import c2pa as c2pa_analyzer
 
     monkeypatch.setattr(c2pa_analyzer, "Reader", DummyReader)
-    result = c2pa_analyzer.run_c2pa(_make_test_image_bytes())
+    image_bytes = _make_test_image_bytes()
+    context = AnalysisContext(
+        image_bytes=image_bytes,
+        phash="deadbeefdeadbeef",
+        registry_id=1,
+        neighbors=[],
+    )
+    result = c2pa_analyzer.run_c2pa(context)
     assert result["status"] == "FOUND"
     assert "Adobe" in str(result["summary"])
 
 
 def test_human_consensus_returns_phash():
-    result = run_human_consensus(_make_test_image_bytes())
+    image_bytes = _make_test_image_bytes()
+
+    # Compute a realistic perceptual hash for the image
+    with Image.open(BytesIO(image_bytes)) as img:
+        target_hash = imagehash.phash(img)
+    target_hex = str(target_hash)
+
+    context = AnalysisContext(
+        image_bytes=image_bytes,
+        phash=target_hex,
+        registry_id=1,
+        neighbors=[],
+    )
+
+    result = run_human_consensus(context)
     assert result["status"] == "NO DATA"
     data = result["data"]
     assert "phash" in data
@@ -124,13 +171,28 @@ def test_human_consensus_uses_fuzzy_match(app):
     fuzzy_hash = imagehash.ImageHash(arr)
     fuzzy_hex = str(fuzzy_hash)
 
-    # Seed the DB with votes for the fuzzy hash
-    with app.app_context():
-        row = ImageConsensus(phash=fuzzy_hex, vote_real=3, vote_ai=7)
-        db.session.add(row)
-        db.session.commit()
+    class Neighbor:
+        def __init__(self, phash: str, vote_real: int, vote_ai: int):
+            self.phash = phash
+            # Simple object with the fields the analyzer needs
+            self.consensus = type("Consensus", (), {
+                "vote_real": vote_real,
+                "vote_edited": 0,
+                "vote_ai": vote_ai,
+            })()
+            self.created_at = None
+            self.sources = []
 
-        result = run_human_consensus(image_bytes)
+    neighbor = Neighbor(phash=fuzzy_hex, vote_real=3, vote_ai=7)
+
+    context = AnalysisContext(
+        image_bytes=image_bytes,
+        phash=target_hex,
+        registry_id=1,
+        neighbors=[neighbor],
+    )
+
+    result = run_human_consensus(context)
 
     assert result["status"] == "FOUND"
     data = result["data"]
@@ -161,17 +223,34 @@ def test_human_consensus_attaches_sources(app):
     fuzzy_hash = imagehash.ImageHash(arr)
     fuzzy_hex = str(fuzzy_hash)
 
-    with app.app_context():
-        consensus_row = ImageConsensus(phash=fuzzy_hex, vote_real=1, vote_ai=2)
-        db.session.add(consensus_row)
+    class Source:
+        def __init__(self, url: str) -> None:
+            self.url = url
 
-        src1 = ImageSource(phash=fuzzy_hex, url="https://example.com/a.png")
-        src2 = ImageSource(phash=fuzzy_hex, url="https://example.com/b.png")
-        db.session.add(src1)
-        db.session.add(src2)
-        db.session.commit()
+    class Neighbor:
+        def __init__(self, phash: str):
+            self.phash = phash
+            self.consensus = type("Consensus", (), {
+                "vote_real": 1,
+                "vote_edited": 0,
+                "vote_ai": 2,
+            })()
+            self.created_at = None
+            self.sources = [
+                Source("https://example.com/a.png"),
+                Source("https://example.com/b.png"),
+            ]
 
-        result = run_human_consensus(image_bytes)
+    neighbor = Neighbor(phash=fuzzy_hex)
+
+    context = AnalysisContext(
+        image_bytes=image_bytes,
+        phash=str(target_hash),
+        registry_id=1,
+        neighbors=[neighbor],
+    )
+
+    result = run_human_consensus(context)
 
     assert result["status"] == "FOUND"
     data = result["data"]

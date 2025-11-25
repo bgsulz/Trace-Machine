@@ -68,7 +68,6 @@ def test_analyze_url_creates_image_source(client, app, monkeypatch):
         assert len(rows) == 1
         row = rows[0]
         assert row.url == "https://example.com/image.png"
-        assert row.phash
 
 
 def test_analyze_url_creates_image_source_only_once(client, app, monkeypatch):
@@ -167,16 +166,19 @@ def test_vote_creates_record_and_increments_counts(client, app):
     assert resp_ai.status_code == 200
 
     # Assert: database reflects two votes (1 real, 1 ai) and vote history entries
-    from veracity.models import ImageConsensus, VoteHistory
+    from veracity.models import ImageConsensus, VoteHistory, ImageRegistry
 
     with app.app_context():
-        row = ImageConsensus.query.filter_by(phash=phash).first()
+        registry_row = ImageRegistry.query.filter_by(phash=phash).first()
+        assert registry_row is not None
+
+        row = ImageConsensus.query.filter_by(image_id=registry_row.id).first()
         assert row is not None
         assert row.vote_real == 1
         assert row.vote_edited == 1
         assert row.vote_ai == 1
 
-        history_rows = VoteHistory.query.filter_by(phash=phash).all()
+        history_rows = VoteHistory.query.filter_by(image_id=registry_row.id).all()
         assert len(history_rows) == 3
 
 
@@ -206,12 +208,15 @@ def test_vote_rejects_duplicate_votes(client, app):
     assert second.status_code == 200
     assert b"already voted" in second.data
 
-    from veracity.models import ImageConsensus, VoteHistory
+    from veracity.models import ImageConsensus, VoteHistory, ImageRegistry
 
     with app.app_context():
-        row = ImageConsensus.query.filter_by(phash=phash).first()
+        registry_row = ImageRegistry.query.filter_by(phash=phash).first()
+        assert registry_row is not None
+
+        row = ImageConsensus.query.filter_by(image_id=registry_row.id).first()
         assert row.vote_real == 1  # not incremented twice
-        count = VoteHistory.query.filter_by(phash=phash).count()
+        count = VoteHistory.query.filter_by(image_id=registry_row.id).count()
         assert count == 1
 
 
