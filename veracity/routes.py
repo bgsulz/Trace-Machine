@@ -182,7 +182,7 @@ def vote():
         return redirect(url_for("main.index"))
 
     flash("Thanks for your vote.")
-    return redirect(request.referrer or url_for("main.index"))
+    return redirect(url_for("main.index"))
 
 
 def _get_client_ip() -> str:
