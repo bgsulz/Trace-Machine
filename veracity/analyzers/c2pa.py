@@ -12,7 +12,7 @@ from .. import db
 from ..models import ProvenanceFact
 
 if TYPE_CHECKING:  # pragma: no cover - type checking only
-    from .manager import AnalysisContext
+    from .context import AnalysisContext
 
 try:  # pragma: no cover - import guard
     from c2pa import Reader

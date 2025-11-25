@@ -3,23 +3,16 @@ import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, Future, as_completed
 from dataclasses import dataclass
-from typing import Callable, Iterable, Sequence, List
+from typing import Callable, Iterable, Sequence
 
 from flask import current_app
 
+from .context import AnalysisContext
 from .c2pa import run_c2pa
 from .human import run_human_consensus
 # from .synthid import run_synthid_stub
 
 logger = logging.getLogger(__name__)
-
-
-@dataclass
-class AnalysisContext:
-    image_bytes: bytes
-    phash: str
-    registry_id: int
-    neighbors: List[object]
 
 
 AnalyzerOutput = dict[str, object]

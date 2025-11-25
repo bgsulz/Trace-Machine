@@ -46,9 +46,7 @@
                 <strong>Chain Length:</strong> {{ row.data.provenance_depth }}
                 prior assets
               </div>
-              {% endif %}
-
-              {% if row.data.matches %}
+              {% endif %} {% if row.data.matches %}
               <hr />
               <p><strong>Similar images with C2PA data:</strong></p>
 
@@ -76,7 +74,8 @@
                       {% endif %}
                     </td>
                     <td>
-                      {% if match.distance is not none %}{{ match.distance }}{% else %}-{% endif %}
+                      {% if match.distance is not none %}{{ match.distance }}{%
+                      else %}-{% endif %}
                     </td>
                     <td>{{ match.fact_data }}</td>
                   </tr>
