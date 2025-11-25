@@ -1,12 +1,7 @@
 from __future__ import annotations
-
 import logging
-from typing import TYPE_CHECKING
-
 import imagehash
-
-if TYPE_CHECKING:  # pragma: no cover - type checking only
-    from .context import AnalysisContext
+from .context import AnalysisContext
 
 logger = logging.getLogger(__name__)
 
@@ -15,7 +10,7 @@ _MAX_FUZZY_ROWS = 10_000
 _MAX_HAMMING_DISTANCE = 4
 
 
-def run_human_consensus(context: "AnalysisContext") -> dict[str, object]:
+def run_human_consensus(context: AnalysisContext) -> dict[str, object]:
     """Look up human consensus votes for an image via perceptual hashing.
 
     Strategy (MUB, small DB assumptions):

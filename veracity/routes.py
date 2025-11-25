@@ -25,7 +25,9 @@ def index():
     return render_template("index.html")
 
 
-def _perform_analysis(image_bytes: bytes, mime_type: str, source: str, image_url: str | None = None):
+def _perform_analysis(
+    image_bytes: bytes, mime_type: str, source: str, image_url: str | None = None
+):
     image_b64 = base64.b64encode(image_bytes).decode("ascii")
     image_data_url = f"data:{mime_type};base64,{image_b64}"
 

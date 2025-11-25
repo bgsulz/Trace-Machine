@@ -1,18 +1,12 @@
 from __future__ import annotations
-
 import json
 import logging
 from io import BytesIO
-from typing import TYPE_CHECKING
-
 from PIL import Image, UnidentifiedImageError
 import imagehash
-
 from .. import db
 from ..models import ProvenanceFact
-
-if TYPE_CHECKING:  # pragma: no cover - type checking only
-    from .context import AnalysisContext
+from .context import AnalysisContext
 
 try:  # pragma: no cover - import guard
     from c2pa import Reader
@@ -126,7 +120,7 @@ def _run_c2pa_tool(image_bytes: bytes) -> dict[str, object]:
     }
 
 
-def run_c2pa(context: "AnalysisContext") -> dict[str, object]:
+def run_c2pa(context: AnalysisContext) -> dict[str, object]:
     """Run the C2PA analyzer with caching based on the analysis context."""
 
     # 1. Run the tool on the raw bytes ("new" analysis).

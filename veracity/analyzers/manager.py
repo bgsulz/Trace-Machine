@@ -4,9 +4,7 @@ import time
 from concurrent.futures import ThreadPoolExecutor, Future, as_completed
 from dataclasses import dataclass
 from typing import Callable, Iterable, Sequence
-
 from flask import current_app
-
 from .context import AnalysisContext
 from .c2pa import run_c2pa
 from .human import run_human_consensus
@@ -22,7 +20,7 @@ AnalyzerOutput = dict[str, object]
 class AnalyzerSpec:
     name: str
     slug: str
-    func: Callable[["AnalysisContext"], AnalyzerOutput]
+    func: Callable[[AnalysisContext], AnalyzerOutput]
 
 
 ANALYZERS: Sequence[AnalyzerSpec] = (
