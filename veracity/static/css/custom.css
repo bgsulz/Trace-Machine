@@ -74,6 +74,11 @@ body > header {
   color: #fff;
 }
 
+.badge.similar {
+  background-color: var(--veracity-badge-warning);
+  color: #000;
+}
+
 .badge.not-found,
 .badge.not-detected {
   background-color: var(--veracity-badge-bg);

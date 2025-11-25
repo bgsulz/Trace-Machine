@@ -47,14 +47,48 @@
                 prior assets
               </div>
               {% endif %}
+
+              {% if row.data.matches %}
+              <hr />
+              <p><strong>Similar images with C2PA data:</strong></p>
+
+              <table style="font-size: 0.85rem; margin-bottom: 1rem">
+                <thead>
+                  <tr>
+                    <th>Matched Hash</th>
+                    <th>Distance</th>
+                    <th>C2PA Details</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for match in row.data.matches %}
+                  <tr>
+                    <td>
+                      <code>{{ match.phash }}</code>
+                      {% if match.sources %}
+                      <br />
+                      <small>
+                        {% for src in match.sources %}
+                        <a href="{{ url_for('main.analyze', url=src.url) }}"
+                          >Source {{ loop.index }}</a
+                        >{% if not loop.last %}, {% endif %} {% endfor %}
+                      </small>
+                      {% endif %}
+                    </td>
+                    <td>
+                      {% if match.distance is not none %}{{ match.distance }}{% else %}-{% endif %}
+                    </td>
+                    <td>{{ match.fact_data }}</td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+              {% endif %}
             </div>
             {% endif %} {% if row.slug == "human" and row.data.phash %}
             <div class="analyzer-detail-block">
-              <p>
-                <strong>Current Hash:</strong> <code>{{ row.data.phash }}</code>
-              </p>
-
               {% if row.data.has_matches %}
+              <hr />
               <p><strong>{{ row.data.matches_summary }}</strong></p>
 
               <table style="font-size: 0.85rem; margin-bottom: 1rem">

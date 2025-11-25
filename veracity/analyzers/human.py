@@ -81,7 +81,7 @@ def run_human_consensus(context: "AnalysisContext") -> dict[str, object]:
     total_votes = totals["total_votes"]
 
     if has_matches:
-        matches_summary = f"Showing matches with distance ≤ {_MAX_HAMMING_DISTANCE}:"
+        matches_summary = "Similar images with votes:"
     else:
         matches_summary = ""
 

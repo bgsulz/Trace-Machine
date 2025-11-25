@@ -6,6 +6,7 @@ from io import BytesIO
 from typing import TYPE_CHECKING
 
 from PIL import Image, UnidentifiedImageError
+import imagehash
 
 from .. import db
 from ..models import ProvenanceFact
@@ -135,8 +136,10 @@ def run_c2pa(context: "AnalysisContext") -> dict[str, object]:
     if result["status"] in {"NOT AVAILABLE", "ERROR"}:
         return result
 
-    # 2. If we found fresh metadata, save it to the DB and return.
-    if result["status"] == "FOUND":
+    status = str(result.get("status", "UNKNOWN"))
+
+    # 2. If we found fresh metadata, save it to the DB.
+    if status == "FOUND":
         try:
             fact = ProvenanceFact(
                 image_id=context.registry_id,
@@ -148,27 +151,56 @@ def run_c2pa(context: "AnalysisContext") -> dict[str, object]:
         except Exception:  # pragma: no cover - defensive
             db.session.rollback()
             logger.exception("Failed to persist C2PA provenance fact")
-        return result
 
-    # 3. If NOT found, check the neighbors (cached analysis from similar images).
+    # 3. Build a list of nearby matches from provenance facts on neighbors.
+    matches: list[dict[str, object]] = []
+    try:
+        base_hash = imagehash.hex_to_hash(context.phash)
+    except Exception:  # pragma: no cover - defensive
+        base_hash = None
+
     for neighbor in context.neighbors:
-        for fact in getattr(neighbor, "facts", []) or []:
-            if fact.analyzer == "c2pa":
-                return {
-                    "status": "FOUND (MATCH)",
-                    "summary": (
-                        f"Visual match (hash {neighbor.phash}) had C2PA: {fact.data}"
-                    ),
-                    "data": {
-                        "has_manifest": True,
-                        "source": "neighbor-cache",
-                        "neighbor_phash": neighbor.phash,
-                    },
-                }
+        phash = getattr(neighbor, "phash", None)
+        if not phash:
+            continue
 
-    # Still nothing: propagate a NOT FOUND status.
-    return {
-        "status": "NOT FOUND",
-        "summary": "No C2PA signature found.",
-        "data": {"has_manifest": False},
-    }
+        distance: int | None = None
+        if base_hash is not None:
+            try:
+                neighbor_hash = imagehash.hex_to_hash(phash)
+                distance = int(base_hash - neighbor_hash)
+            except Exception:  # pragma: no cover - defensive
+                distance = None
+
+        for fact in getattr(neighbor, "facts", []) or []:
+            if fact.analyzer != "c2pa":
+                continue
+
+            sources = []
+            for src in getattr(neighbor, "sources", [])[:3]:
+                url = getattr(src, "url", None)
+                if url:
+                    sources.append({"url": url})
+
+            matches.append(
+                {
+                    "phash": phash,
+                    "distance": distance,
+                    "fact_data": str(fact.data),
+                    "sources": sources,
+                }
+            )
+
+    # If the tool itself found nothing but we have cached matches, adjust status.
+    if status == "NOT FOUND" and matches:
+        result["status"] = "SIMILAR"
+        result["summary"] = (
+            f"Found {len(matches)} visually similar images with C2PA metadata."
+        )
+
+    # Attach matches for the UI layer; always include the key for consistency.
+    data = result.get("data") or {}
+    data["matches"] = matches
+    result["data"] = data
+
+    return result
