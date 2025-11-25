@@ -127,6 +127,7 @@
               {% endif %}
 
               <div class="voting-area">
+                {% set current_vote = row.data.current_vote %}
                 <small style="display: block; margin-bottom: 0.5rem"
                   ><strong>Contribute to consensus:</strong></small
                 >
@@ -143,7 +144,10 @@
                       value="{{ row.data.phash }}"
                     />
                     <input type="hidden" name="vote" value="real" />
-                    <button type="submit" class="vote-btn-real">
+                    <button
+                      type="submit"
+                      class="vote-btn-real{% if current_vote and current_vote != 'real' %} vote-btn-muted{% endif %}"
+                    >
                       Mark as Real
                     </button>
                   </form>
@@ -160,7 +164,10 @@
                       value="{{ row.data.phash }}"
                     />
                     <input type="hidden" name="vote" value="edited" />
-                    <button type="submit" class="vote-btn-edited">
+                    <button
+                      type="submit"
+                      class="vote-btn-edited{% if current_vote and current_vote != 'edited' %} vote-btn-muted{% endif %}"
+                    >
                       Mark as AI-Edited
                     </button>
                   </form>
@@ -177,7 +184,10 @@
                       value="{{ row.data.phash }}"
                     />
                     <input type="hidden" name="vote" value="ai" />
-                    <button type="submit" class="vote-btn-ai">
+                    <button
+                      type="submit"
+                      class="vote-btn-ai{% if current_vote and current_vote != 'ai' %} vote-btn-muted{% endif %}"
+                    >
                       Mark as AI-Gen
                     </button>
                   </form>

@@ -134,6 +134,11 @@ body > header {
   --pico-border-color: var(--veracity-danger);
 }
 
+.vote-btn-muted {
+  opacity: 0.5;
+  filter: grayscale(80%);
+}
+
 .vote-btn-real:hover,
 .vote-btn-edited:hover,
 .vote-btn-ai:hover {

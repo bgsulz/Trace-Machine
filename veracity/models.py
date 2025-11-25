@@ -50,3 +50,4 @@ class VoteHistory(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     image_id = db.Column(db.Integer, db.ForeignKey("image_registry.id"), nullable=False)
     voter_id = db.Column(db.String(64), nullable=False)
+    choice = db.Column(db.String(16), nullable=False)

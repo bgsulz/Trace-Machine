@@ -62,6 +62,22 @@ def _perform_analysis(
             except IntegrityError:
                 db.session.rollback()
 
+    voter_id = _build_voter_id(_get_client_ip())
+
+    human_row = next(
+        (row for row in analyzer_results if row.get("slug") == "human"),
+        None,
+    )
+    if human_row is not None:
+        history_row = VoteHistory.query.filter_by(
+            image_id=context.registry_id,
+            voter_id=voter_id,
+        ).first()
+
+        data = human_row.get("data") or {}
+        data["current_vote"] = history_row.choice if history_row else None
+        human_row["data"] = data
+
     return render_template(
         "result.html",
         image_url=image_data_url,
@@ -133,38 +149,40 @@ def vote():
         db.session.add(registry_row)
         db.session.flush()
 
-    history_row = VoteHistory(image_id=registry_row.id, voter_id=voter_id)
-    db.session.add(history_row)
-    try:
-        db.session.flush()
-    except IntegrityError:
-        db.session.rollback()
-        flash("You have already voted on this image.")
-        return redirect(url_for("main.index"))
-
     record = ImageConsensus.query.filter_by(image_id=registry_row.id).first()
     if record is None:
         record = ImageConsensus(image_id=registry_row.id)
         db.session.add(record)
 
-    _increment_vote_counts(record, vote_kind)
+    history_row = VoteHistory.query.filter_by(
+        image_id=registry_row.id,
+        voter_id=voter_id,
+    ).first()
+
+    if history_row is None:
+        history_row = VoteHistory(
+            image_id=registry_row.id,
+            voter_id=voter_id,
+            choice=vote_kind,
+        )
+        db.session.add(history_row)
+        _increment_vote_counts(record, vote_kind)
+    else:
+        previous_choice = history_row.choice
+        if previous_choice != vote_kind:
+            _decrement_vote_counts(record, previous_choice)
+            _increment_vote_counts(record, vote_kind)
+            history_row.choice = vote_kind
 
     try:
         db.session.commit()
     except IntegrityError:
         db.session.rollback()
-
-        record = ImageConsensus.query.filter_by(image_id=registry_row.id).first()
-        if record is None:
-            flash("Voting is temporarily unavailable. Please try again.")
-            return redirect(url_for("main.index"))
-
-        _increment_vote_counts(record, vote_kind)
-
-        db.session.commit()
+        flash("Voting is temporarily unavailable. Please try again.")
+        return redirect(url_for("main.index"))
 
     flash("Thanks for your vote.")
-    return redirect(url_for("main.index"))
+    return redirect(request.referrer or url_for("main.index"))
 
 
 def _get_client_ip() -> str:
@@ -181,6 +199,15 @@ def _increment_vote_counts(record: ImageConsensus, vote_kind: str) -> None:
         record.vote_edited = (record.vote_edited or 0) + 1
     else:
         record.vote_ai = (record.vote_ai or 0) + 1
+
+
+def _decrement_vote_counts(record: ImageConsensus, vote_kind: str) -> None:
+    if vote_kind == "real":
+        record.vote_real = max((record.vote_real or 0) - 1, 0)
+    elif vote_kind == "edited":
+        record.vote_edited = max((record.vote_edited or 0) - 1, 0)
+    else:
+        record.vote_ai = max((record.vote_ai or 0) - 1, 0)
 
 
 def _build_voter_id(ip_address: str) -> str:

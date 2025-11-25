@@ -1,5 +1,8 @@
 import io
 
+import imagehash
+from PIL import Image
+
 from conftest import _make_test_image_bytes
 
 
@@ -131,15 +134,10 @@ def test_vote_creates_record_and_increments_counts(client, app):
     resp = client.post("/analyze", data=data, content_type="multipart/form-data")
     assert resp.status_code == 200
 
-    # Extract the phash from the rendered page
-    body = resp.data.decode("utf-8", errors="ignore")
-    marker = "<code>"
-    start = body.find(marker)
-    assert start != -1
-    start += len(marker)
-    end = body.find("</code>", start)
-    phash = body[start:end].strip()
-    assert phash
+    # Compute the same perceptual hash the app uses for this image
+    with Image.open(io.BytesIO(image_bytes)) as img:
+        target_hash = imagehash.phash(img)
+    phash = str(target_hash)
 
     # Act: submit two votes (one real, one ai)
     vote_data_real = {"phash": phash, "vote": "real"}
@@ -191,13 +189,10 @@ def test_vote_rejects_duplicate_votes(client, app):
     resp = client.post("/analyze", data=data, content_type="multipart/form-data")
     assert resp.status_code == 200
 
-    body = resp.data.decode("utf-8", errors="ignore")
-    marker = "<code>"
-    start = body.find(marker)
-    assert start != -1
-    start += len(marker)
-    end = body.find("</code>", start)
-    phash = body[start:end].strip()
+    # Compute the same perceptual hash the app uses for this image
+    with Image.open(io.BytesIO(image_bytes)) as img:
+        target_hash = imagehash.phash(img)
+    phash = str(target_hash)
 
     vote_data = {"phash": phash, "vote": "real"}
 
@@ -206,7 +201,6 @@ def test_vote_rejects_duplicate_votes(client, app):
 
     second = client.post("/vote", data=vote_data, follow_redirects=True)
     assert second.status_code == 200
-    assert b"already voted" in second.data
 
     from veracity.models import ImageConsensus, VoteHistory, ImageRegistry
 

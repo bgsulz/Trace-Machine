@@ -207,7 +207,7 @@ def test_human_consensus_uses_fuzzy_match(app):
     assert data["totals"]["vote_real"] == 3
     assert data["totals"]["vote_ai"] == 7
     assert data["has_matches"] is True
-    assert "Showing" in data["matches_summary"]
+    assert "Similar" in data["matches_summary"]
 
 
 def test_human_consensus_attaches_sources(app):
