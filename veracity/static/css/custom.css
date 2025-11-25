@@ -129,6 +129,12 @@ body > header {
   --pico-border-color: var(--veracity-danger);
 }
 
+.vote-btn-real:hover,
+.vote-btn-edited:hover,
+.vote-btn-ai:hover {
+  color: white;
+}
+
 /* Flash messages */
 .flash {
   padding: 1rem;

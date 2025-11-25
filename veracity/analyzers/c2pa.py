@@ -57,7 +57,7 @@ def run_c2pa(image_bytes: bytes) -> dict[str, object]:
             logger.info("No C2PA manifest found: %s", exc)
             return {
                 "status": "NOT FOUND",
-                "summary": "No C2PA manifest detected.",
+                "summary": "No C2PA signature found.",
                 "data": {"has_manifest": False},
             }
 
@@ -75,7 +75,7 @@ def run_c2pa(image_bytes: bytes) -> dict[str, object]:
     if not active_manifest:
         return {
             "status": "NOT FOUND",
-            "summary": "No C2PA manifest detected.",
+            "summary": "No C2PA signature found.",
             "data": {"has_manifest": False},
         }
 
