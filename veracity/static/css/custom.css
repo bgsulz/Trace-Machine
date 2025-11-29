@@ -6,6 +6,7 @@
   /* Custom color tokens */
   --veracity-success: #2da44e;
   --veracity-warning: #d29922;
+  --veracity-warning-dark: #815903;
   --veracity-danger: #cf222e;
   --veracity-badge-bg: var(--pico-muted-border-color);
   --veracity-badge-fg: var(--pico-color);
@@ -51,7 +52,7 @@ body > header {
 }
 
 .result-image {
-  max-height: 500px;
+  max-height: 320px;
   width: auto;
   border-radius: 4px;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
@@ -151,5 +152,13 @@ body > header {
   margin-bottom: 1rem;
   border-radius: var(--pico-border-radius);
   background-color: var(--pico-mark-background-color);
+  color: var(--pico-mark-color);
+}
+
+.flash-warning {
+  padding: 1rem;
+  margin-bottom: 1rem;
+  border-radius: var(--pico-border-radius);
+  background-color: var(--veracity-warning-dark);
   color: var(--pico-mark-color);
 }
