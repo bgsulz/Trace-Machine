@@ -1,6 +1,7 @@
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from flask_wtf.csrf import CSRFProtect
+from flask_migrate import Migrate 
 from werkzeug.middleware.proxy_fix import ProxyFix
 from dotenv import load_dotenv
 import os
@@ -8,10 +9,11 @@ import os
 load_dotenv()
 csrf = CSRFProtect()
 db = SQLAlchemy()
-
+migrate = Migrate()
 
 def create_app(test_config=None):
     app = Flask(__name__, instance_relative_config=True)
+    migrate.init_app(app, db)
 
     # Trust a single upstream proxy (e.g. Nginx) for X-Forwarded-* headers.
     app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1)  # type: ignore[assignment]

@@ -1,6 +1,7 @@
 Flask
 Flask-WTF
 Flask-SQLAlchemy
+Flask-Migrate
 Pillow
 requests
 python-dotenv
