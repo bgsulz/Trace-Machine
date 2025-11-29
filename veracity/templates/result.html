@@ -33,7 +33,37 @@
             <span class="badge {{ status_class }}">{{ row.status }}</span>
           </td>
           <td>
-            {{ row.details }} {% if row.slug == "c2pa" and row.data %}
+            {{ row.details }} {% if row.slug == "exif" and row.data.findings %}
+            <div class="analyzer-detail-block">
+              {% for finding in row.data.findings %}
+              <details style="margin-bottom: 0.75rem">
+                <summary>
+                  <strong>{{ finding.tool }}</strong>
+                  <span style="font-weight: normal">({{ finding.key }})</span>
+                  <br />
+                  <small>{{ finding.preview }}</small>
+                </summary>
+                <div style="margin-top: 0.5rem">
+                  <pre style="white-space: pre-wrap">{{ finding.full_text }}</pre>
+                  {% if finding.metadata %}
+                  <ul style="font-size: 0.9rem">
+                    {% for meta_key, meta_value in finding.metadata.items() %}
+                    <li>
+                      <strong>{{ meta_key }}:</strong>
+                      {% if meta_value is mapping %}
+                      <pre style="white-space: pre-wrap">{{ meta_value | tojson(indent=2) }}</pre>
+                      {% else %}
+                      {{ meta_value }}
+                      {% endif %}
+                    </li>
+                    {% endfor %}
+                  </ul>
+                  {% endif %}
+                </div>
+              </details>
+              {% endfor %}
+            </div>
+            {% endif %} {% if row.slug == "c2pa" and row.data %}
             <div class="analyzer-detail-block">
               {% if row.data.tool %}
               <div><strong>Tool:</strong> {{ row.data.tool }}</div>

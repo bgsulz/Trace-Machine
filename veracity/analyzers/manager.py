@@ -7,6 +7,7 @@ from typing import Callable, Iterable, Sequence
 from flask import current_app
 from .context import AnalysisContext
 from .c2pa import run_c2pa
+from .exif import run_exif_metadata
 from .human import run_human_consensus
 # from .synthid import run_synthid_stub
 
@@ -25,6 +26,7 @@ class AnalyzerSpec:
 
 ANALYZERS: Sequence[AnalyzerSpec] = (
     AnalyzerSpec(name="Digital Signature (C2PA)", slug="c2pa", func=run_c2pa),
+    AnalyzerSpec(name="AI Metadata (EXIF)", slug="exif", func=run_exif_metadata),
     # AnalyzerSpec(name="Google SynthID", func=run_synthid_stub),
     AnalyzerSpec(name="Human Consensus", slug="human", func=run_human_consensus),
 )

@@ -3,10 +3,11 @@ from io import BytesIO
 
 import pytest
 import imagehash
-from PIL import Image
+from PIL import Image, PngImagePlugin
 
 from veracity.analyzers import AnalyzerSpec, run_all_analyzers
 from veracity.analyzers.human import run_human_consensus
+from veracity.analyzers.exif import run_exif_metadata
 from veracity.analyzers.manager import AnalysisContext
 from conftest import _make_test_image_bytes
 
@@ -262,3 +263,85 @@ def test_human_consensus_attaches_sources(app):
     assert len(sources) == 2
     urls = {entry["url"] for entry in sources}
     assert urls == {"https://example.com/a.png", "https://example.com/b.png"}
+
+
+def _make_png_with_text(chunks: dict[str, str]) -> bytes:
+    img = Image.new("RGB", (12, 12), color=(0, 128, 255))
+    pnginfo = PngImagePlugin.PngInfo()
+    for key, value in chunks.items():
+        pnginfo.add_text(key, value)
+    buf = BytesIO()
+    img.save(buf, format="PNG", pnginfo=pnginfo)
+    return buf.getvalue()
+
+
+def test_exif_detects_automatic1111_metadata():
+    sample = (
+        "Astronaut in a jungle, cold color palette, muted colors, detailed, 8k "
+        "Steps: 50, Sampler: DPM++ 2M Karras, CFG scale: 5, Seed: 42, Size: 1024x1024, "
+        "Model hash: 1f69731261, Model: sd_xl_base_0.9, Clip skip: 2, RNG: CPU, Version: v1.4.1"
+    )
+    image_bytes = _make_png_with_text({"parameters": sample})
+    context = AnalysisContext(
+        image_bytes=image_bytes,
+        phash="deadbeefdeadbeef",
+        registry_id=1,
+        neighbors=[],
+    )
+
+    result = run_exif_metadata(context)
+
+    assert result["status"] == "FOUND"
+    findings = result["data"]["findings"]
+    assert len(findings) == 1
+    finding = findings[0]
+    assert finding["tool"] == "Automatic1111"
+    assert finding["key"].lower() == "parameters"
+    metadata = finding["metadata"]
+    assert metadata.get("prompt", "").startswith("Astronaut in a jungle")
+    assert metadata.get("steps") == "50"
+    assert metadata.get("cfg_scale") == "5"
+    assert metadata.get("seed") == "42"
+
+
+def test_exif_detects_comfyui_prompt_and_workflow():
+    prompt_payload = json.dumps({"5": {"inputs": {"text": "galaxy fox"}}})
+    workflow_payload = json.dumps({"last_node_id": 27, "nodes": [{"id": 7}]})
+    image_bytes = _make_png_with_text(
+        {
+            "prompt": prompt_payload,
+            "workflow": workflow_payload,
+        }
+    )
+    context = AnalysisContext(
+        image_bytes=image_bytes,
+        phash="cafebabecafebabe",
+        registry_id=1,
+        neighbors=[],
+    )
+
+    result = run_exif_metadata(context)
+
+    assert result["status"] == "FOUND"
+    findings = result["data"]["findings"]
+    assert len(findings) == 2
+    kinds = {finding["metadata"].get("kind") for finding in findings}
+    assert kinds == {"prompt", "workflow"}
+    for finding in findings:
+        parsed = finding["metadata"].get("parsed_json")
+        assert isinstance(parsed, dict)
+
+
+def test_exif_returns_not_found_without_known_metadata():
+    image_bytes = _make_test_image_bytes()
+    context = AnalysisContext(
+        image_bytes=image_bytes,
+        phash="0011ffaa0011ffaa",
+        registry_id=1,
+        neighbors=[],
+    )
+
+    result = run_exif_metadata(context)
+
+    assert result["status"] == "NOT FOUND"
+    assert result["data"]["findings"] == []
