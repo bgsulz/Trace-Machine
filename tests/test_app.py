@@ -124,6 +124,45 @@ def test_csrf_protection_enabled_by_default(app_csrf):
     assert resp.status_code == 400
 
 
+def test_analyze_auto_vote_records_and_updates(client, app, monkeypatch):
+    import veracity.ingestion as ingestion_module
+
+    dummy_image_bytes = _make_test_image_bytes()
+
+    def fake_fetch(url):
+        return dummy_image_bytes, "image/png"
+
+    monkeypatch.setattr(ingestion_module, "fetch_image_bytes", fake_fetch)
+
+    url = "https://example.com/auto.png"
+
+    first = client.get(f"/analyze?url={url}&vote=real")
+    assert first.status_code == 200
+
+    # Same client/IP requesting a different vote should update the existing record.
+    second = client.get(f"/analyze?url={url}&vote=ai")
+    assert second.status_code == 200
+
+    from veracity.models import ImageRegistry, ImageConsensus, VoteHistory
+
+    with app.app_context():
+        with Image.open(io.BytesIO(dummy_image_bytes)) as img:
+            target_hash = imagehash.phash(img)
+        phash = str(target_hash)
+
+        registry_row = ImageRegistry.query.filter_by(phash=phash).first()
+        assert registry_row is not None
+
+        consensus = ImageConsensus.query.filter_by(image_id=registry_row.id).first()
+        assert consensus is not None
+        assert consensus.vote_real == 0
+        assert consensus.vote_ai == 1
+
+        history_rows = VoteHistory.query.filter_by(image_id=registry_row.id).all()
+        assert len(history_rows) == 1
+        assert history_rows[0].choice == "ai"
+
+
 def test_vote_creates_record_and_increments_counts(client, app):
     # Arrange: run an analysis to generate a Human Consensus hash
     image_bytes = _make_test_image_bytes()
