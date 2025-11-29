@@ -21,7 +21,10 @@ _FORMAT_TO_MIME = {
     "PNG": "image/png",
     "WEBP": "image/webp",
     "GIF": "image/gif",
+    "AVIF": "image/avif",  # in case Pillow supports it
 }
+
+_AVIF_BRANDS = {b"avif", b"avis", b"av01", b"mif1", b"msf1"}
 
 
 def _detect_mime_type(image_bytes: bytes) -> str:
@@ -29,8 +32,16 @@ def _detect_mime_type(image_bytes: bytes) -> str:
         with Image.open(BytesIO(image_bytes)) as img:
             fmt = (img.format or "").upper()
     except (UnidentifiedImageError, OSError):
-        return "application/octet-stream"
-    return _FORMAT_TO_MIME.get(fmt, "application/octet-stream")
+        pass
+    else:
+        return _FORMAT_TO_MIME.get(fmt, "application/octet-stream")
+
+    # ISO-BMFF header check for AVIF/HEIF
+    if len(image_bytes) >= 12:
+        if image_bytes[4:8] == b"ftyp" and image_bytes[8:12] in _AVIF_BRANDS:
+            return "image/avif"
+
+    return "application/octet-stream"
 
 
 def _run_c2pa_tool(image_bytes: bytes) -> dict[str, object]:

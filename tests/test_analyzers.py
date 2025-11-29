@@ -149,7 +149,7 @@ def test_human_consensus_returns_phash():
     )
 
     result = run_human_consensus(context)
-    assert result["status"] == "NO DATA"
+    assert result["status"] == "NOT FOUND"
     data = result["data"]
     assert "phash" in data
     assert data["matches"] == []

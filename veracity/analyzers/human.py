@@ -98,7 +98,7 @@ def run_human_consensus(context: AnalysisContext) -> dict[str, object]:
         status = "FOUND"
     else:
         summary = "No community consensus yet."
-        status = "NO DATA"
+        status = "NOT FOUND"
 
     return {
         "status": status,
