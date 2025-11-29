@@ -16,6 +16,7 @@ from . import ingestion, db
 from .models import ImageConsensus, VoteHistory, ImageSource, ImageRegistry
 from .registry import prepare_analysis_context
 from .analyzers.manager import run_all_analyzers
+from .tools import generate_external_tools
 
 bp = Blueprint("main", __name__)
 
@@ -95,11 +96,15 @@ def _perform_analysis(
         data["current_vote"] = history_row.choice if history_row else None
         human_row["data"] = data
 
+    public_url = image_url if source == "url" else None
+    tool_results = generate_external_tools(public_url)
+
     return render_template(
         "result.html",
         image_url=image_data_url,
         source=source,
         results=analyzer_results,
+        tools=tool_results,
     )
 
 

@@ -15,6 +15,13 @@
   --veracity-badge-danger: var(--veracity-danger);
 }
 
+a::after {
+  content: " ⮺";
+  font-size: 0.6em;
+  vertical-align: super;
+  text-decoration: none;
+}
+
 /* Branding & Layout */
 body > header {
   padding: 2rem 0;

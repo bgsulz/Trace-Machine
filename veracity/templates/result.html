@@ -37,9 +37,9 @@
             <div class="analyzer-detail-block">
               <div class="flash-warning" style="margin-bottom: 0.75rem">
                 <strong>Warning:</strong>
-                Image metadata can be freely added, edited, or removed.
-                Treat this information as a clue, not definitive proof about how
-                the image was created.
+                Image metadata can be freely added, edited, or removed. Treat
+                this information as a clue, not definitive proof about how the
+                image was created.
               </div>
               {% for finding in row.data.findings %}
               <details style="margin-bottom: 0.75rem">
@@ -239,5 +239,33 @@
       </tbody>
     </table>
   </div>
+
+  {% if tools %}
+  <h3>Analysis Tools</h3>
+  <div class="overflow-auto">
+    <table class="striped">
+      <thead>
+        <tr>
+          <th scope="col" style="width: 25%">Tool</th>
+          <th scope="col">Details</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for tool in tools %}
+        <tr>
+          <td style="vertical-align: top"><strong>{{ tool.name }}</strong></td>
+          <td>
+            {% for link in tool.links %}
+            <a href="{{ link.url }}" target="_blank" rel="noopener noreferrer"
+              >{{ link.label|trim }}</a
+            >
+            {% if not loop.last %} · {% endif %} {% endfor %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
 </section>
 {% endblock %}
