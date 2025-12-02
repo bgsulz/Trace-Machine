@@ -96,6 +96,22 @@ def test_analyze_url_creates_image_source_only_once(client, app, monkeypatch):
         assert len(rows) == 1
 
 
+def test_analyze_mini_renders_compact_report(client, monkeypatch):
+    import veracity.ingestion as ingestion_module
+
+    dummy_image_bytes = _make_test_image_bytes()
+
+    def fake_fetch(url):
+        return dummy_image_bytes, "image/png"
+
+    monkeypatch.setattr(ingestion_module, "fetch_image_bytes", fake_fetch)
+
+    resp = client.get("/analyze-mini?url=https://example.com/mini.png")
+    assert resp.status_code == 200
+    assert b"Provenance Report" in resp.data
+    assert b"Digital Signature (C2PA)" in resp.data
+
+
 def test_file_upload_does_not_create_image_source(client, app):
     image_bytes = _make_test_image_bytes()
     data = {

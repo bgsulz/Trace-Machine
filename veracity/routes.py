@@ -32,6 +32,7 @@ def _perform_analysis(
     source: str,
     image_url: str | None = None,
     auto_vote: str | None = None,
+    template_name: str = "result.html",
 ):
     image_b64 = base64.b64encode(image_bytes).decode("ascii")
     image_data_url = f"data:{mime_type};base64,{image_b64}"
@@ -100,7 +101,7 @@ def _perform_analysis(
     tool_results = generate_external_tools(public_url)
 
     return render_template(
-        "result.html",
+        template_name,
         image_url=image_data_url,
         source=source,
         results=analyzer_results,
@@ -159,6 +160,33 @@ def analyze():
         return redirect(url_for("main.index"))
 
     return _perform_analysis(image_bytes, mime_type, source)
+
+
+@bp.route("/analyze-mini")
+def analyze_mini():
+    image_url = (request.args.get("url") or "").strip()
+    vote_slug = (request.args.get("vote") or "").strip().lower()
+    if vote_slug not in {"real", "edited", "ai"}:
+        vote_slug = None
+
+    if not image_url:
+        flash("Please provide an image URL to analyze.")
+        return redirect(url_for("main.index"))
+
+    try:
+        image_bytes, mime_type = ingestion.fetch_image_bytes(image_url)
+    except ingestion.IngestionError as exc:
+        flash(str(exc))
+        return redirect(url_for("main.index"))
+
+    return _perform_analysis(
+        image_bytes,
+        mime_type,
+        "url",
+        image_url=image_url,
+        auto_vote=vote_slug,
+        template_name="result_mini.html",
+    )
 
 
 @bp.route("/vote", methods=["POST"])
