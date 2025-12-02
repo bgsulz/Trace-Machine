@@ -29,6 +29,15 @@ body > header {
   margin-bottom: 2rem;
 }
 
+.site-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 2rem;
+  margin-top: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
 .brand-title {
   margin-bottom: 0.25rem;
   font-weight: 800;
@@ -38,6 +47,24 @@ body > header {
 .brand-subtitle {
   color: var(--pico-muted-color);
   font-size: 0.9rem;
+  margin-bottom: 0;
+}
+
+.theme-toggle-button {
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: 50%;
+  border: 1px solid var(--pico-muted-border-color);
+  background: var(--pico-card-background-color);
+  padding: 0.5rem;
+}
+
+.theme-toggle-button img {
+  filter: var(--theme-icon-filter, invert(0));
+}
+
+[data-theme="dark"] {
+  --theme-icon-filter: invert(1);
 }
 
 /* Upload Zone */

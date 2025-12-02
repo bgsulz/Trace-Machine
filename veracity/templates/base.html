@@ -16,14 +16,35 @@
       rel="shortcut icon"
       href="{{ url_for('static', filename='favicon.ico') }}"
     />
+    <script src="{{ url_for('static', filename='js/theme.js') }}"></script>
   </head>
   <body>
     <main class="container">
-      <header style="margin-top: 1.5rem; margin-bottom: 1.5rem">
-        <h1 class="brand-title">
-          <a href="{{ url_for('main.index') }}">Trace Machine</a>
-        </h1>
-        <p class="brand-subtitle">Detect synthetic media using real data.</p>
+      <header class="site-header">
+        <div class="site-header__brand">
+          <h1 class="brand-title">
+            <a href="{{ url_for('main.index') }}">Trace Machine</a>
+          </h1>
+          <p class="brand-subtitle">Detect synthetic media using real data.</p>
+        </div>
+        <div class="theme-toggle">
+          <button
+            type="button"
+            id="theme-toggle-button"
+            class="theme-toggle-button"
+            aria-label="Change theme"
+            title="Cycle theme"
+            data-icon-system="{{ url_for('static', filename='icons/system.svg') }}"
+            data-icon-light="{{ url_for('static', filename='icons/sun.svg') }}"
+            data-icon-dark="{{ url_for('static', filename='icons/moon.svg') }}"
+            data-order="system,light,dark"
+          >
+            <img
+              src="{{ url_for('static', filename='icons/system.svg') }}"
+              alt="Theme icon"
+            />
+          </button>
+        </div>
       </header>
 
       {% with messages = get_flashed_messages() %} {% if messages %}
