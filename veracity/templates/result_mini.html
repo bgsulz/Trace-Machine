@@ -56,7 +56,6 @@
   <body>
     <main class="mini-container">
       <section class="mini-report">
-        <h3>Provenance Report</h3>
         <div class="overflow-auto mini-table-wrapper">
           <table class="striped">
             <thead>
@@ -262,6 +261,13 @@
             </tbody>
           </table>
         </div>
+        {% if analysis_link %}
+        <p style="margin: 0.5rem 0 0; text-align: right">
+          <a href="{{ analysis_link }}" target="_blank" rel="noopener noreferrer"
+            >Open full analysis ↗</a
+          >
+        </p>
+        {% endif %}
       </section>
     </main>
   </body>

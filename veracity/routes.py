@@ -99,6 +99,7 @@ def _perform_analysis(
 
     public_url = image_url if source == "url" else None
     tool_results = generate_external_tools(public_url)
+    analysis_link = url_for("main.analyze", url=public_url) if public_url else None
 
     return render_template(
         template_name,
@@ -106,6 +107,7 @@ def _perform_analysis(
         source=source,
         results=analyzer_results,
         tools=tool_results,
+        analysis_link=analysis_link,
     )
 
 
