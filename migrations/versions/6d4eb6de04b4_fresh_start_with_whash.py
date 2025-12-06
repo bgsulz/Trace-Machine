@@ -1,8 +1,8 @@
 """Fresh start with whash
 
-Revision ID: 6566eba60baf
+Revision ID: 6d4eb6de04b4
 Revises: 
-Create Date: 2025-12-06 03:24:11.163028
+Create Date: 2025-12-06 03:29:43.983760
 
 """
 from alembic import op
@@ -10,7 +10,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision = '6566eba60baf'
+revision = '6d4eb6de04b4'
 down_revision = None
 branch_labels = None
 depends_on = None
