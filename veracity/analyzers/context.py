@@ -8,5 +8,6 @@ from typing import List
 class AnalysisContext:
     image_bytes: bytes
     phash: str
+    whash: str
     registry_id: int
     neighbors: List[object]

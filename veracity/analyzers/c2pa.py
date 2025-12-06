@@ -160,22 +160,36 @@ def run_c2pa(context: AnalysisContext) -> dict[str, object]:
     # 3. Build a list of nearby matches from provenance facts on neighbors.
     matches: list[dict[str, object]] = []
     try:
-        base_hash = imagehash.hex_to_hash(context.phash)
+        base_phash = imagehash.hex_to_hash(context.phash)
     except Exception:  # pragma: no cover - defensive
-        base_hash = None
+        base_phash = None
+
+    try:
+        base_whash = imagehash.hex_to_hash(context.whash)
+    except Exception:  # pragma: no cover - defensive
+        base_whash = None
 
     for neighbor in context.neighbors:
         phash = getattr(neighbor, "phash", None)
         if not phash:
             continue
 
-        distance: int | None = None
-        if base_hash is not None:
+        phash_distance: int | None = None
+        whash_distance: int | None = None
+        try:
+            neighbor_hash = imagehash.hex_to_hash(phash)
+            phash_distance = int(base_phash - neighbor_hash) if base_phash else None
+        except Exception:  # pragma: no cover - defensive
+            phash_distance = None
+
+        neighbor_whash_val = getattr(neighbor, "whash", None)
+        if neighbor_whash_val:
             try:
-                neighbor_hash = imagehash.hex_to_hash(phash)
-                distance = int(base_hash - neighbor_hash)
+                neighbor_whash = imagehash.hex_to_hash(neighbor_whash_val)
+                if base_whash is not None:
+                    whash_distance = int(base_whash - neighbor_whash)
             except Exception:  # pragma: no cover - defensive
-                distance = None
+                whash_distance = None
 
         for fact in getattr(neighbor, "facts", []) or []:
             if fact.analyzer != "c2pa":
@@ -187,10 +201,25 @@ def run_c2pa(context: AnalysisContext) -> dict[str, object]:
                 if url:
                     sources.append({"url": url})
 
+            display_hash = phash
+            display_label = "phash"
+            display_distance = phash_distance if phash_distance is not None else 0
+
+            if whash_distance is not None and (
+                phash_distance is None or whash_distance <= phash_distance
+            ):
+                display_hash = neighbor_whash_val
+                display_label = "whash"
+                display_distance = whash_distance
+
             matches.append(
                 {
                     "phash": phash,
-                    "distance": distance,
+                    "whash": neighbor_whash_val,
+                    "hash_display": f"{display_hash} ({display_label})",
+                    "distance": display_distance,
+                    "distance_phash": phash_distance,
+                    "distance_whash": whash_distance,
                     "fact_data": str(fact.data),
                     "sources": sources,
                 }

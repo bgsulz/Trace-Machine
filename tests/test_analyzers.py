@@ -37,6 +37,7 @@ def test_run_all_analyzers_preserves_order():
     context = AnalysisContext(
         image_bytes=b"payload",
         phash="deadbeefdeadbeef",
+        whash="feedfacefeedface",
         registry_id=1,
         neighbors=[],
     )
@@ -66,6 +67,7 @@ def test_run_all_analyzers_handles_exceptions():
     context = AnalysisContext(
         image_bytes=b"payload",
         phash="deadbeefdeadbeef",
+        whash="feedfacefeedface",
         registry_id=1,
         neighbors=[],
     )
@@ -86,6 +88,7 @@ def test_c2pa_analyzer_not_available(monkeypatch):
     context = AnalysisContext(
         image_bytes=image_bytes,
         phash="deadbeefdeadbeef",
+        whash="feedfacefeedface",
         registry_id=1,
         neighbors=[],
     )
@@ -125,6 +128,7 @@ def test_c2pa_analyzer_writes_signer(monkeypatch):
     context = AnalysisContext(
         image_bytes=image_bytes,
         phash="deadbeefdeadbeef",
+        whash="feedfacefeedface",
         registry_id=1,
         neighbors=[],
     )
@@ -139,11 +143,14 @@ def test_human_consensus_returns_phash():
     # Compute a realistic perceptual hash for the image
     with Image.open(BytesIO(image_bytes)) as img:
         target_hash = imagehash.phash(img)
+        target_whash = imagehash.whash(img)
     target_hex = str(target_hash)
+    target_whash_hex = str(target_whash)
 
     context = AnalysisContext(
         image_bytes=image_bytes,
         phash=target_hex,
+        whash=target_whash_hex,
         registry_id=1,
         neighbors=[],
     )
@@ -164,7 +171,9 @@ def test_human_consensus_uses_fuzzy_match(app):
     # Compute the target hash exactly as the analyzer does
     with Image.open(BytesIO(image_bytes)) as img:
         target_hash = imagehash.phash(img)
+        target_whash = imagehash.whash(img)
     target_hex = str(target_hash)
+    target_whash_hex = str(target_whash)
 
     # Flip a single bit to create a nearby hash with small Hamming distance
     arr = target_hash.hash.copy()
@@ -189,6 +198,7 @@ def test_human_consensus_uses_fuzzy_match(app):
     context = AnalysisContext(
         image_bytes=image_bytes,
         phash=target_hex,
+        whash=target_whash_hex,
         registry_id=1,
         neighbors=[neighbor],
     )
@@ -217,6 +227,7 @@ def test_human_consensus_attaches_sources(app):
     # Compute the target hash exactly as the analyzer does
     with Image.open(BytesIO(image_bytes)) as img:
         target_hash = imagehash.phash(img)
+        target_whash = imagehash.whash(img)
 
     # Flip a single bit to create a nearby hash with small Hamming distance
     arr = target_hash.hash.copy()
@@ -247,6 +258,7 @@ def test_human_consensus_attaches_sources(app):
     context = AnalysisContext(
         image_bytes=image_bytes,
         phash=str(target_hash),
+        whash=str(target_whash),
         registry_id=1,
         neighbors=[neighbor],
     )
@@ -285,6 +297,7 @@ def test_exif_detects_automatic1111_metadata():
     context = AnalysisContext(
         image_bytes=image_bytes,
         phash="deadbeefdeadbeef",
+        whash="deadbeefdeadbeef",
         registry_id=1,
         neighbors=[],
     )
@@ -316,6 +329,7 @@ def test_exif_detects_comfyui_prompt_and_workflow():
     context = AnalysisContext(
         image_bytes=image_bytes,
         phash="cafebabecafebabe",
+        whash="cafebabecafebabe",
         registry_id=1,
         neighbors=[],
     )
@@ -337,6 +351,7 @@ def test_exif_returns_not_found_without_known_metadata():
     context = AnalysisContext(
         image_bytes=image_bytes,
         phash="0011ffaa0011ffaa",
+        whash="0011ffaa0011ffaa",
         registry_id=1,
         neighbors=[],
     )

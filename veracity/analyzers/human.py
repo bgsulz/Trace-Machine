@@ -21,6 +21,7 @@ def run_human_consensus(context: AnalysisContext) -> dict[str, object]:
     """
 
     target_hex = context.phash
+    target_whash = context.whash
 
     matches: list[dict[str, object]] = []
 
@@ -29,20 +30,33 @@ def run_human_consensus(context: AnalysisContext) -> dict[str, object]:
     except Exception:  # pragma: no cover - defensive
         base_hash = None
 
+    try:
+        base_whash = imagehash.hex_to_hash(target_whash)
+    except Exception:  # pragma: no cover - defensive
+        base_whash = None
+
     for neighbor in context.neighbors:
         consensus = getattr(neighbor, "consensus", None)
         if not consensus:
             continue
 
+        phash_distance: int | None = None
+        whash_distance: int | None = None
+
         try:
-            if base_hash is None:
-                neighbor_hash = imagehash.hex_to_hash(neighbor.phash)
-                distance = int(imagehash.hex_to_hash(target_hex) - neighbor_hash)
-            else:
-                neighbor_hash = imagehash.hex_to_hash(neighbor.phash)
-                distance = int(base_hash - neighbor_hash)
+            neighbor_hash = imagehash.hex_to_hash(neighbor.phash)
+            phash_distance = int(base_hash - neighbor_hash) if base_hash else None
         except Exception:  # pragma: no cover - defensive
-            distance = 0
+            phash_distance = None
+
+        neighbor_whash_val = getattr(neighbor, "whash", None)
+        if neighbor_whash_val:
+            try:
+                neighbor_whash = imagehash.hex_to_hash(neighbor_whash_val)
+                if base_whash is not None:
+                    whash_distance = int(base_whash - neighbor_whash)
+            except Exception:  # pragma: no cover - defensive
+                whash_distance = None
 
         total_votes = (
             (consensus.vote_real or 0)
@@ -54,10 +68,26 @@ def run_human_consensus(context: AnalysisContext) -> dict[str, object]:
         for src in getattr(neighbor, "sources", [])[:3]:
             sources.append({"url": src.url})
 
+        # Prefer the hash type that matched neighbor inclusion; fall back to phash.
+        display_hash = neighbor.phash
+        display_label = "phash"
+        display_distance = phash_distance if phash_distance is not None else 0
+
+        if whash_distance is not None and (
+            phash_distance is None or whash_distance <= phash_distance
+        ):
+            display_hash = neighbor_whash_val
+            display_label = "whash"
+            display_distance = whash_distance
+
         matches.append(
             {
                 "phash": neighbor.phash,
-                "distance": distance,
+                "whash": neighbor_whash_val,
+                "hash_display": f"{display_hash} ({display_label})",
+                "distance": display_distance,
+                "distance_phash": phash_distance,
+                "distance_whash": whash_distance,
                 "vote_real": consensus.vote_real,
                 "vote_edited": consensus.vote_edited,
                 "vote_ai": consensus.vote_ai,

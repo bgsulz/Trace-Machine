@@ -45,10 +45,6 @@ def create_app(test_config=None):
         os.makedirs(app.instance_path, exist_ok=True)
     except OSError:
         pass
-    with app.app_context():
-        from . import models  # noqa: F401  # register models
-
-        db.create_all()
 
     from .routes import bp as main_bp
 

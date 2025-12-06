@@ -6,6 +6,7 @@ from . import db
 class ImageRegistry(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     phash = db.Column(db.String(16), nullable=False, unique=True, index=True)
+    whash = db.Column(db.String(16), nullable=False, index=True)
     created_at = db.Column(
         db.DateTime(timezone=True), default=lambda: datetime.now(UTC)
     )

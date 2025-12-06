@@ -100,7 +100,7 @@
                   {% for match in row.data.matches %}
                   <tr>
                     <td>
-                      <code>{{ match.phash }}</code>
+                      <code>{{ match.hash_display or match.phash }}</code>
                       {% if match.sources %}
                       <br />
                       <small>
@@ -140,7 +140,7 @@
                   {% for match in row.data.matches %}
                   <tr>
                     <td>
-                      <code>{{ match.phash }}</code>
+                      <code>{{ match.hash_display or match.phash }}</code>
                       {% if match.sources %}
                       <br />
                       <small>
