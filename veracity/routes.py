@@ -128,38 +128,14 @@ def analyzer_fragment(analysis_id: str, slug: str):
 
     if payload is None:
         row = _build_analyzer_error_row(spec, "Analysis expired. Please re-run.")
-        return render_template(
-            "partials/analyzer_row.html",
-            row=row,
-            source="file",
-            analysis_link=None,
-            link_target=link_target,
-        )
+        return _render_analyzer_row(row, metadata=None, link_target=link_target)
 
     image_bytes, metadata = payload
     context = prepare_analysis_context(image_bytes)
     row = run_single_analyzer(context, slug)
+    _enrich_analyzer_row(row, metadata)
 
-    registry_id = metadata.get("registry_id")
-    if row.get("slug") == "human":
-        voter_id = _build_voter_id(_get_client_ip())
-        _attach_vote_history(row, registry_id, voter_id)
-
-    source = metadata.get("source", "file")
-    analysis_link = metadata.get("analysis_link")
-
-    row_data = row.get("data") or {}
-    if "phash" not in row_data and metadata.get("phash"):
-        row_data["phash"] = metadata["phash"]
-    row["data"] = row_data
-
-    return render_template(
-        "partials/analyzer_row.html",
-        row=row,
-        source=source,
-        analysis_link=analysis_link,
-        link_target=link_target,
-    )
+    return _render_analyzer_row(row, metadata=metadata, link_target=link_target)
 
 
 def _build_image_data_url(image_bytes: bytes, mime_type: str) -> str:
@@ -229,7 +205,39 @@ def _build_analyzer_error_row(spec, message: str) -> dict[str, object]:
         "summary": message,
         "details": message,
         "data": {},
+        "template": spec.template,
     }
+
+
+def _enrich_analyzer_row(row: dict[str, object], metadata: dict[str, object]) -> None:
+    row_data = row.get("data") or {}
+    phash = row_data.get("phash") or metadata.get("phash")
+    if phash:
+        row_data["phash"] = phash
+    row["data"] = row_data
+
+    if row.get("slug") != "human":
+        return
+
+    registry_id = metadata.get("registry_id")
+    if registry_id is None:
+        return
+
+    voter_id = _build_voter_id(_get_client_ip())
+    _attach_vote_history(row, registry_id, voter_id)
+
+
+def _render_analyzer_row(
+    row: dict[str, object], metadata: dict[str, object] | None, link_target: str | None
+):
+    metadata = metadata or {}
+    return render_template(
+        "partials/analyzer_row.html",
+        row=row,
+        source=metadata.get("source", "file"),
+        analysis_link=metadata.get("analysis_link"),
+        link_target=link_target,
+    )
 
 
 def _handle_remote_analysis(image_url: str, vote_slug: str | None, template_name: str):

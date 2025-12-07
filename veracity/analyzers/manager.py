@@ -15,6 +15,7 @@ logger = logging.getLogger(__name__)
 
 
 AnalyzerOutput = dict[str, object]
+DEFAULT_ANALYZER_TEMPLATE = "partials/analyzers/default.html"
 
 
 @dataclass(frozen=True)
@@ -22,13 +23,29 @@ class AnalyzerSpec:
     name: str
     slug: str
     func: Callable[[AnalysisContext], AnalyzerOutput]
+    template: str = DEFAULT_ANALYZER_TEMPLATE
 
 
 ANALYZERS: Sequence[AnalyzerSpec] = (
-    AnalyzerSpec(name="Digital Signature (C2PA)", slug="c2pa", func=run_c2pa),
-    AnalyzerSpec(name="AI Metadata (EXIF)", slug="exif", func=run_exif_metadata),
+    AnalyzerSpec(
+        name="Digital Signature (C2PA)",
+        slug="c2pa",
+        func=run_c2pa,
+        template="partials/analyzers/c2pa.html",
+    ),
+    AnalyzerSpec(
+        name="AI Metadata (EXIF)",
+        slug="exif",
+        func=run_exif_metadata,
+        template="partials/analyzers/exif.html",
+    ),
     # AnalyzerSpec(name="Google SynthID", func=run_synthid_stub),
-    AnalyzerSpec(name="Human Consensus", slug="human", func=run_human_consensus),
+    AnalyzerSpec(
+        name="Human Consensus",
+        slug="human",
+        func=run_human_consensus,
+        template="partials/analyzers/human.html",
+    ),
 )
 
 _ANALYZER_BY_SLUG = {spec.slug: spec for spec in ANALYZERS}
@@ -140,4 +157,5 @@ def _format_result(
         "summary": summary,
         "details": summary,
         "data": data,
+        "template": spec.template,
     }

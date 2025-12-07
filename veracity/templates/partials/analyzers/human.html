@@ -1,0 +1,106 @@
+{% if row.data.phash %}
+<div class="analyzer-detail-block">
+  {% if row.data.has_matches %}
+  <hr />
+  <p><strong>{{ row.data.matches_summary }}</strong></p>
+
+  <table style="font-size: 0.85rem; margin-bottom: 1rem">
+    <thead>
+      <tr>
+        <th>Matched Hash</th>
+        <th>Distance</th>
+        <th>Votes (Real / Edit / AI)</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for match in row.data.matches %}
+      <tr>
+        <td>
+          <code>{{ match.hash_display or match.phash }}</code>
+          {% if match.sources %}
+          <br />
+          <small>
+            {% for src in match.sources %}
+            <a
+              href="{{ url_for('main.analyze', url=src.url) }}"
+              {% if link_target %}target="{{ link_target }}" rel="noopener noreferrer"{% endif %}
+              >Source {{ loop.index }}</a
+            >{% if not loop.last %}, {% endif %} {% endfor %}
+          </small>
+          {% endif %}
+        </td>
+        <td>{{ match.distance }}</td>
+        <td>
+          {{ match.vote_real }} / {{ match.vote_edited }} / {{ match.vote_ai }}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p><em>{{ row.data.no_votes_message }}</em></p>
+  {% endif %}
+
+  <div class="voting-area">
+    {% set current_vote = row.data.current_vote %}
+    <small style="display: block; margin-bottom: 0.5rem"
+      ><strong>Contribute to consensus:</strong></small
+    >
+    <div class="vote-buttons">
+      <form action="{{ url_for('main.vote') }}" method="post">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+        <input type="hidden" name="source_type" value="{{ source }}" />
+        <input
+          type="hidden"
+          name="analysis_link"
+          value="{{ analysis_link or '' }}"
+        />
+        <input type="hidden" name="phash" value="{{ row.data.phash }}" />
+        <input type="hidden" name="vote" value="real" />
+        <button
+          type="submit"
+          class="vote-btn-real{% if current_vote and current_vote != 'real' %} vote-btn-muted{% endif %}"
+        >
+          Mark as Real
+        </button>
+      </form>
+
+      <form action="{{ url_for('main.vote') }}" method="post">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+        <input type="hidden" name="source_type" value="{{ source }}" />
+        <input
+          type="hidden"
+          name="analysis_link"
+          value="{{ analysis_link or '' }}"
+        />
+        <input type="hidden" name="phash" value="{{ row.data.phash }}" />
+        <input type="hidden" name="vote" value="edited" />
+        <button
+          type="submit"
+          class="vote-btn-edited{% if current_vote and current_vote != 'edited' %} vote-btn-muted{% endif %}"
+        >
+          Mark as AI-Edited
+        </button>
+      </form>
+
+      <form action="{{ url_for('main.vote') }}" method="post">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+        <input type="hidden" name="source_type" value="{{ source }}" />
+        <input
+          type="hidden"
+          name="analysis_link"
+          value="{{ analysis_link or '' }}"
+        />
+        <input type="hidden" name="phash" value="{{ row.data.phash }}" />
+        <input type="hidden" name="vote" value="ai" />
+        <button
+          type="submit"
+          class="vote-btn-ai{% if current_vote and current_vote != 'ai' %} vote-btn-muted{% endif %}"
+        >
+          Mark as AI-Gen
+        </button>
+      </form>
+    </div>
+  </div>
+</div>
+{% endif %}
