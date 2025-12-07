@@ -1,3 +1,5 @@
+import base64
+
 import pytest
 import requests
 
@@ -72,3 +74,22 @@ def test_fetch_image_bytes_request_exception(app, monkeypatch):
     with app.app_context():
         with pytest.raises(IngestionError):
             fetch_image_bytes("https://example.com/image.png")
+
+
+def test_fetch_image_bytes_data_url_success(app):
+    image_bytes = _make_test_image_bytes()
+    data_url = "data:image/png;base64," + base64.b64encode(image_bytes).decode("ascii")
+
+    with app.app_context():
+        data, mime_type = fetch_image_bytes(data_url)
+
+    assert data == image_bytes
+    assert mime_type == "image/png"
+
+
+def test_fetch_image_bytes_data_url_invalid_base64(app):
+    data_url = "data:image/png;base64,not_base64"
+
+    with app.app_context():
+        with pytest.raises(IngestionError):
+            fetch_image_bytes(data_url)

@@ -1,8 +1,10 @@
+import base64
+import binascii
 from io import BytesIO
-from urllib.parse import urlparse
+from urllib.parse import urlparse, unquote_to_bytes
 
 import requests
-from flask import current_app
+from flask import current_app, has_app_context
 from PIL import Image, UnidentifiedImageError
 
 
@@ -28,6 +30,39 @@ def fetch_image_bytes(url: str) -> tuple[bytes, str]:
     Returns (image_bytes, mime_type).
     """
     parsed = urlparse(url)
+    default_max_bytes = 10 * 1024 * 1024
+    if has_app_context():
+        max_bytes = current_app.config.get("MAX_CONTENT_LENGTH", default_max_bytes)
+    else:
+        max_bytes = default_max_bytes
+
+    if parsed.scheme == "data":
+        try:
+            header, data_part = parsed.path.split(",", 1)
+        except ValueError:
+            raise IngestionError("Invalid data URL.") from None
+
+        media_type = "application/octet-stream"
+        params = [segment for segment in header.split(";") if segment]
+        base64_encoded = False
+        if params:
+            media_type = params[0] or media_type
+            base64_encoded = any(part.lower() == "base64" for part in params[1:])
+
+        if base64_encoded:
+            try:
+                data_bytes = base64.b64decode(data_part, validate=True)
+            except (binascii.Error, ValueError):
+                raise IngestionError("Invalid base64 data URL.") from None
+        else:
+            data_bytes = unquote_to_bytes(data_part)
+
+        if len(data_bytes) > max_bytes:
+            raise IngestionError("Provided data URL is too large.")
+
+        validate_image_bytes(data_bytes)
+        return data_bytes, media_type
+
     if parsed.scheme not in {"http", "https"}:
         raise IngestionError("Only HTTP/HTTPS URLs are supported.")
 
@@ -39,8 +74,6 @@ def fetch_image_bytes(url: str) -> tuple[bytes, str]:
             content_type = resp.headers.get("Content-Type", "")
             if "image" not in content_type:
                 raise IngestionError("URL does not point to an image.")
-
-            max_bytes = current_app.config.get("MAX_CONTENT_LENGTH", 10 * 1024 * 1024)
 
             content_length = resp.headers.get("Content-Length")
             if content_length is not None:
