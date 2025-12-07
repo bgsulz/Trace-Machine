@@ -34,8 +34,7 @@ def _perform_analysis(
     auto_vote: str | None = None,
     template_name: str = "result.html",
 ):
-    image_b64 = base64.b64encode(image_bytes).decode("ascii")
-    image_data_url = f"data:{mime_type};base64,{image_b64}"
+    image_data_url = _build_image_data_url(image_bytes, mime_type)
 
     context = prepare_analysis_context(image_bytes)
     analyzer_results = run_all_analyzers(context)
@@ -49,53 +48,11 @@ def _perform_analysis(
         human_row["data"] = data
         phash = data.get("phash")
 
-    # Persist the mapping from Human Consensus phash -> source URL so
-    # that future analyses can link back to this image by URL.
-    if image_url and phash:
-        # Look up the registry row for this perceptual hash so we can
-        # associate the source URL with the canonical image record.
-        registry_row = ImageRegistry.query.filter_by(phash=phash).first()
-        if registry_row is None:
-            registry_row = ImageRegistry(phash=phash)
-            db.session.add(registry_row)
-            db.session.flush()
-
-        record = ImageSource(image_id=registry_row.id, url=image_url)
-        db.session.add(record)
-        try:
-            db.session.commit()
-        except IntegrityError:
-            db.session.rollback()
+    _persist_source_url(phash, image_url)
 
     voter_id = _build_voter_id(_get_client_ip())
-
-    auto_vote_slug = auto_vote if auto_vote in {"real", "edited", "ai"} else None
-    if auto_vote_slug:
-        if phash:
-            success, status = _apply_vote(phash, auto_vote_slug, voter_id)
-            if success:
-                if status == "updated":
-                    flash("Vote updated automatically via shared link.")
-                elif status == "unchanged":
-                    flash(
-                        "This vote was already recorded for you; showing latest results."
-                    )
-                else:
-                    flash("Vote recorded automatically via shared link.")
-            else:
-                flash("Automatic voting is temporarily unavailable. Please try again.")
-        else:
-            flash("Automatic voting could not be completed for this image.")
-
-    if human_row is not None:
-        history_row = VoteHistory.query.filter_by(
-            image_id=context.registry_id,
-            voter_id=voter_id,
-        ).first()
-
-        data = human_row.get("data") or {}
-        data["current_vote"] = history_row.choice if history_row else None
-        human_row["data"] = data
+    _maybe_auto_vote(phash, auto_vote, voter_id)
+    _attach_vote_history(human_row, context.registry_id, voter_id)
 
     public_url = image_url if source == "url" else None
     tool_results = generate_external_tools(public_url)
@@ -111,6 +68,86 @@ def _perform_analysis(
     )
 
 
+def _build_image_data_url(image_bytes: bytes, mime_type: str) -> str:
+    image_b64 = base64.b64encode(image_bytes).decode("ascii")
+    return f"data:{mime_type};base64,{image_b64}"
+
+
+def _persist_source_url(phash: str | None, image_url: str | None) -> None:
+    if not (image_url and phash):
+        return
+
+    registry_row = _get_or_create_registry(phash)
+    record = ImageSource(image_id=registry_row.id, url=image_url)
+    db.session.add(record)
+    try:
+        db.session.commit()
+    except IntegrityError:
+        db.session.rollback()
+
+
+def _maybe_auto_vote(phash: str | None, auto_vote: str | None, voter_id: str) -> None:
+    if not auto_vote:
+        return
+
+    auto_vote_slug = auto_vote if auto_vote in {"real", "edited", "ai"} else None
+    if not auto_vote_slug:
+        return
+
+    if not phash:
+        flash("Automatic voting could not be completed for this image.")
+        return
+
+    success, status = _apply_vote(phash, auto_vote_slug, voter_id)
+    if not success:
+        flash("Automatic voting is temporarily unavailable. Please try again.")
+        return
+
+    if status == "updated":
+        flash("Vote updated automatically via shared link.")
+    elif status == "unchanged":
+        flash("This vote was already recorded for you; showing latest results.")
+    else:
+        flash("Vote recorded automatically via shared link.")
+
+
+def _attach_vote_history(
+    human_row: dict | None, registry_id: int | None, voter_id: str
+) -> None:
+    if human_row is None or registry_id is None:
+        return
+
+    history_row = VoteHistory.query.filter_by(
+        image_id=registry_id,
+        voter_id=voter_id,
+    ).first()
+
+    data = human_row.get("data") or {}
+    data["current_vote"] = history_row.choice if history_row else None
+    human_row["data"] = data
+
+
+def _handle_remote_analysis(image_url: str, vote_slug: str | None, template_name: str):
+    if not image_url:
+        flash("Please provide an image URL to analyze.")
+        return redirect(url_for("main.index"))
+
+    try:
+        image_bytes, mime_type = ingestion.fetch_image_bytes(image_url)
+    except ingestion.IngestionError as exc:
+        flash(str(exc))
+        return redirect(url_for("main.index"))
+
+    return _perform_analysis(
+        image_bytes,
+        mime_type,
+        "url",
+        image_url=image_url,
+        auto_vote=vote_slug,
+        template_name=template_name,
+    )
+
+
 @bp.route("/analyze", methods=["GET", "POST"])
 def analyze():
     if request.method == "GET":
@@ -119,24 +156,7 @@ def analyze():
         if vote_slug not in {"real", "edited", "ai"}:
             vote_slug = None
 
-        if not image_url:
-            # No URL provided in query string; nothing to analyze.
-            flash("Please provide an image URL to analyze.")
-            return redirect(url_for("main.index"))
-
-        try:
-            image_bytes, mime_type = ingestion.fetch_image_bytes(image_url)
-        except ingestion.IngestionError as exc:
-            flash(str(exc))
-            return redirect(url_for("main.index"))
-
-        return _perform_analysis(
-            image_bytes,
-            mime_type,
-            "url",
-            image_url=image_url,
-            auto_vote=vote_slug,
-        )
+        return _handle_remote_analysis(image_url, vote_slug, "result.html")
 
     # POST: form submission
     file = request.files.get("file")
@@ -171,24 +191,7 @@ def analyze_mini():
     if vote_slug not in {"real", "edited", "ai"}:
         vote_slug = None
 
-    if not image_url:
-        flash("Please provide an image URL to analyze.")
-        return redirect(url_for("main.index"))
-
-    try:
-        image_bytes, mime_type = ingestion.fetch_image_bytes(image_url)
-    except ingestion.IngestionError as exc:
-        flash(str(exc))
-        return redirect(url_for("main.index"))
-
-    return _perform_analysis(
-        image_bytes,
-        mime_type,
-        "url",
-        image_url=image_url,
-        auto_vote=vote_slug,
-        template_name="result_mini.html",
-    )
+    return _handle_remote_analysis(image_url, vote_slug, "result_mini.html")
 
 
 @bp.route("/vote", methods=["POST"])
@@ -219,18 +222,8 @@ def _apply_vote(phash: str, vote_kind: str, voter_id: str) -> tuple[bool, str | 
     if vote_kind not in {"real", "edited", "ai"}:
         return False, None
 
-    # Resolve or create the ImageRegistry row for this perceptual hash so we
-    # can store vote history and consensus against a stable image_id.
-    registry_row = ImageRegistry.query.filter_by(phash=phash).first()
-    if registry_row is None:
-        registry_row = ImageRegistry(phash=phash)
-        db.session.add(registry_row)
-        db.session.flush()
-
-    record = ImageConsensus.query.filter_by(image_id=registry_row.id).first()
-    if record is None:
-        record = ImageConsensus(image_id=registry_row.id)
-        db.session.add(record)
+    registry_row = _get_or_create_registry(phash)
+    record = _get_or_create_consensus(registry_row)
 
     history_row = VoteHistory.query.filter_by(
         image_id=registry_row.id,
@@ -293,3 +286,20 @@ def _build_voter_id(ip_address: str) -> str:
     secret = current_app.config.get("SECRET_KEY", "")
     payload = f"{ip_address}:{secret}".encode("utf-8")
     return hashlib.sha256(payload).hexdigest()
+
+
+def _get_or_create_registry(phash: str) -> ImageRegistry:
+    registry_row = ImageRegistry.query.filter_by(phash=phash).first()
+    if registry_row is None:
+        registry_row = ImageRegistry(phash=phash)
+        db.session.add(registry_row)
+        db.session.flush()
+    return registry_row
+
+
+def _get_or_create_consensus(registry_row: ImageRegistry) -> ImageConsensus:
+    record = ImageConsensus.query.filter_by(image_id=registry_row.id).first()
+    if record is None:
+        record = ImageConsensus(image_id=registry_row.id)
+        db.session.add(record)
+    return record
