@@ -195,6 +195,8 @@ def analyze_mini():
 def vote():
     phash = (request.form.get("phash") or "").strip()
     vote_kind = (request.form.get("vote") or "").strip().lower()
+    source_type = (request.form.get("source_type") or "").strip().lower()
+    analysis_link = (request.form.get("analysis_link") or "").strip()
 
     if not phash or vote_kind not in {"real", "edited", "ai"}:
         flash("Invalid vote request.")
@@ -207,7 +209,10 @@ def vote():
         return redirect(url_for("main.index"))
 
     flash("Thanks for your vote.")
-    return redirect(url_for("main.index"))
+    redirect_target = url_for("main.index")
+    if source_type == "url" and analysis_link.startswith("/"):
+        redirect_target = analysis_link
+    return redirect(redirect_target)
 
 
 def _apply_vote(phash: str, vote_kind: str, voter_id: str) -> tuple[bool, str | None]:

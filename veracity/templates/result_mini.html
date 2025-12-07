@@ -210,6 +210,16 @@
                             name="csrf_token"
                             value="{{ csrf_token() }}"
                           />
+                          <input
+                            type="hidden"
+                            name="source_type"
+                            value="{{ source }}"
+                          />
+                          <input
+                            type="hidden"
+                            name="analysis_link"
+                            value="{{ analysis_link or '' }}"
+                          />
                           <input type="hidden" name="phash" value="{{ row.data.phash }}" />
                           <input type="hidden" name="vote" value="real" />
                           <button
@@ -226,6 +236,16 @@
                             name="csrf_token"
                             value="{{ csrf_token() }}"
                           />
+                          <input
+                            type="hidden"
+                            name="source_type"
+                            value="{{ source }}"
+                          />
+                          <input
+                            type="hidden"
+                            name="analysis_link"
+                            value="{{ analysis_link or '' }}"
+                          />
                           <input type="hidden" name="phash" value="{{ row.data.phash }}" />
                           <input type="hidden" name="vote" value="edited" />
                           <button
@@ -241,6 +261,16 @@
                             type="hidden"
                             name="csrf_token"
                             value="{{ csrf_token() }}"
+                          />
+                          <input
+                            type="hidden"
+                            name="source_type"
+                            value="{{ source }}"
+                          />
+                          <input
+                            type="hidden"
+                            name="analysis_link"
+                            value="{{ analysis_link or '' }}"
                           />
                           <input type="hidden" name="phash" value="{{ row.data.phash }}" />
                           <input type="hidden" name="vote" value="ai" />
