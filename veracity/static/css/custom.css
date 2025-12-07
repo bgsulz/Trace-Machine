@@ -120,6 +120,35 @@ body > header {
   color: var(--veracity-badge-fg);
 }
 
+.badge.loading {
+  background-color: var(--veracity-badge-bg);
+  color: var(--pico-muted-color);
+  position: relative;
+  overflow: hidden;
+}
+
+.badge.loading::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    120deg,
+    transparent,
+    rgba(255, 255, 255, 0.4),
+    transparent
+  );
+  animation: badge-sheen 1.2s linear infinite;
+}
+
+@keyframes badge-sheen {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(100%);
+  }
+}
+
 /* Analyzer Details */
 .analyzer-detail-block {
   background-color: var(--pico-card-section-background-color);

@@ -6,57 +6,26 @@
     <title>Trace Machine · Mini Report</title>
     <link
       rel="stylesheet"
-      href="https://unpkg.com/@picocss/pico@2.0.6/css/pico.min.css"
+      href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css"
     />
     <link
       rel="stylesheet"
       href="{{ url_for('static', filename='css/custom.css') }}"
     />
-    <style>
-      html,
-      body {
-        height: 100%;
-        margin: 0;
-      }
-
-      body {
-        background-color: var(--pico-background-color);
-      }
-
-      a::after {
-        content: none;
-      }
-
-      .mini-container {
-        height: 100%;
-        padding: 0.5rem;
-      }
-
-      .mini-report {
-        height: 100%;
-        display: flex;
-        flex-direction: column;
-        gap: 0.75rem;
-      }
-
-      .mini-table-wrapper {
-        flex: 1;
-      }
-
-      h3 {
-        margin-bottom: 0.25rem;
-      }
-
-      table td,
-      table th {
-        padding: 0.5rem;
-      }
-    </style>
+    <script
+      src="https://cdn.jsdelivr.net/npm/htmx.org@2.0.8/dist/htmx.min.js"
+      integrity="sha384-/TgkGk7p307TH7EXJDuUlgG3Ce1UVolAOFopFekQkkXihi5u/6OCvVKyz1W+idaz"
+      crossorigin="anonymous"
+    ></script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/mini.css') }}"></link>
   </head>
   <body>
     <main class="mini-container">
       <section class="mini-report">
-        <div class="overflow-auto mini-table-wrapper">
+        <div
+          class="overflow-auto mini-table-wrapper"
+          data-analysis-id="{{ analysis_id }}"
+        >
           <table class="striped">
             <thead>
               <tr>
@@ -66,225 +35,23 @@
               </tr>
             </thead>
             <tbody>
-              {% for row in results %}
-              <tr>
-                <td style="vertical-align: top"><strong>{{ row.name }}</strong></td>
+              {% for analyzer in analyzers %} {% set row_id =
+              "mini-analyzer-placeholder-" ~ analyzer.slug %}
+              <tr
+                id="{{ row_id }}"
+                hx-get="{{ url_for('main.analyzer_fragment', analysis_id=analysis_id, slug=analyzer.slug, mini='1') }}"
+                hx-trigger="load"
+                hx-target="#{{ row_id }}"
+                hx-swap="outerHTML"
+              >
                 <td style="vertical-align: top">
-                  {% set status_class = row.status|lower|replace(' ', '-') %}
-                  <span class="badge {{ status_class }}">{{ row.status }}</span>
+                  <strong>{{ analyzer.name }}</strong>
+                </td>
+                <td style="vertical-align: top">
+                  <span class="badge loading">RUNNING</span>
                 </td>
                 <td>
-                  {{ row.details }} {% if row.slug == "exif" and row.data.findings %}
-                  <div class="analyzer-detail-block">
-                    <div class="flash-warning" style="margin-bottom: 0.75rem">
-                      <strong>Warning:</strong>
-                      Image metadata can be freely added, edited, or removed. Treat
-                      this information as a clue, not definitive proof about how the
-                      image was created.
-                    </div>
-                    {% for finding in row.data.findings %}
-                    <details style="margin-bottom: 0.75rem">
-                      <summary>
-                        <strong>{{ finding.tool }}</strong>
-                        <span style="font-weight: normal">({{ finding.key }})</span>
-                        <br />
-                        <small>{{ finding.preview }}</small>
-                      </summary>
-                      <div style="margin-top: 0.5rem">
-                        <pre style="white-space: pre-wrap">{{ finding.full_text }}</pre>
-                        {% if finding.metadata %}
-                        <ul style="font-size: 0.9rem">
-                          {% for meta_key, meta_value in finding.metadata.items() %}
-                          <li>
-                            <strong>{{ meta_key }}:</strong>
-                            {% if meta_value is mapping %}
-                            <pre style="white-space: pre-wrap">{{ meta_value | tojson(indent=2) }}</pre>
-                            {% else %} {{ meta_value }} {% endif %}
-                          </li>
-                          {% endfor %}
-                        </ul>
-                        {% endif %}
-                      </div>
-                    </details>
-                    {% endfor %}
-                  </div>
-                  {% endif %} {% if row.slug == "c2pa" and row.data %}
-                  <div class="analyzer-detail-block">
-                    {% if row.data.tool %}
-                    <div><strong>Tool:</strong> {{ row.data.tool }}</div>
-                    {% endif %} {% if row.data.signature_status %}
-                    <div>
-                      <strong>Signature:</strong> {{ row.data.signature_status }}
-                    </div>
-                    {% endif %} {% if row.data.provenance_depth %}
-                    <div>
-                      <strong>Chain Length:</strong> {{ row.data.provenance_depth }} prior assets
-                    </div>
-                    {% endif %} {% if row.data.matches %}
-                    <hr />
-                    <p><strong>Similar images with C2PA data:</strong></p>
-
-                    <table style="font-size: 0.85rem; margin-bottom: 1rem">
-                      <thead>
-                        <tr>
-                          <th>Matched Hash</th>
-                          <th>Distance</th>
-                          <th>C2PA Details</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {% for match in row.data.matches %}
-                        <tr>
-                          <td>
-                            <code>{{ match.hash_display or match.phash }}</code>
-                            {% if match.sources %}
-                            <br />
-                            <small>
-                              {% for src in match.sources %}
-                              <a href="{{ url_for('main.analyze', url=src.url) }}" target="_blank" rel="noopener noreferrer"
-                                >Source {{ loop.index }}</a
-                              >{% if not loop.last %}, {% endif %} {% endfor %}
-                            </small>
-                            {% endif %}
-                          </td>
-                          <td>
-                            {% if match.distance is not none %}{{ match.distance }}{% else %}-{% endif %}
-                          </td>
-                          <td>{{ match.fact_data }}</td>
-                        </tr>
-                        {% endfor %}
-                      </tbody>
-                    </table>
-                    {% endif %}
-                  </div>
-                  {% endif %} {% if row.slug == "human" and row.data.phash %}
-                  <div class="analyzer-detail-block">
-                    {% if row.data.has_matches %}
-                    <hr />
-                    <p><strong>{{ row.data.matches_summary }}</strong></p>
-
-                    <table style="font-size: 0.85rem; margin-bottom: 1rem">
-                      <thead>
-                        <tr>
-                          <th>Matched Hash</th>
-                          <th>Distance</th>
-                          <th>Votes (Real / Edit / AI)</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {% for match in row.data.matches %}
-                        <tr>
-                          <td>
-                            <code>{{ match.hash_display or match.phash }}</code>
-                            {% if match.sources %}
-                            <br />
-                            <small>
-                              {% for src in match.sources %}
-                              <a href="{{ url_for('main.analyze', url=src.url) }}" target="_blank" rel="noopener noreferrer"
-                                >Source {{ loop.index }}</a
-                              >{% if not loop.last %}, {% endif %} {% endfor %}
-                            </small>
-                            {% endif %}
-                          </td>
-                          <td>{{ match.distance }}</td>
-                          <td>
-                            {{ match.vote_real }} / {{ match.vote_edited }} / {{ match.vote_ai }}
-                          </td>
-                        </tr>
-                        {% endfor %}
-                      </tbody>
-                    </table>
-                    {% else %}
-                    <p><em>{{ row.data.no_votes_message }}</em></p>
-                    {% endif %}
-
-                    <div class="voting-area">
-                      {% set current_vote = row.data.current_vote %}
-                      <small style="display: block; margin-bottom: 0.5rem"
-                        ><strong>Contribute to consensus:</strong></small
-                      >
-                      <div class="vote-buttons">
-                        <form action="{{ url_for('main.vote') }}" method="post">
-                          <input
-                            type="hidden"
-                            name="csrf_token"
-                            value="{{ csrf_token() }}"
-                          />
-                          <input
-                            type="hidden"
-                            name="source_type"
-                            value="{{ source }}"
-                          />
-                          <input
-                            type="hidden"
-                            name="analysis_link"
-                            value="{{ analysis_link or '' }}"
-                          />
-                          <input type="hidden" name="phash" value="{{ row.data.phash }}" />
-                          <input type="hidden" name="vote" value="real" />
-                          <button
-                            type="submit"
-                            class="vote-btn-real{% if current_vote and current_vote != 'real' %} vote-btn-muted{% endif %}"
-                          >
-                            Mark as Real
-                          </button>
-                        </form>
-
-                        <form action="{{ url_for('main.vote') }}" method="post">
-                          <input
-                            type="hidden"
-                            name="csrf_token"
-                            value="{{ csrf_token() }}"
-                          />
-                          <input
-                            type="hidden"
-                            name="source_type"
-                            value="{{ source }}"
-                          />
-                          <input
-                            type="hidden"
-                            name="analysis_link"
-                            value="{{ analysis_link or '' }}"
-                          />
-                          <input type="hidden" name="phash" value="{{ row.data.phash }}" />
-                          <input type="hidden" name="vote" value="edited" />
-                          <button
-                            type="submit"
-                            class="vote-btn-edited{% if current_vote and current_vote != 'edited' %} vote-btn-muted{% endif %}"
-                          >
-                            Mark as AI-Edited
-                          </button>
-                        </form>
-
-                        <form action="{{ url_for('main.vote') }}" method="post">
-                          <input
-                            type="hidden"
-                            name="csrf_token"
-                            value="{{ csrf_token() }}"
-                          />
-                          <input
-                            type="hidden"
-                            name="source_type"
-                            value="{{ source }}"
-                          />
-                          <input
-                            type="hidden"
-                            name="analysis_link"
-                            value="{{ analysis_link or '' }}"
-                          />
-                          <input type="hidden" name="phash" value="{{ row.data.phash }}" />
-                          <input type="hidden" name="vote" value="ai" />
-                          <button
-                            type="submit"
-                            class="vote-btn-ai{% if current_vote and current_vote != 'ai' %} vote-btn-muted{% endif %}"
-                          >
-                            Mark as AI-Gen
-                          </button>
-                        </form>
-                      </div>
-                    </div>
-                  </div>
-                  {% endif %}
+                  <em>Contacting {{ analyzer.name }}...</em>
                 </td>
               </tr>
               {% endfor %}
@@ -293,7 +60,10 @@
         </div>
         {% if analysis_link %}
         <p style="margin: 0.5rem 0 0; text-align: right">
-          <a href="{{ analysis_link }}" target="_blank" rel="noopener noreferrer"
+          <a
+            href="{{ analysis_link }}"
+            target="_blank"
+            rel="noopener noreferrer"
             >Open full analysis ↗</a
           >
         </p>

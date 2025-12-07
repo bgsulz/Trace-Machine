@@ -31,6 +31,8 @@ ANALYZERS: Sequence[AnalyzerSpec] = (
     AnalyzerSpec(name="Human Consensus", slug="human", func=run_human_consensus),
 )
 
+_ANALYZER_BY_SLUG = {spec.slug: spec for spec in ANALYZERS}
+
 
 def run_all_analyzers(
     context: AnalysisContext,
@@ -70,11 +72,7 @@ def run_all_analyzers(
                 raw = future.result()
             except Exception as exc:  # pragma: no cover - defensive logging
                 logger.exception("Analyzer '%s' failed", spec.name)
-                raw_dict: dict[str, object] = {
-                    "status": "ERROR",
-                    "summary": str(exc),
-                    "data": {},
-                }
+                res = _error_payload(exc)
             else:
                 logger.info(
                     "Analyzer '%s' finished on %s in %.3fs",
@@ -82,28 +80,9 @@ def run_all_analyzers(
                     threading.current_thread().name,
                     elapsed,
                 )
+                res = raw
 
-                if isinstance(raw, dict):
-                    raw_dict = raw
-                else:  # pragma: no cover - highly defensive
-                    raw_dict = {
-                        "status": "ERROR",
-                        "summary": f"Unexpected analyzer return type: {type(raw)!r}",
-                        "data": {},
-                    }
-
-            status = str(raw_dict.get("status", "UNKNOWN"))
-            summary = str(raw_dict.get("summary", ""))
-            data = raw_dict.get("data") or {}
-
-            results_map[spec.name] = {
-                "name": spec.name,
-                "slug": spec.slug,
-                "status": status,
-                "summary": summary,
-                "details": summary,
-                "data": data,
-            }
+            results_map[spec.name] = _format_result(spec, res)
 
     return [results_map[spec.name] for spec in specs]
 
@@ -113,3 +92,52 @@ def _run_in_context(
 ) -> AnalyzerOutput:
     with app.app_context():
         return func(payload)
+
+
+def run_single_analyzer(context: AnalysisContext, slug: str) -> dict[str, object]:
+    spec = _ANALYZER_BY_SLUG.get(slug)
+    if spec is None:
+        raise KeyError(f"Unknown analyzer slug: {slug}")
+
+    logger.info("Analyzer '%s' starting (single run)", spec.name)
+    start = time.perf_counter()
+    try:
+        raw = spec.func(context)
+    except Exception as exc:  # pragma: no cover - defensive logging
+        logger.exception("Analyzer '%s' failed", spec.name)
+        res = _error_payload(exc)
+    else:
+        elapsed = time.perf_counter() - start
+        logger.info("Analyzer '%s' finished in %.3fs", spec.name, elapsed)
+        res = raw
+
+    return _format_result(spec, res)
+
+
+def get_analyzer_spec(slug: str) -> AnalyzerSpec | None:
+    return _ANALYZER_BY_SLUG.get(slug)
+
+
+def _error_payload(exc: Exception) -> dict[str, object]:
+    return {
+        "status": "ERROR",
+        "summary": str(exc),
+        "data": {},
+    }
+
+
+def _format_result(
+    spec: AnalyzerSpec, raw_dict: dict[str, object]
+) -> dict[str, object]:
+    status = str(raw_dict.get("status", "UNKNOWN"))
+    summary = str(raw_dict.get("summary", ""))
+    data = raw_dict.get("data") or {}
+
+    return {
+        "name": spec.name,
+        "slug": spec.slug,
+        "status": status,
+        "summary": summary,
+        "details": summary,
+        "data": data,
+    }

@@ -1,4 +1,5 @@
 import io
+import re
 
 import imagehash
 from PIL import Image
@@ -24,7 +25,16 @@ def test_analyze_with_file_upload(client, app):
     # result template header
     assert b"Provenance Report" in resp.data
     assert b"Digital Signature (C2PA)" in resp.data
-    assert b"Human Consensus" in resp.data
+    assert b"hx-get" in resp.data
+
+    body = resp.data.decode("utf-8")
+    match = re.search(r"(/analysis/[a-f0-9]+/analyzers/c2pa)", body)
+    assert match is not None
+    fragment_path = match.group(1)
+
+    fragment = client.get(fragment_path)
+    assert fragment.status_code == 200
+    assert b"Digital Signature (C2PA)" in fragment.data
 
 
 def test_analyze_requires_input(client):
@@ -109,6 +119,7 @@ def test_analyze_mini_renders_compact_report(client, monkeypatch):
     resp = client.get("/analyze-mini?url=https://example.com/mini.png")
     assert resp.status_code == 200
     assert b"Digital Signature (C2PA)" in resp.data
+    assert b"hx-get" in resp.data
 
 
 def test_file_upload_does_not_create_image_source(client, app):

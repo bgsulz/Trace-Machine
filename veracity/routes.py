@@ -1,8 +1,13 @@
 import base64
 import hashlib
+import json
+import time
+import uuid
+from pathlib import Path
 
 from flask import (
     Blueprint,
+    abort,
     flash,
     redirect,
     render_template,
@@ -15,15 +20,60 @@ from sqlalchemy.exc import IntegrityError
 from . import ingestion, db
 from .models import ImageConsensus, VoteHistory, ImageSource, ImageRegistry
 from .registry import prepare_analysis_context
-from .analyzers.manager import run_all_analyzers
+from .analyzers.manager import ANALYZERS, get_analyzer_spec, run_single_analyzer
 from .tools import generate_external_tools
 
 bp = Blueprint("main", __name__)
+
+_ANALYSIS_DIRNAME = "analysis_cache"
+_ANALYSIS_BYTES_SUFFIX = ".bin"
+_ANALYSIS_META_SUFFIX = ".json"
 
 
 @bp.route("/")
 def index():
     return render_template("index.html")
+
+
+def _analysis_dir() -> Path:
+    base = Path(current_app.instance_path) / _ANALYSIS_DIRNAME
+    base.mkdir(parents=True, exist_ok=True)
+    return base
+
+
+def _analysis_bytes_path(analysis_id: str) -> Path:
+    return _analysis_dir() / f"{analysis_id}{_ANALYSIS_BYTES_SUFFIX}"
+
+
+def _analysis_meta_path(analysis_id: str) -> Path:
+    return _analysis_dir() / f"{analysis_id}{_ANALYSIS_META_SUFFIX}"
+
+
+def _store_analysis_payload(
+    analysis_id: str | None,
+    image_bytes: bytes,
+    metadata: dict[str, object],
+) -> str:
+    token = analysis_id or uuid.uuid4().hex
+    data_path = _analysis_bytes_path(token)
+    meta_path = _analysis_meta_path(token)
+    data_path.write_bytes(image_bytes)
+    metadata = {**metadata, "created_at": time.time()}
+    meta_path.write_text(json.dumps(metadata), encoding="utf-8")
+    return token
+
+
+def _load_analysis_payload(
+    analysis_id: str,
+) -> tuple[bytes, dict[str, object]] | None:
+    data_path = _analysis_bytes_path(analysis_id)
+    meta_path = _analysis_meta_path(analysis_id)
+    try:
+        image_bytes = data_path.read_bytes()
+        metadata = json.loads(meta_path.read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        return None
+    return image_bytes, metadata
 
 
 def _perform_analysis(
@@ -37,34 +87,78 @@ def _perform_analysis(
     image_data_url = _build_image_data_url(image_bytes, mime_type)
 
     context = prepare_analysis_context(image_bytes)
-    analyzer_results = run_all_analyzers(context)
-
-    human_row = next(
-        (row for row in analyzer_results if row.get("slug") == "human"), None
-    )
-    phash = None
-    if human_row is not None:
-        data = human_row.get("data") or {}
-        human_row["data"] = data
-        phash = data.get("phash")
-
+    phash = context.phash
     _persist_source_url(phash, image_url)
-
     voter_id = _build_voter_id(_get_client_ip())
     _maybe_auto_vote(phash, auto_vote, voter_id)
-    _attach_vote_history(human_row, context.registry_id, voter_id)
 
     public_url = image_url if source == "url" else None
     tool_results = generate_external_tools(public_url)
     analysis_link = url_for("main.analyze", url=public_url) if public_url else None
-
+    metadata = {
+        "mime_type": mime_type,
+        "source": source,
+        "image_url": image_url,
+        "public_url": public_url,
+        "analysis_link": analysis_link,
+        "phash": context.phash,
+        "whash": context.whash,
+        "registry_id": context.registry_id,
+    }
+    analysis_id = _store_analysis_payload(None, image_bytes, metadata)
     return render_template(
         template_name,
         image_url=image_data_url,
         source=source,
-        results=analyzer_results,
+        analyzers=ANALYZERS,
         tools=tool_results,
         analysis_link=analysis_link,
+        analysis_id=analysis_id,
+    )
+
+
+@bp.route("/analysis/<analysis_id>/analyzers/<slug>")
+def analyzer_fragment(analysis_id: str, slug: str):
+    spec = get_analyzer_spec(slug)
+    if spec is None:
+        abort(404)
+
+    payload = _load_analysis_payload(analysis_id)
+    link_target = "_blank" if request.args.get("mini") == "1" else None
+
+    if payload is None:
+        row = _build_analyzer_error_row(spec, "Analysis expired. Please re-run.")
+        return render_template(
+            "partials/analyzer_row.html",
+            row=row,
+            source="file",
+            analysis_link=None,
+            link_target=link_target,
+        )
+
+    image_bytes, metadata = payload
+    context = prepare_analysis_context(image_bytes)
+    row = run_single_analyzer(context, slug)
+
+    registry_id = metadata.get("registry_id")
+    if row.get("slug") == "human":
+        voter_id = _build_voter_id(_get_client_ip())
+        _attach_vote_history(row, registry_id, voter_id)
+
+    source = metadata.get("source", "file")
+    analysis_link = metadata.get("analysis_link")
+
+    row_data = row.get("data") or {}
+    if "phash" not in row_data and metadata.get("phash"):
+        row_data["phash"] = metadata["phash"]
+    row["data"] = row_data
+
+    return render_template(
+        "partials/analyzer_row.html",
+        row=row,
+        source=source,
+        analysis_link=analysis_link,
+        link_target=link_target,
     )
 
 
@@ -125,6 +219,17 @@ def _attach_vote_history(
     data = human_row.get("data") or {}
     data["current_vote"] = history_row.choice if history_row else None
     human_row["data"] = data
+
+
+def _build_analyzer_error_row(spec, message: str) -> dict[str, object]:
+    return {
+        "name": spec.name,
+        "slug": spec.slug,
+        "status": "ERROR",
+        "summary": message,
+        "details": message,
+        "data": {},
+    }
 
 
 def _handle_remote_analysis(image_url: str, vote_slug: str | None, template_name: str):
