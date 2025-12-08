@@ -20,7 +20,13 @@ from sqlalchemy.exc import IntegrityError
 from . import ingestion, db
 from .models import ImageConsensus, VoteHistory, ImageSource, ImageRegistry
 from .registry import prepare_analysis_context
-from .analyzers.manager import ANALYZERS, get_analyzer_spec, run_single_analyzer
+from .analyzers.manager import (
+    ANALYZERS,
+    DEFAULT_ANALYZER_TEMPLATE,
+    run_all_analyzers,
+    get_analyzer_spec,
+    run_single_analyzer,
+)
 from .tools import generate_external_tools
 
 bp = Blueprint("main", __name__)
@@ -47,6 +53,10 @@ def _analysis_bytes_path(analysis_id: str) -> Path:
 
 def _analysis_meta_path(analysis_id: str) -> Path:
     return _analysis_dir() / f"{analysis_id}{_ANALYSIS_META_SUFFIX}"
+
+
+def _analysis_row_path(analysis_id: str, slug: str) -> Path:
+    return _analysis_dir() / f"{analysis_id}-{slug}.row.json"
 
 
 def _store_analysis_payload(
@@ -106,6 +116,7 @@ def _perform_analysis(
         "registry_id": context.registry_id,
     }
     analysis_id = _store_analysis_payload(None, image_bytes, metadata)
+    _prime_analyzer_rows(analysis_id, context)
     return render_template(
         template_name,
         image_url=image_data_url,
@@ -125,17 +136,21 @@ def analyzer_fragment(analysis_id: str, slug: str):
 
     payload = _load_analysis_payload(analysis_id)
     link_target = "_blank" if request.args.get("mini") == "1" else None
+    metadata: dict[str, object] | None = None
 
     if payload is None:
         row = _build_analyzer_error_row(spec, "Analysis expired. Please re-run.")
-        return _render_analyzer_row(row, metadata=None, link_target=link_target)
+    else:
+        image_bytes, metadata = payload
+        row = _load_cached_analyzer_row(analysis_id, slug)
+        if row is None:
+            context = prepare_analysis_context(image_bytes)
+            row = run_single_analyzer(context, slug)
+            _store_cached_analyzer_row(analysis_id, slug, row)
 
-    image_bytes, metadata = payload
-    context = prepare_analysis_context(image_bytes)
-    row = run_single_analyzer(context, slug)
-    _enrich_analyzer_row(row, metadata)
+    _prepare_row_for_render(row, metadata, link_target)
 
-    return _render_analyzer_row(row, metadata=metadata, link_target=link_target)
+    return render_template("partials/analyzer_row.html", row=row)
 
 
 def _build_image_data_url(image_bytes: bytes, mime_type: str) -> str:
@@ -203,18 +218,28 @@ def _build_analyzer_error_row(spec, message: str) -> dict[str, object]:
         "slug": spec.slug,
         "status": "ERROR",
         "summary": message,
-        "details": message,
         "data": {},
-        "template": spec.template,
+        "template": DEFAULT_ANALYZER_TEMPLATE,
     }
 
 
-def _enrich_analyzer_row(row: dict[str, object], metadata: dict[str, object]) -> None:
-    row_data = row.get("data") or {}
+def _prepare_row_for_render(
+    row: dict[str, object],
+    metadata: dict[str, object] | None,
+    link_target: str | None,
+) -> None:
+    metadata = metadata or {}
+    row_data = dict(row.get("data") or {})
     phash = row_data.get("phash") or metadata.get("phash")
     if phash:
         row_data["phash"] = phash
     row["data"] = row_data
+
+    row["context"] = {
+        "source": metadata.get("source", "file"),
+        "analysis_link": metadata.get("analysis_link"),
+        "link_target": link_target,
+    }
 
     if row.get("slug") != "human":
         return
@@ -227,17 +252,29 @@ def _enrich_analyzer_row(row: dict[str, object], metadata: dict[str, object]) ->
     _attach_vote_history(row, registry_id, voter_id)
 
 
-def _render_analyzer_row(
-    row: dict[str, object], metadata: dict[str, object] | None, link_target: str | None
-):
-    metadata = metadata or {}
-    return render_template(
-        "partials/analyzer_row.html",
-        row=row,
-        source=metadata.get("source", "file"),
-        analysis_link=metadata.get("analysis_link"),
-        link_target=link_target,
-    )
+def _load_cached_analyzer_row(analysis_id: str, slug: str) -> dict[str, object] | None:
+    path = _analysis_row_path(analysis_id, slug)
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        return None
+    except json.JSONDecodeError:
+        return None
+
+
+def _store_cached_analyzer_row(analysis_id: str, slug: str, row: dict[str, object]) -> None:
+    path = _analysis_row_path(analysis_id, slug)
+    serialized = json.dumps(row, default=str)
+    path.write_text(serialized, encoding="utf-8")
+
+
+def _prime_analyzer_rows(analysis_id: str, context) -> None:
+    rows = run_all_analyzers(context)
+    for row in rows:
+        slug = row.get("slug")
+        if not slug:
+            continue
+        _store_cached_analyzer_row(analysis_id, slug, row)
 
 
 def _handle_remote_analysis(image_url: str, vote_slug: str | None, template_name: str):

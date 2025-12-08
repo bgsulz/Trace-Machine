@@ -6,8 +6,10 @@
     <span class="badge {{ status_class }}">{{ row.status }}</span>
   </td>
   <td>
-    {% if row.details %}
-    <div>{{ row.details }}</div>
+    {% if row.summary %}
+    <p class="analyzer-summary" style="margin: 0 0 0.35rem">
+      {{ row.summary }}
+    </p>
     {% endif %}
     {% include details_template %}
   </td>
