@@ -21,5 +21,6 @@ __pycache__/
 
 .idea/
 .vscode/
+.windsurf/
 .DS_Store
 thumbs.db
