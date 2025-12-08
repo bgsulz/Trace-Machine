@@ -130,27 +130,12 @@ def _perform_analysis(
 
 @bp.route("/analysis/<analysis_id>/analyzers/<slug>")
 def analyzer_fragment(analysis_id: str, slug: str):
-    spec = get_analyzer_spec(slug)
-    if spec is None:
-        abort(404)
-
-    payload = _load_analysis_payload(analysis_id)
     link_target = "_blank" if request.args.get("mini") == "1" else None
-    metadata: dict[str, object] | None = None
-
-    if payload is None:
-        row = _build_analyzer_error_row(spec, "Analysis expired. Please re-run.")
-    else:
-        image_bytes, metadata = payload
-        row = _load_cached_analyzer_row(analysis_id, slug)
-        if row is None:
-            context = prepare_analysis_context(image_bytes)
-            row = run_single_analyzer(context, slug)
-            _store_cached_analyzer_row(analysis_id, slug, row)
-
-    _prepare_row_for_render(row, metadata, link_target)
-
-    return render_template("partials/analyzer_row.html", row=row)
+    return _render_analyzer_fragment_html(
+        analysis_id,
+        slug,
+        link_target=link_target,
+    )
 
 
 def _build_image_data_url(image_bytes: bytes, mime_type: str) -> str:
@@ -227,6 +212,7 @@ def _prepare_row_for_render(
     row: dict[str, object],
     metadata: dict[str, object] | None,
     link_target: str | None,
+    analysis_id: str,
 ) -> None:
     metadata = metadata or {}
     row_data = dict(row.get("data") or {})
@@ -239,6 +225,7 @@ def _prepare_row_for_render(
         "source": metadata.get("source", "file"),
         "analysis_link": metadata.get("analysis_link"),
         "link_target": link_target,
+        "analysis_id": analysis_id,
     }
 
     if row.get("slug") != "human":
@@ -266,6 +253,34 @@ def _store_cached_analyzer_row(analysis_id: str, slug: str, row: dict[str, objec
     path = _analysis_row_path(analysis_id, slug)
     serialized = json.dumps(row, default=str)
     path.write_text(serialized, encoding="utf-8")
+
+
+def _render_analyzer_fragment_html(
+    analysis_id: str,
+    slug: str,
+    *,
+    link_target: str | None,
+    refresh: bool = False,
+):
+    spec = get_analyzer_spec(slug)
+    if spec is None:
+        abort(404)
+
+    payload = _load_analysis_payload(analysis_id)
+    metadata: dict[str, object] | None = None
+
+    if payload is None:
+        row = _build_analyzer_error_row(spec, "Analysis expired. Please re-run.")
+    else:
+        image_bytes, metadata = payload
+        row = None if refresh else _load_cached_analyzer_row(analysis_id, slug)
+        if row is None:
+            context = prepare_analysis_context(image_bytes)
+            row = run_single_analyzer(context, slug)
+            _store_cached_analyzer_row(analysis_id, slug, row)
+
+    _prepare_row_for_render(row, metadata, link_target, analysis_id)
+    return render_template("partials/analyzer_row.html", row=row)
 
 
 def _prime_analyzer_rows(analysis_id: str, context) -> None:
@@ -350,6 +365,8 @@ def vote():
     vote_kind = (request.form.get("vote") or "").strip().lower()
     source_type = (request.form.get("source_type") or "").strip().lower()
     analysis_link = (request.form.get("analysis_link") or "").strip()
+    analysis_id = (request.form.get("analysis_id") or "").strip()
+    link_target = (request.form.get("link_target") or "").strip()
 
     if not phash or vote_kind not in {"real", "edited", "ai"}:
         flash("Invalid vote request.")
@@ -365,6 +382,13 @@ def vote():
     redirect_target = url_for("main.index")
     if source_type == "url" and analysis_link.startswith("/"):
         redirect_target = analysis_link
+    if request.headers.get("HX-Request") and analysis_id:
+        return _render_analyzer_fragment_html(
+            analysis_id,
+            "human",
+            link_target=link_target or None,
+            refresh=True,
+        )
     return redirect(redirect_target)
 
 
