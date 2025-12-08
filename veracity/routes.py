@@ -91,7 +91,6 @@ def vote():
         flash("Voting is temporarily unavailable. Please try again.")
         return redirect(url_for("main.index"))
 
-    flash("Thanks for your vote.")
     redirect_target = url_for("main.index")
     if source_type == "url" and analysis_link.startswith("/"):
         redirect_target = analysis_link
@@ -102,4 +101,5 @@ def vote():
             link_target=link_target or None,
             refresh=True,
         )
+    flash("Thanks for your vote.")
     return redirect(redirect_target)
