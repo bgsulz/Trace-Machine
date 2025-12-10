@@ -1,5 +1,12 @@
+{% from "partials/vote_bar.html" import render_vote_bar %}
 {% if row.data.phash %}
 <div class="analyzer-detail-block">
+  {{ render_vote_bar(row.data.overall_breakdown) }}
+  <small class="vote-bar-counts"
+    >{{ row.data.totals.vote_real }} / {{ row.data.totals.vote_edited }} /
+    {{ row.data.totals.vote_ai }}</small
+  >
+
   {% if row.data.has_matches %}
   <hr />
   <p><strong>{{ row.data.matches_summary }}</strong></p>
@@ -9,7 +16,7 @@
       <tr>
         <th>Matched Hash</th>
         <th>Distance</th>
-        <th>Votes (Real / Edit / AI)</th>
+        <th>Consensus</th>
       </tr>
     </thead>
     <tbody>
@@ -30,8 +37,9 @@
           {% endif %}
         </td>
         <td>{{ match.distance }}</td>
-        <td>
-          {{ match.vote_real }} / {{ match.vote_edited }} / {{ match.vote_ai }}
+        <td style="min-width: 180px">
+          {{ render_vote_bar(match.vote_breakdown, label="Match votes", compact=True) }}
+          <small>{{ match.vote_real }} / {{ match.vote_edited }} / {{ match.vote_ai }}</small>
         </td>
       </tr>
       {% endfor %}

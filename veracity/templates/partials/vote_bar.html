@@ -1,0 +1,35 @@
+{% macro render_vote_bar(breakdown, label=None, compact=False) -%}
+  {% set total = breakdown.total or 0 %}
+  <div class="vote-bar-wrapper{% if compact %} vote-bar-compact{% endif %}">
+    {% if label %}
+    <div class="vote-bar-header">
+      <small>{{ label }}{% if total %} — {{ total }} vote{% if total != 1 %}s{% endif %}{% endif %}</small>
+    </div>
+    {% endif %}
+
+    {% if total %}
+    <div
+      class="vote-distribution"
+      role="img"
+      aria-label="{{ label or 'Vote distribution' }} showing {{ total }} total votes"
+    >
+      {% for segment in breakdown.segments %}
+      {% set width = "%.2f"|format(segment.percent) %}
+      <div
+        class="vote-segment vote-{{ segment.kind }}{% if segment.percent == 0 %} vote-segment-empty{% endif %}"
+        style="width: {{ width }}%;"
+        title="{{ segment.label }}: {{ segment.count }} ({{ '%.0f'|format(segment.percent) }}%)"
+      >
+        <span class="sr-only"
+          >{{ segment.label }}: {{ segment.count }} ({{ '%.0f'|format(segment.percent) }}%)</span
+        >
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="vote-distribution vote-distribution-empty">
+      <span>No votes yet</span>
+    </div>
+    {% endif %}
+  </div>
+{%- endmacro %}

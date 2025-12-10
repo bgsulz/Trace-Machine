@@ -9,6 +9,36 @@ logger = logging.getLogger(__name__)
 _MAX_FUZZY_ROWS = 10_000
 _MAX_HAMMING_DISTANCE = 4
 
+_SEGMENT_LABELS = {
+    "real": "Real",
+    "edited": "AI-Edited",
+    "ai": "AI-Gen",
+}
+
+
+def _build_vote_breakdown(*, real: int | None, edited: int | None, ai: int | None) -> dict[str, object]:
+    counts = {
+        "real": real or 0,
+        "edited": edited or 0,
+        "ai": ai or 0,
+    }
+    total = counts["real"] + counts["edited"] + counts["ai"]
+
+    segments: list[dict[str, object]] = []
+    for key in ("real", "edited", "ai"):
+        value = counts[key]
+        percent = (value / total * 100) if total else 0
+        segments.append(
+            {
+                "kind": key,
+                "label": _SEGMENT_LABELS[key],
+                "count": value,
+                "percent": percent,
+            }
+        )
+
+    return {"total": total, "segments": segments, "counts": counts}
+
 
 def run_human_consensus(context: AnalysisContext) -> dict[str, object]:
     """Look up human consensus votes for an image via perceptual hashing.
@@ -91,6 +121,9 @@ def run_human_consensus(context: AnalysisContext) -> dict[str, object]:
                 "vote_real": consensus.vote_real,
                 "vote_edited": consensus.vote_edited,
                 "vote_ai": consensus.vote_ai,
+                "vote_breakdown": _build_vote_breakdown(
+                    real=consensus.vote_real, edited=consensus.vote_edited, ai=consensus.vote_ai
+                ),
                 "total_votes": total_votes,
                 "created_at": neighbor.created_at.isoformat()
                 if getattr(neighbor, "created_at", None)
@@ -119,12 +152,7 @@ def run_human_consensus(context: AnalysisContext) -> dict[str, object]:
     no_votes_message = "No votes yet."
 
     if matches:
-        summary = (
-            f"{len(matches)} similar images with {total_votes} votes total. "
-            f"Real {totals['vote_real']} / "
-            f"AI-edited {totals['vote_edited']} / "
-            f"AI {totals['vote_ai']}"
-        )
+        summary = f"{len(matches)} similar images with {total_votes} votes total."
         status = "FOUND"
     else:
         summary = "No community consensus yet."
@@ -137,6 +165,9 @@ def run_human_consensus(context: AnalysisContext) -> dict[str, object]:
             "phash": target_hex,
             "matches": matches,
             "totals": totals,
+            "overall_breakdown": _build_vote_breakdown(
+                real=totals["vote_real"], edited=totals["vote_edited"], ai=totals["vote_ai"]
+            ),
             "threshold": _MAX_HAMMING_DISTANCE,
             "has_matches": has_matches,
             "matches_summary": matches_summary,

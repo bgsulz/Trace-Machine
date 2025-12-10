@@ -158,6 +158,79 @@ body > header {
   font-size: 0.9rem;
 }
 
+.vote-bar-wrapper {
+  margin: 0.35rem 0 0.85rem;
+}
+
+.vote-bar-header small {
+  color: var(--pico-muted-color);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.vote-bar-compact {
+  margin: 0;
+}
+
+.vote-bar-compact .vote-bar-header {
+  display: none;
+}
+
+.vote-distribution {
+  display: flex;
+  width: 100%;
+  height: 0.65rem;
+  border-radius: 999px;
+  overflow: hidden;
+  background: var(--pico-muted-border-color);
+  position: relative;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.05);
+}
+
+.vote-distribution:focus-visible {
+  outline: 2px solid var(--pico-primary);
+  outline-offset: 2px;
+}
+
+.vote-distribution-empty {
+  align-items: center;
+  justify-content: center;
+  font-size: 0.7rem;
+  color: var(--pico-muted-color);
+}
+
+.vote-segment {
+  height: 100%;
+  transition: width 0.2s ease-out;
+}
+
+.vote-segment-empty {
+  display: none;
+}
+
+.vote-real {
+  background: var(--veracity-success);
+}
+
+.vote-edited {
+  background: var(--veracity-warning);
+}
+
+.vote-ai {
+  background: var(--veracity-danger);
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  border: 0;
+}
+
 /* Voting Section */
 .voting-area {
   margin-top: 1rem;
