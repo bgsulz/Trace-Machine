@@ -24,6 +24,7 @@ class AnalyzerSpec:
     slug: str
     func: Callable[[AnalysisContext], AnalyzerOutput]
     template: str = DEFAULT_ANALYZER_TEMPLATE
+    tooltip: str = ""
 
 
 ANALYZERS: Sequence[AnalyzerSpec] = (
@@ -32,12 +33,14 @@ ANALYZERS: Sequence[AnalyzerSpec] = (
         slug="c2pa",
         func=run_c2pa,
         template="partials/analyzers/c2pa.html",
+        tooltip="Looks for authenticated Content Credentials attached to the file.",
     ),
     AnalyzerSpec(
         name="AI Metadata (EXIF)",
         slug="exif",
         func=run_exif_metadata,
         template="partials/analyzers/exif.html",
+        tooltip="Scans EXIF blocks for hints that common AI tools left behind.",
     ),
     # AnalyzerSpec(name="Google SynthID", func=run_synthid_stub),
     AnalyzerSpec(
@@ -45,6 +48,7 @@ ANALYZERS: Sequence[AnalyzerSpec] = (
         slug="human",
         func=run_human_consensus,
         template="partials/analyzers/human.html",
+        tooltip="Compares this upload to prior submissions and shows community votes.",
     ),
 )
 
@@ -158,4 +162,6 @@ def _format_result(
         "details": summary,
         "data": data,
         "template": spec.template,
+        "tooltip": spec.tooltip,
+        "info_id": f"info-{spec.slug}",
     }

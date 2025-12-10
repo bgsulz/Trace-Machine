@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block content %}
+<section>
+  <nav aria-label="breadcrumb">
+    <ul>
+      <li><a href="{{ url_for('main.index') }}">Home</a></li>
+      <li>Analyzer Reference</li>
+    </ul>
+  </nav>
+
+  <h2>Analyzer Reference</h2>
+  <p>
+    These notes explain what each analyzer inspects and how to interpret its output. Click any
+    "Learn more" link in the results table to jump straight to the matching section below.
+  </p>
+
+  <ol>
+    {% for analyzer in analyzers %}
+    <li>
+      {% set info_id = "info-" ~ analyzer.slug %}
+      <a href="#{{ info_id }}">{{ analyzer.name }}</a>
+    </li>
+    {% endfor %}
+  </ol>
+
+  {% for analyzer in analyzers %}
+  <hr />
+  {% set info_id = "info-" ~ analyzer.slug %}
+  <article id="{{ info_id }}">
+    <h3>{{ analyzer.name }}</h3>
+    {% if analyzer.tooltip %}
+    <p><strong>{{ analyzer.tooltip }}</strong></p>
+    {% endif %}
+    {% set info_template = "partials/analyzer_infos/" ~ info_id ~ ".html" %}
+    {% include info_template %}
+  </article>
+  {% endfor %}
+</section>
+{% endblock %}

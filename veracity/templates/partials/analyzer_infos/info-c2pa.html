@@ -1,0 +1,45 @@
+<p>
+  Checks the image for C2PA manifests. <strong>C2PA</strong> (Coalition for Content Provenance and Authenticity) is a technical standard that allows cameras, editing software, and AI tools to embed tamper-evident records directly into images and videos. It is a digital label that travels with the content, documenting its complete history: where it came from, what tools created or modified it, and who vouched for its authenticity.
+</p>
+<p>
+  When a C2PA manifest is present, we can report who signed the asset (such as Adobe, Nikon, or OpenAI), what changes were made along the way, and whether the cryptographic credentials appear intact. If someone tries to alter the image without properly updating the manifest, the signature breaks, alerting viewers that the provenance chain may have been compromised.
+</p>
+<br/>
+<section>
+  <h3>C2PA demo image</h3>
+  <figure>
+    <img
+      src="{{ url_for('static', filename='info_images/infrared_tree.png') }}"
+      alt="Infrared-style tree scene used as a C2PA demo image"
+      class="demo-image"
+    />
+    <figcaption>
+      This demo image was generated using GPT-4o image generation with the prompt "An infrared photo of a tree on a hill."
+    </figcaption>
+  </figure>
+  <form action="{{ url_for('main.analyze') }}" method="get" style="display: inline" class="demo-buttons">
+    <input type="hidden" name="url" value="{{ url_for('static', filename='info_images/infrared_tree.png', _external=True) }}" />
+    <button type="submit">Analyze</button>
+  </form>
+</section>
+<br/>
+<p>
+  <strong>Learn more:</strong>
+  <ul>
+    <li>
+      <a href="https://c2pa.org/specifications/specifications/2.0/specs/C2PA_Specification.html" target="_blank" rel="noopener noreferrer">
+        C2PA Technical Overview
+      </a>
+    </li>
+    <li>
+      <a href="https://contentauthenticity.org/how-it-works" target="_blank" rel="noopener noreferrer">
+        How C2PA Works (Explainer)
+      </a>
+    </li>
+    <li>
+      <a href="https://github.com/contentauth/c2pa-rs" target="_blank" rel="noopener noreferrer">
+        C2PA Open Source Tools
+      </a>
+    </li>
+  </ul>
+</p>

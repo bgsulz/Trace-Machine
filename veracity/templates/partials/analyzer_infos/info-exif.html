@@ -1,0 +1,57 @@
+<p>
+  Scans embedded EXIF metadata and surfaces any tags or software identifiers that commonly appear in AI image generators or heavy post-processing workflows. EXIF (Exchangeable Image File Format) is a standard for storing technical information inside image files—originally designed for cameras to record settings like shutter speed and lens type, but now widely used by software to embed their own markers and parameters.
+</p>
+<p>
+  AI image generators like Stable Diffusion (through interfaces like Automatic1111 and ComfyUI) often write detailed generation parameters into EXIF fields, including the prompt used, model version, sampling steps, and seed values. Photo editing software may also leave telltale signatures. When present, these markers can provide strong clues about an image's synthetic or heavily edited origins.
+</p>
+<div class="flash-warning" style="margin-bottom: 0.75rem">
+  <strong>Important limitation:</strong> EXIF data can be freely edited or completely stripped using basic tools, so its presence is informative but its absence proves nothing. A sophisticated actor can easily remove or falsify these markers.
+</div>
+<br/>
+<section>
+  <h3>EXIF demo image: Automatic1111</h3>
+  <figure>
+    <img
+      src="{{ url_for('static', filename='info_images/astronaut.png') }}"
+      alt="Astronaut demo image with EXIF parameters from Automatic1111"
+      class="demo-image"
+    />
+    <figcaption>
+      This image was generated in Stable Diffusion using the Automatic1111 UI, which writes detailed generation parameters into EXIF fields.
+    </figcaption>
+  </figure>
+  <form action="{{ url_for('main.analyze') }}" method="get" style="display: inline" class="demo-buttons">
+    <input type="hidden" name="url" value="{{ url_for('static', filename='info_images/astronaut.png', _external=True) }}" />
+    <button type="submit">Analyze</button>
+  </form>
+</section>
+<br/>
+<section>
+  <h3>EXIF demo image: ComfyUI</h3>
+  <figure>
+    <img
+      src="{{ url_for('static', filename='info_images/bottle.png') }}"
+      alt="Bottle demo image with EXIF parameters from ComfyUI"
+      class="demo-image"
+    />
+    <figcaption>
+      This image was generated in Stable Diffusion using ComfyUI, another interface that can encode prompts and parameters into EXIF metadata.
+    </figcaption>
+  </figure>
+  <form action="{{ url_for('main.analyze') }}" method="get" style="display: inline" class="demo-buttons">
+    <input type="hidden" name="url" value="{{ url_for('static', filename='info_images/bottle.png', _external=True) }}" />
+    <button type="submit">Analyze</button>
+  </form>
+</section>
+<br/>
+<p>
+  <strong>Learn more:</strong>
+  <ul>
+    <li>
+      <a href="https://www.exif.org/" target="_blank" rel="noopener noreferrer">EXIF Standard Overview</a>
+    </li>
+    <li>
+      <a href="https://github.com/AUTOMATIC1111/stable-diffusion-webui/wiki/Features#png-info" target="_blank" rel="noopener noreferrer">How AI Generators Use EXIF</a>
+    </li>
+  </ul>
+</p>

@@ -6,6 +6,7 @@ from .analysis_service import (
     perform_analysis,
     render_analyzer_fragment_html,
 )
+from .analyzers.manager import ANALYZERS
 from .voting_service import VOTE_CHOICES, apply_vote, get_voter_id
 
 bp = Blueprint("main", __name__)
@@ -14,6 +15,11 @@ bp = Blueprint("main", __name__)
 @bp.route("/")
 def index():
     return render_template("index.html")
+
+
+@bp.route("/info")
+def analyzer_info():
+    return render_template("info.html", analyzers=ANALYZERS)
 
 
 @bp.route("/analysis/<analysis_id>/analyzers/<slug>")

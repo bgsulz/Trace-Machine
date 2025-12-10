@@ -1,7 +1,23 @@
 {% set status_class = row.status|lower|replace(' ', '-') %}
 {% set details_template = row.template or "partials/analyzers/default.html" %}
 <tr id="analyzer-row-{{ row.slug }}">
-  <td style="vertical-align: top"><strong>{{ row.name }}</strong></td>
+  <td style="vertical-align: top">
+    <strong class="analyzer-title">
+      <span class="tooltip-trigger" tabindex="0">
+        {{ row.name }}
+        {% if row.tooltip %}
+        <span class="tooltip-bubble" role="tooltip">
+          {{ row.tooltip }}
+        </span>
+        {% endif %}
+      </span>
+    </strong>
+    {% if row.info_id %}
+    <div class="analyzer-links">
+      <a href="{{ url_for('main.analyzer_info') }}#{{ row.info_id }}">Learn more</a>
+    </div>
+    {% endif %}
+  </td>
   <td style="vertical-align: top">
     <span class="badge {{ status_class }}">{{ row.status }}</span>
   </td>

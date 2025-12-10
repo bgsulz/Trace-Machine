@@ -85,11 +85,85 @@ body > header {
   margin-bottom: 2rem;
 }
 
-.result-image {
+.result-image,
+.demo-image {
   max-height: 320px;
   width: auto;
   border-radius: 4px;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+/* Analyzer titles & tooltips */
+.analyzer-title {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.tooltip-trigger {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  cursor: help;
+}
+
+.tooltip-trigger::after {
+  content: "?";
+  display: inline-flex;
+  width: 1.15em;
+  height: 1.15em;
+  border-radius: 50%;
+  border: 1px solid var(--pico-muted-border-color);
+  font-size: 0.7em;
+  align-items: center;
+  justify-content: center;
+  color: var(--pico-muted-color);
+}
+
+.tooltip-bubble {
+  position: absolute;
+  top: calc(100% + 0.35rem);
+  left: 0;
+  min-width: 220px;
+  max-width: 320px;
+  padding: 0.65rem 0.75rem;
+  border-radius: 6px;
+  background: var(--pico-card-background-color);
+  border: 1px solid var(--pico-muted-border-color);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+  font-size: 0.85rem;
+  line-height: 1.4;
+  opacity: 0;
+  transform: translateY(4px);
+  transition: opacity 120ms ease, transform 120ms ease;
+  pointer-events: none;
+  z-index: 10;
+}
+
+.tooltip-bubble::after {
+  content: "";
+  position: absolute;
+  bottom: 100%;
+  left: 12px;
+  border-width: 6px;
+  border-style: solid;
+  border-color: transparent transparent var(--pico-card-background-color)
+    transparent;
+}
+
+.tooltip-trigger:hover .tooltip-bubble,
+.tooltip-trigger:focus-within .tooltip-bubble {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.analyzer-links {
+  margin-top: 0.15rem;
+}
+
+.analyzer-links a {
+  font-size: 0.85rem;
 }
 
 /* Status Badges */
@@ -238,17 +312,20 @@ body > header {
   border-top: 1px dashed var(--pico-muted-border-color);
 }
 
-.vote-buttons {
+.vote-buttons,
+.demo-buttons {
   display: flex;
   gap: 0.5rem;
   flex-wrap: wrap;
 }
 
-.vote-buttons form {
+.vote-buttons form,
+.demo-buttons form {
   margin: 0;
 }
 
-.vote-buttons button {
+.vote-buttons button,
+.demo-buttons button {
   font-size: 0.8rem;
   padding: 0.4rem 0.8rem;
   width: auto;
