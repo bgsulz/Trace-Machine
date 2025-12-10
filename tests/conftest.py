@@ -15,19 +15,23 @@ from veracity import create_app, db  # noqa: E402
 
 
 @pytest.fixture
-def app():
-    yield _create_testing_app()
+def app(tmp_path_factory):
+    instance_path = tmp_path_factory.mktemp("instance")
+    yield _create_testing_app(instance_path=str(instance_path))
 
 @pytest.fixture
-def app_csrf():
-    yield _create_testing_app(enable_csrf=True)
+def app_csrf(tmp_path_factory):
+    instance_path = tmp_path_factory.mktemp("instance-csrf")
+    yield _create_testing_app(enable_csrf=True, instance_path=str(instance_path))
 
-def _create_testing_app(enable_csrf=False):
-    app = create_app(test_config={
+def _create_testing_app(*, enable_csrf=False, instance_path):
+    test_config = {
         "TESTING": True,
         "WTF_CSRF_ENABLED": enable_csrf,
         "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:",
-    })
+        "INSTANCE_PATH": instance_path,
+    }
+    app = create_app(test_config)
     with app.app_context():
         db.drop_all()
         db.create_all()

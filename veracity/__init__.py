@@ -1,7 +1,7 @@
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from flask_wtf.csrf import CSRFProtect
-from flask_migrate import Migrate 
+from flask_migrate import Migrate
 from werkzeug.middleware.proxy_fix import ProxyFix
 from dotenv import load_dotenv
 import os
@@ -11,8 +11,17 @@ csrf = CSRFProtect()
 db = SQLAlchemy()
 migrate = Migrate()
 
+
 def create_app(test_config=None):
-    app = Flask(__name__, instance_relative_config=True)
+    instance_path_override = None
+    if test_config is not None:
+        instance_path_override = test_config["INSTANCE_PATH"]
+
+    app = Flask(
+        __name__,
+        instance_relative_config=True,
+        instance_path=instance_path_override,
+    )
     migrate.init_app(app, db)
 
     # Trust a single upstream proxy (e.g. Nginx) for X-Forwarded-* headers.
@@ -28,7 +37,7 @@ def create_app(test_config=None):
 
     secret_key = os.environ.get("SECRET_KEY", "dev")
     app.config.from_mapping(
-        SECRET_KEY=secret_key,  
+        SECRET_KEY=secret_key,
         SQLALCHEMY_DATABASE_URI=db_url,
         SQLALCHEMY_TRACK_MODIFICATIONS=False,
         MAX_CONTENT_LENGTH=10 * 1024 * 1024,
