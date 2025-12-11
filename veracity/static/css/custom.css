@@ -31,11 +31,29 @@ body > header {
 
 .site-header {
   display: flex;
-  justify-content: space-between;
-  align-items: flex-end;
-  gap: 2rem;
+  justify-content: flex-start;
+  align-items: center;
+  gap: 1.5rem;
   margin-top: 1.5rem;
   margin-bottom: 1.5rem;
+}
+
+.site-nav {
+  display: flex;
+  gap: 1rem;
+  font-size: 0.9rem;
+  margin-left: auto;
+}
+
+.site-nav a {
+  text-decoration: none;
+  font-weight: 600;
+  color: var(--pico-muted-color);
+}
+
+.site-nav a:hover,
+.site-nav a:focus-visible {
+  color: var(--pico-primary);
 }
 
 .brand-title {
