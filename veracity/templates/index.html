@@ -9,13 +9,25 @@
       action="{{ url_for('main.analyze') }}"
       method="post"
       enctype="multipart/form-data"
+      id="analyze-form"
     >
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
 
       <div class="grid">
         <div>
           <label for="file"><strong>Upload File</strong></label>
-          <input type="file" id="file" name="file" accept="image/*" />
+          <div id="drop-zone" class="drop-zone" aria-label="Drag an image here" style="margin-bottom: 0.5rem;">
+            <input
+              class="sr-only"
+              type="file"
+              id="file"
+              name="file"
+              accept="image/*"
+            />
+            <p class="drop-zone__text">Drag &amp; drop an image here</p>
+            <button type="button" id="file-trigger">Choose image</button>
+            <p id="file-name" class="drop-zone__status">No file selected</p>
+          </div>
           <small>Supports JPG, PNG, WEBP</small>
         </div>
 
@@ -48,4 +60,59 @@
     </form>
   </div>
 </section>
+<script>
+  document.addEventListener("DOMContentLoaded", () => {
+    const dropZone = document.getElementById("drop-zone");
+    const fileInput = document.getElementById("file");
+    const fileTrigger = document.getElementById("file-trigger");
+    const fileName = document.getElementById("file-name");
+
+    if (!dropZone || !fileInput) return;
+
+    const setFile = (file) => {
+      const dt = new DataTransfer();
+      dt.items.add(file);
+      fileInput.files = dt.files;
+      fileName.textContent = file.name;
+    };
+
+    const handleFiles = (files) => {
+      if (!files || !files.length) return;
+      const [file] = files;
+      if (!file.type.startsWith("image/")) {
+        fileName.textContent = "Please drop an image file.";
+        return;
+      }
+      setFile(file);
+    };
+
+    ["dragenter", "dragover"].forEach((eventName) => {
+      dropZone.addEventListener(eventName, (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        dropZone.classList.add("drop-zone--active");
+      });
+    });
+
+    ["dragleave", "drop"].forEach((eventName) => {
+      dropZone.addEventListener(eventName, (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        dropZone.classList.remove("drop-zone--active");
+      });
+    });
+
+    dropZone.addEventListener("drop", (event) => {
+      handleFiles(event.dataTransfer.files);
+    });
+
+    fileInput.addEventListener("change", (event) => {
+      handleFiles(event.target.files);
+    });
+
+    if (fileTrigger) {
+      fileTrigger.addEventListener("click", () => fileInput.click());
+    }
+  });
+</script>
 {% endblock %}

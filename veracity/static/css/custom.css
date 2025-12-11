@@ -76,6 +76,39 @@ body > header {
   box-shadow: var(--pico-card-box-shadow);
 }
 
+.drop-zone {
+  border: 2px dashed var(--pico-muted-border-color);
+  border-radius: var(--pico-border-radius);
+  padding: 1.5rem;
+  text-align: center;
+  background: var(--pico-card-section-background-color);
+  transition: border-color 120ms ease, background-color 120ms ease;
+}
+
+.drop-zone__text {
+  margin: 0.25rem 0 0.75rem;
+  color: var(--pico-muted-color);
+}
+
+.drop-zone__status {
+  margin: 0.5rem 0 0;
+  font-size: 0.9rem;
+  color: var(--pico-muted-color);
+}
+
+.drop-zone button {
+  margin-top: 0.25rem;
+}
+
+.drop-zone--active {
+  border-color: var(--pico-primary);
+  background: color-mix(
+    in srgb,
+    var(--pico-primary) 10%,
+    var(--pico-card-section-background-color)
+  );
+}
+
 /* Results Display */
 .result-image-container {
   text-align: center;
