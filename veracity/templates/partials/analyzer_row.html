@@ -1,5 +1,6 @@
 {% set status_class = row.status|lower|replace(' ', '-') %}
 {% set details_template = row.template or "partials/analyzers/default.html" %}
+{% set link_target = row.context.link_target if row.context else None %}
 <tr id="analyzer-row-{{ row.slug }}">
   <td style="vertical-align: top">
     <strong class="analyzer-title">
@@ -14,7 +15,11 @@
     </strong>
     {% if row.info_id %}
     <div class="analyzer-links">
-      <a href="{{ url_for('main.analyzer_info') }}#{{ row.info_id }}">Learn more</a>
+      <a
+        href="{{ url_for('main.analyzer_info') }}#{{ row.info_id }}"
+        {% if link_target %}target="{{ link_target }}" rel="noopener noreferrer"{% endif %}
+        >Learn more</a
+      >
     </div>
     {% endif %}
   </td>
