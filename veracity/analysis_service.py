@@ -63,7 +63,6 @@ def perform_analysis(
     _maybe_auto_vote(phash, auto_vote)
 
     public_url = image_url if source == "url" else None
-    tool_results = generate_external_tools(public_url)
     analysis_link = url_for("main.analyze", url=public_url) if public_url else None
     metadata: dict[str, Any] = {
         "mime_type": mime_type,
@@ -76,6 +75,7 @@ def perform_analysis(
         "registry_id": context.registry_id,
     }
     analysis_id = store_analysis_payload(None, image_bytes, metadata)
+    tool_results = generate_external_tools(public_url, analysis_id=analysis_id)
     _prime_analyzer_rows(analysis_id, context)
     return render_template(
         template_name,

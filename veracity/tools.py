@@ -1,12 +1,22 @@
 from urllib.parse import quote_plus
 
+from flask import url_for
 
-def generate_external_tools(image_url: str | None) -> list[dict]:
+
+def generate_external_tools(
+    image_url: str | None, *, analysis_id: str | None = None
+) -> list[dict]:
     """Generate links to external tools for reverse image search.
 
     If we have a public URL, we generate direct search links.
-    If it's a local file upload, we link to the search engines' upload pages.
+    If it's a local file upload, we link to the search engines' upload pages or
+    fall back to our own cached asset URL when available.
     """
+    if not image_url and analysis_id:
+        image_url = url_for(
+            "main.serve_analysis_image", analysis_id=analysis_id, _external=True
+        )
+
     tools: list[dict] = []
     links: list[dict] = []
 

@@ -37,6 +37,26 @@ def test_analyze_with_file_upload(client, app):
     assert b"Digital Signature (C2PA)" in fragment.data
 
 
+def test_analysis_raw_endpoint_serves_cached_bytes(client):
+    image_bytes = _make_test_image_bytes()
+    data = {
+        "file": (io.BytesIO(image_bytes), "test.png"),
+        "image_url": "",
+    }
+    resp = client.post("/analyze", data=data, content_type="multipart/form-data")
+    assert resp.status_code == 200
+
+    body = resp.data.decode("utf-8")
+    match = re.search(r"/analysis/([a-f0-9]+)/analyzers/", body)
+    assert match is not None
+    analysis_id = match.group(1)
+
+    raw_resp = client.get(f"/analysis/{analysis_id}/raw")
+    assert raw_resp.status_code == 200
+    assert raw_resp.headers.get("Content-Type") == "image/png"
+    assert raw_resp.data == image_bytes
+
+
 def test_analyze_requires_input(client):
     resp = client.post("/analyze", data={}, content_type="multipart/form-data")
     # should redirect back to index with flash message

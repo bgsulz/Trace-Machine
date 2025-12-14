@@ -1,4 +1,6 @@
-from flask import Blueprint, flash, redirect, render_template, request, url_for
+from io import BytesIO
+
+from flask import Blueprint, abort, flash, redirect, render_template, request, send_file, url_for
 
 from . import ingestion
 from .analysis_service import (
@@ -7,6 +9,7 @@ from .analysis_service import (
     render_analyzer_fragment_html,
 )
 from .analyzers.manager import ANALYZERS
+from .analysis_cache import load_analysis_payload
 from .voting_service import VOTE_CHOICES, apply_vote, get_voter_id
 
 bp = Blueprint("main", __name__)
@@ -30,6 +33,22 @@ def analyzer_fragment(analysis_id: str, slug: str):
         slug,
         link_target=link_target,
     )
+
+
+@bp.route("/analysis/<analysis_id>/raw")
+def serve_analysis_image(analysis_id: str):
+    """
+    Serves the raw image bytes for a given analysis ID.
+    Required for external tools (Google/Bing) to 'see' our uploaded file.
+    """
+    payload = load_analysis_payload(analysis_id)
+    if payload is None:
+        abort(404)
+
+    image_bytes, metadata = payload
+    mime_type = metadata.get("mime_type", "application/octet-stream")
+
+    return send_file(BytesIO(image_bytes), mimetype=mime_type, max_age=3600)
 
 
 @bp.route("/analyze", methods=["GET", "POST"])
