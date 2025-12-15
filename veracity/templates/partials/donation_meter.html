@@ -1,0 +1,69 @@
+<div class="meter-card upload-card">
+  <hgroup style="margin-bottom: 1.5rem">
+    <h2>Support Trace Machine</h2>
+    <p>Donations on Ko-Fi unlock new tools for everyone to use.</p>
+  </hgroup>
+  <p class="donation-meter__label">
+    <strong>${{ "{:,.2f}".format(raised_dollars) }}</strong> raised of
+    <strong>${{ "{:,.2f}".format(goal_dollars) }}</strong>
+  </p>
+  <div
+    class="donation-meter"
+    role="img"
+    aria-label="Donation progress at {{ donation_progress_percent }} percent"
+  >
+    <div
+      class="donation-meter__fill"
+      style="width: {{ donation_progress_percent }}%;"
+    ></div>
+  </div>
+  <p class="donation-meter__status">
+    {% if donation_goal_met %} Image History goal met — feature coming soon. {%
+    else %} Image History unlocks at ${{ "{:,.2f}".format(goal_dollars) }}.
+    <details>
+      <summary>
+        <em>What is this?</em>
+      </summary>
+      <div style="margin-top: 0.5rem">
+        The Image History tool will search the internet for visually similar
+        images to the one being analyzed. You'll get a curated list of sources,
+        as well as an estimated creation date.
+        <br />
+        This is a powerful tool for distinguishing synthetic and non-synthetic
+        media, as synthetic media was neither visually persusasive nor
+        widespread prior to
+        <a href="https://openai.com/index/dall-e-2/">mid-2022.</a>
+      </div>
+    </details>
+    <details>
+      <summary>
+        <em>Why a donation goal?</em>
+      </summary>
+      <div style="margin-top: 0.5rem">
+        This stuff ain't free! Your donations will cover API costs for an
+        <a href="https://tineye.com/"
+          >industry-standard reverse image search service</a
+        >. $200 will cover the initial batch of API calls for the Image History
+        tool.
+        <br />
+        <em>
+          Every cent goes to API calls. Nothing goes in my pocket. To be as
+          cost-efficient as possible, Trace Machine will cache important details
+          and use its existing perceptual hash-based image matching to avoid
+          unnecessary API calls.
+        </em>
+      </div>
+    </details>
+    {% endif %}
+  </p>
+  <div class="donation-meter__actions">
+    <a
+      class="secondary"
+      href="https://ko-fi.com/tracemachine"
+      target="_blank"
+      rel="noopener noreferrer"
+    >
+      Donate on Ko-Fi
+    </a>
+  </div>
+</div>

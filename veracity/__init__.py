@@ -36,12 +36,14 @@ def create_app(test_config=None):
         )
 
     secret_key = os.environ.get("SECRET_KEY", "dev")
+    kofi_token = os.environ.get("KOFI_TOKEN", "")
     app.config.from_mapping(
         SECRET_KEY=secret_key,
         SQLALCHEMY_DATABASE_URI=db_url,
         SQLALCHEMY_TRACK_MODIFICATIONS=False,
         MAX_CONTENT_LENGTH=10 * 1024 * 1024,
         ALLOWED_EXTENSIONS={"png", "jpg", "jpeg", "webp", "gif"},
+        KOFI_TOKEN=kofi_token,
     )
 
     if test_config is not None:

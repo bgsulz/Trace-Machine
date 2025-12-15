@@ -1,8 +1,20 @@
 from io import BytesIO
+import json
 
-from flask import Blueprint, abort, flash, redirect, render_template, request, send_file, url_for
+from flask import (
+    Blueprint,
+    abort,
+    current_app,
+    flash,
+    jsonify,
+    redirect,
+    render_template,
+    request,
+    send_file,
+    url_for,
+)
 
-from . import ingestion
+from . import csrf, ingestion
 from .analysis_service import (
     handle_remote_analysis,
     perform_analysis,
@@ -10,6 +22,12 @@ from .analysis_service import (
 )
 from .analyzers.manager import ANALYZERS
 from .analysis_cache import load_analysis_payload
+from .config_service import (
+    DONATION_GOAL_CENTS,
+    get_global_config,
+    increment_total_donated,
+    parse_amount_to_cents,
+)
 from .voting_service import VOTE_CHOICES, apply_vote, get_voter_id
 
 bp = Blueprint("main", __name__)
@@ -17,7 +35,16 @@ bp = Blueprint("main", __name__)
 
 @bp.route("/")
 def index():
-    return render_template("index.html")
+    config = get_global_config()
+    total_cents = config.total_donated_cents
+    progress = min(total_cents / DONATION_GOAL_CENTS, 1) if DONATION_GOAL_CENTS else 0
+    return render_template(
+        "index.html",
+        donation_total_cents=total_cents,
+        donation_goal_cents=DONATION_GOAL_CENTS,
+        donation_progress_percent=round(progress * 100, 2),
+        donation_goal_met=total_cents >= DONATION_GOAL_CENTS,
+    )
 
 
 @bp.route("/info")
@@ -128,3 +155,31 @@ def vote():
         )
     flash("Thanks for your vote.")
     return redirect(redirect_target)
+
+
+@bp.route("/webhooks/kofi", methods=["POST"])
+@csrf.exempt
+def kofi_webhook():
+    payload = request.get_json(silent=True) or {}
+    if not payload:
+        raw = request.form.get("data")
+        if raw:
+            try:
+                payload = json.loads(raw)
+            except json.JSONDecodeError:
+                payload = {}
+    provided_token = (payload.get("verification_token") or "").strip()
+    expected_token = current_app.config.get("KOFI_TOKEN", "").strip()
+    if not expected_token or provided_token != expected_token:
+        abort(403)
+
+    amount_cents = parse_amount_to_cents(payload.get("amount"))
+    config = increment_total_donated(amount_cents)
+
+    return jsonify(
+        {
+            "status": "ok",
+            "added_cents": amount_cents,
+            "total_cents": config.total_donated_cents,
+        }
+    )

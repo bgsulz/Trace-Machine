@@ -30,6 +30,7 @@ def _create_testing_app(*, enable_csrf=False, instance_path):
         "WTF_CSRF_ENABLED": enable_csrf,
         "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:",
         "INSTANCE_PATH": instance_path,
+        "KOFI_TOKEN": "test-token",
     }
     app = create_app(test_config)
     with app.app_context():
