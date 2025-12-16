@@ -48,3 +48,12 @@ def _make_test_image_bytes(fmt="PNG", size=(10, 10)) -> bytes:
     buf = io.BytesIO()
     img.save(buf, format=fmt)
     return buf.getvalue()
+
+
+def _make_entropy_image_bytes(fmt="PNG", size=(256, 256)) -> bytes:
+    """Generate a larger, higher-entropy image for crop/entropy tests."""
+    noise = Image.effect_noise(size, 64)
+    img = noise.convert("RGB")
+    buf = io.BytesIO()
+    img.save(buf, format=fmt)
+    return buf.getvalue()

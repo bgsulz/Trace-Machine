@@ -22,6 +22,7 @@
       crossorigin="anonymous"
     ></script>
     <script src="{{ url_for('static', filename='js/theme.js') }}"></script>
+    {% block head_extra %}{% endblock %}
   </head>
   <body>
     <main class="container">
@@ -109,5 +110,6 @@
         });
       });
     </script>
+    {% block body_scripts %}{% endblock %}
   </body>
 </html>

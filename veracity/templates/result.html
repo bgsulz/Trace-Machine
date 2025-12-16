@@ -1,4 +1,12 @@
-{% extends "base.html" %} {% block content %}
+{% extends "base.html" %}
+{% block head_extra %}
+<link
+  rel="stylesheet"
+  href="https://cdn.jsdelivr.net/npm/cropperjs@1.5.13/dist/cropper.min.css"
+/>
+{% endblock %}
+
+{% block content %}
 <section>
   <nav aria-label="breadcrumb">
     <ul>
@@ -9,9 +17,40 @@
 
   <div class="result-image-container">
     <figure>
-      <img src="{{ image_url }}" alt="Analyzed image" class="result-image" />
+      <img
+        src="{{ image_url }}"
+        alt="Analyzed image"
+        class="result-image"
+        id="result-image"
+      />
       <figcaption>Source: {{ source }}</figcaption>
     </figure>
+    <form
+      id="crop-form"
+      class="crop-form"
+      method="post"
+      action="{{ url_for('main.crop_analysis', analysis_id=analysis_id) }}"
+    >
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+      <input type="hidden" name="crop_left" value="0" />
+      <input type="hidden" name="crop_top" value="0" />
+      <input type="hidden" name="crop_width" value="1" />
+      <input type="hidden" name="crop_height" value="1" />
+
+      <div class="crop-action-bar" data-state="idle">
+        <button type="button" id="crop-toggle" class="contrast">
+          Crop &amp; Re-analyze
+        </button>
+        <div id="crop-active-controls" class="crop-active-controls" hidden>
+          <button type="submit" class="contrast" id="crop-submit">
+            Re-analyze
+          </button>
+          <button type="button" class="secondary" id="crop-cancel">
+            Cancel
+          </button>
+        </div>
+      </div>
+    </form>
   </div>
 
   <h3>Provenance Report</h3>
@@ -25,8 +64,88 @@
         </tr>
       </thead>
       <tbody>
-        {% for analyzer in analyzers %} {% set row_id = "analyzer-placeholder-"
-        ~ analyzer.slug %}
+        {% if containments %}
+        <tr>
+          <td style="vertical-align: top">
+            <strong>Contained Regions</strong>
+          </td>
+          <td style="vertical-align: top">
+            <span class="badge found">FOUND</span>
+          </td>
+          <td>
+            <p class="analyzer-summary" style="margin: 0 0 0.35rem">
+              This image contains regions that match previously analyzed images.
+            </p>
+            <div class="overflow-auto">
+              <table class="striped contained-regions-table">
+                <thead>
+                  <tr>
+                    <th scope="col">Normalized Crop (x, y, w, h)</th>
+                    <th scope="col">Signals</th>
+                    <th scope="col">Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for region in containments %}
+                  <tr>
+                    <td>
+                      <code>
+                        {{ '%.3f'|format(region.crop_box[0]) }},
+                        {{ '%.3f'|format(region.crop_box[1]) }},
+                        {{ '%.3f'|format(region.crop_box[2]) }},
+                        {{ '%.3f'|format(region.crop_box[3]) }}
+                      </code>
+                    </td>
+                    <td>
+                      <small
+                        >Votes: {{ region.vote_real }} / {{ region.vote_edited }} /
+                        {{ region.vote_ai }}</small
+                      ><br />
+                      {% if region.fact_count %}
+                      <small>{{ region.fact_count }} provenance facts</small>
+                      {% else %}
+                      <small>No provenance facts yet</small>
+                      {% endif %}
+                    </td>
+                    <td>
+                      <form
+                        action="{{ url_for('main.crop_analysis', analysis_id=analysis_id) }}"
+                        method="post"
+                        class="inline-form"
+                      >
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                        <input
+                          type="hidden"
+                          name="crop_left"
+                          value="{{ region.crop_box[0] }}"
+                        />
+                        <input
+                          type="hidden"
+                          name="crop_top"
+                          value="{{ region.crop_box[1] }}"
+                        />
+                        <input
+                          type="hidden"
+                          name="crop_width"
+                          value="{{ region.crop_box[2] }}"
+                        />
+                        <input
+                          type="hidden"
+                          name="crop_height"
+                          value="{{ region.crop_box[3] }}"
+                        />
+                        <button type="submit" class="secondary">Analyze region</button>
+                      </form>
+                    </td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          </td>
+        </tr>
+        {% endif %}
+        {% for analyzer in analyzers %} {% set row_id = "analyzer-placeholder-" ~ analyzer.slug %}
         <tr
           id="{{ row_id }}"
           hx-get="{{ url_for('main.analyzer_fragment', analysis_id=analysis_id, slug=analyzer.slug) }}"
@@ -78,4 +197,94 @@
   </div>
   {% endif %}
 </section>
+{% endblock %}
+
+{% block body_scripts %}
+<script src="https://cdn.jsdelivr.net/npm/cropperjs@1.5.13/dist/cropper.min.js"></script>
+<script>
+  document.addEventListener("DOMContentLoaded", () => {
+    const image = document.getElementById("result-image");
+    const cropForm = document.getElementById("crop-form");
+    const cropToggle = document.getElementById("crop-toggle");
+    const cropCancel = document.getElementById("crop-cancel");
+    const cropControls = document.getElementById("crop-active-controls");
+    const actionBar = document.querySelector(".crop-action-bar");
+    if (!image || !cropForm || !cropToggle || !cropControls || !actionBar) {
+      return;
+    }
+
+    let cropper = null;
+
+    const setState = (state) => {
+      actionBar.dataset.state = state;
+      if (state === "active") {
+        cropToggle.hidden = true;
+        cropControls.hidden = false;
+      } else {
+        cropToggle.hidden = false;
+        cropControls.hidden = true;
+      }
+    };
+
+    const destroyCropper = () => {
+      if (cropper) {
+        cropper.destroy();
+        cropper = null;
+      }
+      setState("idle");
+    };
+
+    const ensureCropper = () => {
+      if (cropper) {
+        return;
+      }
+      cropper = new Cropper(image, {
+        viewMode: 1,
+        background: false,
+        autoCropArea: 1,
+        movable: false,
+        zoomOnWheel: false,
+        ready() {
+          const natW = image.naturalWidth;
+          const natH = image.naturalHeight;
+          if (natW && natH) {
+            cropper.setData({ x: 0, y: 0, width: natW, height: natH });
+          }
+        },
+      });
+      setState("active");
+    };
+
+    cropToggle.addEventListener("click", () => {
+      ensureCropper();
+    });
+
+    cropCancel?.addEventListener("click", () => {
+      destroyCropper();
+    });
+
+    cropForm.addEventListener("submit", (event) => {
+      if (!cropper) {
+        event.preventDefault();
+        return;
+      }
+      const data = cropper.getData(true);
+      const natW = image.naturalWidth || 1;
+      const natH = image.naturalHeight || 1;
+      const fields = {
+        crop_left: data.x / natW,
+        crop_top: data.y / natH,
+        crop_width: data.width / natW,
+        crop_height: data.height / natH,
+      };
+      Object.entries(fields).forEach(([key, value]) => {
+        const input = cropForm.querySelector(`input[name=\"${key}\"]`);
+        if (input) {
+          input.value = Number.isFinite(value) ? value.toFixed(6) : 0;
+        }
+      });
+      destroyCropper();
+    });
+  });
+</script>
 {% endblock %}

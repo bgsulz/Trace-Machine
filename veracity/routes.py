@@ -1,5 +1,6 @@
 from io import BytesIO
 import json
+import math
 
 from flask import (
     Blueprint,
@@ -13,6 +14,7 @@ from flask import (
     send_file,
     url_for,
 )
+from PIL import Image
 
 from . import csrf, ingestion
 from .analysis_service import (
@@ -22,15 +24,20 @@ from .analysis_service import (
 )
 from .analyzers.manager import ANALYZERS
 from .analysis_cache import load_analysis_payload
+from .containment_service import save_containment_link
 from .config_service import (
     DONATION_GOAL_CENTS,
     get_global_config,
     increment_total_donated,
     parse_amount_to_cents,
 )
+from .registry import prepare_analysis_context
 from .voting_service import VOTE_CHOICES, apply_vote, get_voter_id
 
 bp = Blueprint("main", __name__)
+
+MIN_CROP_PIXELS = 150
+MIN_CROP_ENTROPY = 1.0
 
 
 @bp.route("/")
@@ -76,6 +83,45 @@ def serve_analysis_image(analysis_id: str):
     mime_type = metadata.get("mime_type", "application/octet-stream")
 
     return send_file(BytesIO(image_bytes), mimetype=mime_type, max_age=3600)
+
+
+@bp.route("/analysis/<analysis_id>/crop", methods=["POST"])
+def crop_analysis(analysis_id: str):
+    payload = load_analysis_payload(analysis_id)
+    if payload is None:
+        flash("Original image expired. Please re-upload to crop.")
+        response = redirect(url_for("main.index"))
+        response.status_code = 410
+        return response
+
+    crop_box = _parse_normalized_box(request.form)
+    if crop_box is None:
+        flash("Invalid crop selection. Please try again.")
+        return _rerender_original(payload)
+
+    image_bytes, metadata = payload
+
+    try:
+        cropped_bytes, sanitized_box = _crop_image_bytes(image_bytes, crop_box)
+    except ValueError as exc:
+        flash(str(exc))
+        return _rerender_original(payload)
+
+    child_context = prepare_analysis_context(cropped_bytes)
+    parent_registry_id = metadata.get("registry_id")
+    if parent_registry_id:
+        try:
+            save_containment_link(parent_registry_id, child_context.registry_id, sanitized_box)
+        except Exception:
+            # Best effort; containment links are helpful but not critical.
+            current_app.logger.exception("Failed to save containment link")
+
+    return perform_analysis(
+        cropped_bytes,
+        "image/png",
+        "file",
+        context=child_context,
+    )
 
 
 @bp.route("/analyze", methods=["GET", "POST"])
@@ -182,4 +228,95 @@ def kofi_webhook():
             "added_cents": amount_cents,
             "total_cents": config.total_donated_cents,
         }
+    )
+
+
+def _parse_normalized_box(form) -> tuple[float, float, float, float] | None:
+    fields = ("crop_left", "crop_top", "crop_width", "crop_height")
+    values: list[float] = []
+    for field in fields:
+        raw = form.get(field)
+        try:
+            value = float(raw)
+        except (TypeError, ValueError):
+            return None
+        if not math.isfinite(value):
+            return None
+        values.append(max(0.0, min(1.0, value)))
+    left, top, width, height = values
+    if width <= 0 or height <= 0:
+        return None
+    return left, top, width, height
+
+
+def _crop_image_bytes(
+    image_bytes: bytes,
+    normalized_box: tuple[float, float, float, float],
+) -> tuple[bytes, tuple[float, float, float, float]]:
+    left_norm, top_norm, width_norm, height_norm = normalized_box
+
+    with Image.open(BytesIO(image_bytes)) as img:
+        img_width, img_height = img.size
+        if img_width <= 0 or img_height <= 0:
+            raise ValueError("Unable to crop this image.")
+
+        left_px = int(round(left_norm * img_width))
+        top_px = int(round(top_norm * img_height))
+        width_px = int(round(width_norm * img_width))
+        height_px = int(round(height_norm * img_height))
+
+        left_px = max(0, min(left_px, img_width - 1))
+        top_px = max(0, min(top_px, img_height - 1))
+        width_px = max(1, min(width_px, img_width - left_px))
+        height_px = max(1, min(height_px, img_height - top_px))
+
+        if width_px < MIN_CROP_PIXELS or height_px < MIN_CROP_PIXELS:
+            raise ValueError(
+                f"Crop must be at least {MIN_CROP_PIXELS}px on each side."
+            )
+
+        right_px = left_px + width_px
+        bottom_px = top_px + height_px
+        cropped = img.crop((left_px, top_px, right_px, bottom_px))
+
+        entropy = _calculate_entropy(cropped)
+        if entropy < MIN_CROP_ENTROPY:
+            raise ValueError("Crop is too uniform. Please select a more detailed region.")
+
+        buffer = BytesIO()
+        cropped.save(buffer, format="PNG")
+        sanitized_box = (
+            left_px / img_width,
+            top_px / img_height,
+            width_px / img_width,
+            height_px / img_height,
+        )
+        return buffer.getvalue(), sanitized_box
+
+
+def _calculate_entropy(image: Image.Image) -> float:
+    histogram = image.convert("L").histogram()
+    total = sum(histogram)
+    if total == 0:
+        return 0.0
+
+    entropy = 0.0
+    for count in histogram:
+        if count == 0:
+            continue
+        probability = count / total
+        entropy -= probability * math.log2(probability)
+    return entropy
+
+
+def _rerender_original(payload):
+    image_bytes, metadata = payload
+    mime_type = metadata.get("mime_type", "application/octet-stream")
+    source = metadata.get("source", "file")
+    image_url = metadata.get("image_url")
+    return perform_analysis(
+        image_bytes,
+        mime_type,
+        source,
+        image_url=image_url,
     )

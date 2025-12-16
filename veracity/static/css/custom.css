@@ -156,7 +156,7 @@ body > header {
 
 @media (min-width: 992px) {
   .home-section {
-    grid-template-columns: 3fr 2fr;
+    /* grid-template-columns: 3fr 2fr; */
     align-items: start;
   }
 }
@@ -265,6 +265,45 @@ body > header {
   width: auto;
   border-radius: 4px;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.crop-form {
+  margin-top: 1rem;
+}
+
+.crop-action-bar {
+  display: flex;
+  justify-content: center;
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+}
+
+.crop-active-controls {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.crop-active-controls[hidden] {
+  display: none !important;
+}
+
+.contained-regions-table code {
+  font-size: 0.85rem;
+}
+
+.contained-regions-table small {
+  color: var(--pico-muted-color);
+}
+
+.inline-form {
+  display: inline-flex;
+  gap: 0.35rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.inline-form button {
+  margin: 0;
 }
 
 /* Analyzer titles & tooltips */

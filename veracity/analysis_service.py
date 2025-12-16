@@ -19,6 +19,7 @@ from .analyzers.manager import (
     run_all_analyzers,
     run_single_analyzer,
 )
+from .containment_service import get_displayable_containments
 from .models import VoteHistory
 from .registry import prepare_analysis_context
 from .tools import generate_external_tools
@@ -54,10 +55,11 @@ def perform_analysis(
     image_url: str | None = None,
     auto_vote: str | None = None,
     template_name: str = "result.html",
+    context=None,
 ):
     image_data_url = _build_image_data_url(image_bytes, mime_type)
 
-    context = prepare_analysis_context(image_bytes)
+    context = context or prepare_analysis_context(image_bytes)
     phash = context.phash
     voting_service.persist_source_url(phash, image_url)
     _maybe_auto_vote(phash, auto_vote)
@@ -77,6 +79,7 @@ def perform_analysis(
     analysis_id = store_analysis_payload(None, image_bytes, metadata)
     tool_results = generate_external_tools(public_url, analysis_id=analysis_id)
     _prime_analyzer_rows(analysis_id, context)
+    containments = get_displayable_containments(context.registry_id)
     return render_template(
         template_name,
         image_url=image_data_url,
@@ -85,6 +88,8 @@ def perform_analysis(
         tools=tool_results,
         analysis_link=analysis_link,
         analysis_id=analysis_id,
+        registry_id=context.registry_id,
+        containments=containments,
     )
 
 

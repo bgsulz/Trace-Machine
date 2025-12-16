@@ -44,6 +44,29 @@ class ImageSource(db.Model):
     url = db.Column(db.Text, nullable=False)
 
 
+class ImageContainment(db.Model):
+    __tablename__ = "image_containment"
+
+    id = db.Column(db.Integer, primary_key=True)
+    parent_id = db.Column(
+        db.Integer, db.ForeignKey("image_registry.id"), nullable=False
+    )
+    child_id = db.Column(
+        db.Integer, db.ForeignKey("image_registry.id"), nullable=False
+    )
+    crop_box_json = db.Column(db.String(256), nullable=False)
+    created_at = db.Column(
+        db.DateTime(timezone=True), default=lambda: datetime.now(UTC)
+    )
+
+    parent = db.relationship(
+        "ImageRegistry", foreign_keys=[parent_id], backref="contains_images"
+    )
+    child = db.relationship(
+        "ImageRegistry", foreign_keys=[child_id], backref="contained_in"
+    )
+
+
 class VoteHistory(db.Model):
     __table_args__ = (
         db.UniqueConstraint("image_id", "voter_id", name="uq_vote_history"),
