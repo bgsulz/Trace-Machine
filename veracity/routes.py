@@ -38,6 +38,8 @@ bp = Blueprint("main", __name__)
 
 MIN_CROP_PIXELS = 150
 MIN_CROP_ENTROPY = 1.0
+MIN_CROP_ENTROPY_LOOSE = 0.5
+MIN_CROP_CONTRAST = 8.0
 
 
 @bp.route("/")
@@ -280,9 +282,11 @@ def _crop_image_bytes(
         bottom_px = top_px + height_px
         cropped = img.crop((left_px, top_px, right_px, bottom_px))
 
-        entropy = _calculate_entropy(cropped)
-        if entropy < MIN_CROP_ENTROPY:
-            raise ValueError("Crop is too uniform. Please select a more detailed region.")
+        entropy, contrast = _calculate_entropy_and_contrast(cropped)
+        if not (entropy >= MIN_CROP_ENTROPY_LOOSE or contrast >= MIN_CROP_CONTRAST):
+            raise ValueError(
+                "Crop is too uniform or low contrast. Please select a more detailed region."
+            )
 
         buffer = BytesIO()
         cropped.save(buffer, format="PNG")
@@ -295,19 +299,30 @@ def _crop_image_bytes(
         return buffer.getvalue(), sanitized_box
 
 
-def _calculate_entropy(image: Image.Image) -> float:
+def _calculate_entropy_and_contrast(image: Image.Image) -> tuple[float, float]:
     histogram = image.convert("L").histogram()
     total = sum(histogram)
     if total == 0:
-        return 0.0
+        return 0.0, 0.0
 
     entropy = 0.0
-    for count in histogram:
+    mean = 0.0
+    for value, count in enumerate(histogram):
         if count == 0:
             continue
         probability = count / total
         entropy -= probability * math.log2(probability)
-    return entropy
+        mean += value * probability
+
+    variance = 0.0
+    for value, count in enumerate(histogram):
+        if count == 0:
+            continue
+        probability = count / total
+        variance += probability * ((value - mean) ** 2)
+
+    contrast = math.sqrt(variance)
+    return entropy, contrast
 
 
 def _rerender_original(payload):
