@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from typing import Any, Sequence
 
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import joinedload
 
 from . import db
@@ -30,14 +31,39 @@ def save_containment_link(
         separators=(",", ":"),
     )
 
+    existing = (
+        ImageContainment.query.filter_by(
+            parent_id=parent_id,
+            child_id=child_id,
+            crop_box_json=serialized,
+        )
+        .order_by(ImageContainment.id.desc())
+        .first()
+    )
+    if existing:
+        return existing
+
     entry = ImageContainment(
         parent_id=parent_id,
         child_id=child_id,
         crop_box_json=serialized,
     )
     db.session.add(entry)
-    db.session.commit()
-    return entry
+    try:
+        db.session.commit()
+        return entry
+    except IntegrityError:
+        db.session.rollback()
+        # Return the latest matching row if a concurrent insert raced us.
+        return (
+            ImageContainment.query.filter_by(
+                parent_id=parent_id,
+                child_id=child_id,
+                crop_box_json=serialized,
+            )
+            .order_by(ImageContainment.id.desc())
+            .first()
+        )
 
 
 def get_displayable_containments(parent_id: int) -> list[dict[str, Any]]:
