@@ -56,6 +56,7 @@ def perform_analysis(
     auto_vote: str | None = None,
     template_name: str = "result.html",
     context=None,
+    crop_box: tuple[float, float, float, float] | None = None,
 ):
     image_data_url = _build_image_data_url(image_bytes, mime_type)
 
@@ -75,6 +76,7 @@ def perform_analysis(
         "phash": context.phash,
         "whash": context.whash,
         "registry_id": context.registry_id,
+        "crop_box": crop_box,
     }
     analysis_id = store_analysis_payload(None, image_bytes, metadata)
     tool_results = generate_external_tools(public_url, analysis_id=analysis_id)
@@ -90,6 +92,7 @@ def perform_analysis(
         analysis_id=analysis_id,
         registry_id=context.registry_id,
         containments=containments,
+        crop_box=crop_box,
     )
 
 

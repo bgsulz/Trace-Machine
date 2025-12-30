@@ -121,6 +121,7 @@ def crop_analysis(analysis_id: str):
         "image/png",
         "file",
         context=child_context,
+        crop_box=sanitized_box,
     )
 
 
@@ -314,9 +315,11 @@ def _rerender_original(payload):
     mime_type = metadata.get("mime_type", "application/octet-stream")
     source = metadata.get("source", "file")
     image_url = metadata.get("image_url")
+    crop_box = metadata.get("crop_box")
     return perform_analysis(
         image_bytes,
         mime_type,
         source,
         image_url=image_url,
+        crop_box=crop_box,
     )
