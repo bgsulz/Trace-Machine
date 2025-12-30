@@ -49,10 +49,10 @@ class ImageContainment(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     parent_id = db.Column(
-        db.Integer, db.ForeignKey("image_registry.id"), nullable=False
+        db.Integer, db.ForeignKey("image_registry.id"), nullable=False, index=True
     )
     child_id = db.Column(
-        db.Integer, db.ForeignKey("image_registry.id"), nullable=False
+        db.Integer, db.ForeignKey("image_registry.id"), nullable=False, index=True
     )
     crop_box_json = db.Column(db.String(256), nullable=False)
     created_at = db.Column(
