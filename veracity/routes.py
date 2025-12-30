@@ -14,7 +14,7 @@ from flask import (
     send_file,
     url_for,
 )
-from PIL import Image
+from PIL import Image, ImageOps
 
 from . import csrf, ingestion
 from .analysis_service import (
@@ -263,6 +263,8 @@ def _crop_image_bytes(
     left_norm, top_norm, width_norm, height_norm = normalized_box
 
     with Image.open(BytesIO(image_bytes)) as img:
+        img = ImageOps.exif_transpose(img)
+
         img_width, img_height = img.size
         if img_width <= 0 or img_height <= 0:
             raise ValueError("Unable to crop this image.")
