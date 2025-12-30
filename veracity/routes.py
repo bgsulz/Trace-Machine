@@ -245,9 +245,13 @@ def _parse_normalized_box(form) -> tuple[float, float, float, float] | None:
             return None
         if not math.isfinite(value):
             return None
-        values.append(max(0.0, min(1.0, value)))
+        if value < 0.0 or value > 1.0:
+            return None
+        values.append(value)
     left, top, width, height = values
     if width <= 0 or height <= 0:
+        return None
+    if left + width > 1.0 or top + height > 1.0:
         return None
     return left, top, width, height
 
