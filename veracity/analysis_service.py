@@ -20,6 +20,7 @@ from .analyzers.manager import (
     run_single_analyzer,
 )
 from .containment_service import get_displayable_containments
+from . import dethumbnail
 from .models import VoteHistory
 from .registry import prepare_analysis_context
 from .tools import generate_external_tools
@@ -67,6 +68,10 @@ def perform_analysis(
 
     public_url = image_url if source == "url" else None
     analysis_link = url_for("main.analyze", url=public_url) if public_url else None
+    full_res_url = None
+    if source == "url" and image_url:
+        full_res_url = dethumbnail.get_full_res_url(image_url)
+
     metadata: dict[str, Any] = {
         "mime_type": mime_type,
         "source": source,
@@ -77,6 +82,7 @@ def perform_analysis(
         "whash": context.whash,
         "registry_id": context.registry_id,
         "crop_box": crop_box,
+        "full_res_url": full_res_url,
     }
     analysis_id = store_analysis_payload(None, image_bytes, metadata)
     tool_results = generate_external_tools(public_url, analysis_id=analysis_id)
@@ -93,6 +99,7 @@ def perform_analysis(
         registry_id=context.registry_id,
         containments=containments,
         crop_box=crop_box,
+        full_res_url=full_res_url,
     )
 
 

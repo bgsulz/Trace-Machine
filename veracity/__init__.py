@@ -11,7 +11,6 @@ csrf = CSRFProtect()
 db = SQLAlchemy()
 migrate = Migrate()
 
-
 def create_app(test_config=None):
     instance_path_override = None
     if test_config is not None:

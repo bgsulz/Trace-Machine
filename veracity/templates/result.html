@@ -27,6 +27,20 @@
           />
           <figcaption>Source: {{ source }}</figcaption>
         </figure>
+        {% if full_res_url %}
+        <div class="dethumbnail-alert">
+          <p>
+            <strong>Low resolution detected.</strong><br />
+            Analysis is more accurate on the original file.
+          </p>
+          <form action="{{ url_for('main.analyze') }}" method="get">
+            <input type="hidden" name="url" value="{{ full_res_url }}" />
+            <button type="submit" class="outline contrast">
+              Analyze Full Resolution
+            </button>
+          </form>
+        </div>
+        {% endif %}
         <form
           id="crop-form"
           class="crop-form"
