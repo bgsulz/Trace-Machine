@@ -2,18 +2,15 @@
 <div class="analyzer-detail-block">
   {% if row.data.tool %}
   <div><strong>Tool:</strong> {{ row.data.tool }}</div>
-  {% endif %}
-  {% if row.data.signature_status %}
+  {% endif %} {% if row.data.signature_status %}
+  <div><strong>Signature:</strong> {{ row.data.signature_status }}</div>
+  {% endif %} {% if row.data.provenance_depth %}
   <div>
-    <strong>Signature:</strong> {{ row.data.signature_status }}
+    <strong>Chain Length:</strong>
+    {{ row.data.provenance_depth }} prior asset{{ "s" if
+    row.data.provenance_depth != 1 else "" }}
   </div>
-  {% endif %}
-  {% if row.data.provenance_depth %}
-  <div>
-    <strong>Chain Length:</strong> {{ row.data.provenance_depth }} prior assets
-  </div>
-  {% endif %}
-  {% if row.data.matches %}
+  {% endif %} {% if row.data.matches %}
   <hr />
   <p><strong>Similar images with C2PA data:</strong></p>
 
@@ -36,14 +33,22 @@
             {% for src in match.sources %}
             <a
               href="{{ url_for('main.analyze', url=src.url) }}"
-              {% if link_target %}target="{{ link_target }}" rel="noopener noreferrer"{% endif %}
+              {%
+              if
+              link_target
+              %}target="{{ link_target }}"
+              rel="noopener noreferrer"
+              {%
+              endif
+              %}
               >Source {{ loop.index }}</a
             >{% if not loop.last %}, {% endif %} {% endfor %}
           </small>
           {% endif %}
         </td>
         <td>
-          {% if match.distance is not none %}{{ match.distance }}{% else %}-{% endif %}
+          {% if match.distance is not none %}{{ match.distance }}{% else %}-{%
+          endif %}
         </td>
         <td>{{ match.fact_data }}</td>
       </tr>

@@ -57,6 +57,7 @@ body > header {
   padding: 0.35rem 0.6rem;
   font-size: 1.1rem;
   cursor: pointer;
+  margin: 0;
 }
 
 .site-nav {
@@ -129,6 +130,7 @@ body > header {
   border: 1px solid var(--pico-muted-border-color);
   background: var(--pico-card-background-color);
   padding: 0.5rem;
+  margin: 0;
 }
 
 .theme-toggle-button img {
@@ -250,6 +252,10 @@ body > header {
   );
 }
 
+nav {
+  margin-bottom: 1rem;
+}
+
 /* Results Display */
 .result-layout {
   display: flex;
@@ -275,7 +281,7 @@ body > header {
 .result-image-container {
   text-align: center;
   background: var(--pico-card-section-background-color);
-  padding: 1rem;
+  /* padding: 1rem; */
   border-radius: var(--pico-border-radius);
   margin-bottom: 2rem;
 }
@@ -351,6 +357,27 @@ body > header {
 
 .contained-regions-table small {
   color: var(--pico-muted-color);
+}
+
+@media (max-width: 768px) {
+  .table-responsive thead {
+    display: none;
+  }
+
+  .table-responsive > tbody > tr {
+    display: flex;
+    flex-wrap: wrap;
+    flex-direction: row;
+  }
+
+  .table-responsive > tbody > tr > td:first-child {
+    min-width: 80%;
+  }
+
+  .table-responsive > tbody > tr > td:first-child,
+  .table-responsive > tbody > tr > td:last-child {
+    flex: 1;
+  }
 }
 
 .inline-form {
@@ -645,4 +672,29 @@ body > header {
   border-radius: var(--pico-border-radius);
   background-color: var(--veracity-warning-dark);
   color: var(--pico-mark-color);
+}
+
+/* Scrollbars */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--pico-muted-border-color) var(--pico-background-color);
+}
+
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+  background: var(--pico-background-color);
+}
+
+*::-webkit-scrollbar-thumb {
+  background: var(--pico-muted-border-color);
+  border-radius: 8px;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--pico-primary);
+}
+
+*::-webkit-scrollbar-corner {
+  background: var(--pico-background-color);
 }
