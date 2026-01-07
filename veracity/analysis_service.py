@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import base64
 from typing import Any
+from urllib.parse import urlparse
 
 from flask import abort, flash, redirect, render_template, url_for
 
@@ -71,6 +72,7 @@ def perform_analysis(
     full_res_url = None
     if source == "url" and image_url:
         full_res_url = dethumbnail.get_full_res_url(image_url)
+    public_url_display = _format_public_url(public_url)
 
     metadata: dict[str, Any] = {
         "mime_type": mime_type,
@@ -83,6 +85,9 @@ def perform_analysis(
         "registry_id": context.registry_id,
         "crop_box": crop_box,
         "full_res_url": full_res_url,
+        "image_width": context.width,
+        "image_height": context.height,
+        "public_url_display": public_url_display,
     }
     analysis_id = store_analysis_payload(None, image_bytes, metadata)
     tool_results = generate_external_tools(public_url, analysis_id=analysis_id)
@@ -100,6 +105,10 @@ def perform_analysis(
         containments=containments,
         crop_box=crop_box,
         full_res_url=full_res_url,
+        public_url=public_url,
+        public_url_display=public_url_display,
+        image_width=context.width,
+        image_height=context.height,
     )
 
 
@@ -169,6 +178,27 @@ def _maybe_auto_vote(phash: str | None, auto_vote: str | None) -> None:
         flash("This vote was already recorded for you; showing latest results.")
     else:
         flash("Vote recorded automatically via shared link.")
+
+
+def _format_public_url(public_url: str | None, *, max_path_chars: int = 20) -> str | None:
+    if not public_url:
+        return None
+    try:
+        parsed = urlparse(public_url)
+    except Exception:
+        return public_url
+
+    host = parsed.netloc or ""
+    if not host:
+        return public_url
+
+    path = parsed.path.lstrip("/")
+    if not path:
+        return host
+
+    trimmed = path[:max_path_chars]
+    suffix = "..." if len(path) > max_path_chars else ""
+    return f"{host}/{trimmed}{suffix}"
 
 
 def _build_analyzer_error_row(spec, message: str) -> dict[str, Any]:

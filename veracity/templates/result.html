@@ -25,7 +25,21 @@
             class="result-image"
             id="result-image"
           />
-          <figcaption>Source: {{ source }}</figcaption>
+          <figcaption>
+            Source:
+            {% if source == "url" and public_url %}
+            <a href="{{ public_url }}" target="_blank" rel="noopener noreferrer">
+              {{ public_url_display or public_url }}
+            </a>
+            {% else %}
+            {{ source }}
+            {% endif %}
+          </figcaption>
+          {% if image_width and image_height %}
+          <div class="image-resolution">
+            Resolution: {{ image_width }}&times;{{ image_height }} px
+          </div>
+          {% endif %}
         </figure>
         {% if full_res_url %}
         <div class="dethumbnail-alert">

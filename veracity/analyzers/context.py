@@ -11,3 +11,5 @@ class AnalysisContext:
     whash: str
     registry_id: int
     neighbors: List[object]
+    width: int = 0
+    height: int = 0

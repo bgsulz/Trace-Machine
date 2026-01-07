@@ -153,6 +153,8 @@ def test_human_consensus_returns_phash():
         whash=target_whash_hex,
         registry_id=1,
         neighbors=[],
+        width=12,
+        height=12,
     )
 
     result = run_human_consensus(context)
@@ -201,6 +203,8 @@ def test_human_consensus_uses_fuzzy_match(app):
         whash=target_whash_hex,
         registry_id=1,
         neighbors=[neighbor],
+        width=12,
+        height=12,
     )
 
     result = run_human_consensus(context)
@@ -261,6 +265,8 @@ def test_human_consensus_attaches_sources(app):
         whash=str(target_whash),
         registry_id=1,
         neighbors=[neighbor],
+        width=12,
+        height=12,
     )
 
     result = run_human_consensus(context)
@@ -300,6 +306,8 @@ def test_exif_detects_automatic1111_metadata():
         whash="deadbeefdeadbeef",
         registry_id=1,
         neighbors=[],
+        width=12,
+        height=12,
     )
 
     result = run_exif_metadata(context)
@@ -332,6 +340,8 @@ def test_exif_detects_comfyui_prompt_and_workflow():
         whash="cafebabecafebabe",
         registry_id=1,
         neighbors=[],
+        width=12,
+        height=12,
     )
 
     result = run_exif_metadata(context)
@@ -354,6 +364,8 @@ def test_exif_returns_not_found_without_known_metadata():
         whash="0011ffaa0011ffaa",
         registry_id=1,
         neighbors=[],
+        width=12,
+        height=12,
     )
 
     result = run_exif_metadata(context)

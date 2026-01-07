@@ -11,6 +11,7 @@ def prepare_analysis_context(image_bytes: bytes) -> AnalysisContext:
     with Image.open(BytesIO(image_bytes)) as img:
         target_phash = imagehash.phash(img)
         target_whash = imagehash.whash(img)
+        width, height = img.size
     phash_str = str(target_phash)
     whash_str = str(target_whash)
 
@@ -60,4 +61,6 @@ def prepare_analysis_context(image_bytes: bytes) -> AnalysisContext:
         whash=whash_str,
         registry_id=registry_entry.id,
         neighbors=neighbors,
+        width=width,
+        height=height,
     )
