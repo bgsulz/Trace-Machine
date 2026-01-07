@@ -156,7 +156,7 @@ body > header {
   margin-bottom: 2rem;
 }
 
-@media (min-width: 992px) {
+@media (min-width: 1024px) {
   .home-section {
     /* grid-template-columns: 3fr 2fr; */
     align-items: start;
@@ -286,7 +286,7 @@ nav {
   margin-bottom: 2rem;
 }
 
-@media (min-width: 992px) {
+@media (min-width: 1024px) {
   .result-layout {
     display: grid;
     grid-template-columns: minmax(280px, 35%) 1fr;
