@@ -1,0 +1,50 @@
+:root {
+  --trace-machine-primary-light: #4912ff;
+  --trace-machine-primary-dark: #7066ff;
+}
+
+:root:not([data-theme="dark"]),
+[data-theme="light"] {
+  --trace-machine-primary: var(--trace-machine-primary-light);
+  --pico-primary: var(--trace-machine-primary);
+  --pico-primary-background: var(--trace-machine-primary);
+  --pico-primary-border: var(--trace-machine-primary);
+  --pico-primary-hover: color-mix(
+    in srgb,
+    var(--trace-machine-primary) 80%,
+    black
+  );
+  --pico-primary-hover-background: var(--pico-primary-hover);
+  --pico-primary-underline: color-mix(
+    in srgb,
+    var(--trace-machine-primary) 75%,
+    white
+  );
+}
+
+[data-theme="dark"] {
+  --trace-machine-primary: var(--trace-machine-primary-dark);
+  --pico-primary: var(--trace-machine-primary);
+  --pico-primary-background: var(--trace-machine-primary);
+  --pico-primary-border: var(--trace-machine-primary);
+  --pico-primary-hover: color-mix(
+    in srgb,
+    var(--trace-machine-primary) 80%,
+    black
+  );
+  --pico-primary-hover-background: var(--pico-primary-hover);
+  --pico-primary-underline: color-mix(
+    in srgb,
+    var(--trace-machine-primary) 75%,
+    white
+  );
+
+  --pico-background-color: #111;
+  --pico-card-background-color: #181818;
+  --pico-card-sectioning-background-color: #1f1f1f;
+  --pico-dropdown-background-color: #181818;
+  --pico-form-element-background-color: #1f1f1f;
+  --pico-form-element-border-color: #2a2a2a;
+  --pico-code-background-color: #1c1c1c;
+  --pico-muted-border-color: #2a2a2a;
+}
