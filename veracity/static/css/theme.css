@@ -47,4 +47,5 @@
   --pico-form-element-border-color: #2a2a2a;
   --pico-code-background-color: #1c1c1c;
   --pico-muted-border-color: #2a2a2a;
+  --pico-table-row-stripped-background-color: rgba(120, 120, 120, 0.0375);
 }

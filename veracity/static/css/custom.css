@@ -264,10 +264,23 @@ nav {
 }
 
 .result-primary,
-.result-secondary {
+.result-secondary,
+.result-analyzer {
   display: flex;
   flex-direction: column;
   gap: 1rem;
+}
+
+.result-primary {
+  order: 1;
+}
+
+.result-secondary {
+  order: 2;
+}
+
+.result-analyzer {
+  order: 3;
 }
 
 .result-secondary .overflow-auto {
@@ -290,8 +303,23 @@ nav {
   .result-layout {
     display: grid;
     grid-template-columns: minmax(280px, 35%) 1fr;
+    grid-template-areas:
+      "primary secondary"
+      "analyzer secondary";
     gap: 2.5rem;
     align-items: start;
+  }
+
+  .result-primary {
+    grid-area: primary;
+  }
+
+  .result-secondary {
+    grid-area: secondary;
+  }
+
+  .result-analyzer {
+    grid-area: analyzer;
   }
 
   .result-image-container {
