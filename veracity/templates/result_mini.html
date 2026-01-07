@@ -22,42 +22,17 @@
   <body>
     <main class="mini-container">
       <section class="mini-report">
-        <div
-          class="overflow-auto mini-table-wrapper"
-          data-analysis-id="{{ analysis_id }}"
-        >
-          <table class="striped">
-            <thead>
-              <tr>
-                <th scope="col" style="width: 20%">Analyzer</th>
-                <th scope="col" style="width: 15%">Status</th>
-                <th scope="col">Details</th>
-              </tr>
-            </thead>
-            <tbody>
-              {% for analyzer in analyzers %} {% set row_id =
-              "mini-analyzer-placeholder-" ~ analyzer.slug %}
-              <tr
-                id="{{ row_id }}"
-                hx-get="{{ url_for('main.analyzer_fragment', analysis_id=analysis_id, slug=analyzer.slug, mini='1') }}"
-                hx-trigger="load"
-                hx-target="#{{ row_id }}"
-                hx-swap="outerHTML"
-              >
-                <td style="vertical-align: top">
-                  <strong>{{ analyzer.name }}</strong>
-                </td>
-                <td style="vertical-align: top">
-                  <span class="badge loading">RUNNING</span>
-                </td>
-                <td>
-                  <em>Contacting {{ analyzer.name }}...</em>
-                </td>
-              </tr>
-              {% endfor %}
-            </tbody>
-          </table>
+        <div class="overflow-auto mini-table-wrapper" data-analysis-id="{{ analysis_id }}">
+          {% with placeholder_prefix="mini-analyzer-placeholder-", mini_mode=True %}
+          {% include "partials/analysis_table.html" %}
+          {% endwith %}
         </div>
+        {% if tools %}
+        <div class="mini-tools-wrapper">
+          <h3>Analysis Tools</h3>
+          {% include "partials/tools_table.html" %}
+        </div>
+        {% endif %}
         {% if analysis_link %}
         <p style="margin: 0.5rem 0 0; text-align: right">
           <a

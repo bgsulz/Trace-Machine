@@ -1,0 +1,26 @@
+{% if tools %}
+<div class="overflow-auto">
+  <table class="striped">
+    <thead>
+      <tr>
+        <th scope="col" style="width: 25%">Tool</th>
+        <th scope="col">Details</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for tool in tools %}
+      <tr>
+        <td style="vertical-align: top"><strong>{{ tool.name }}</strong></td>
+        <td>
+          {% for link in tool.links %}
+          <a href="{{ link.url }}" target="_blank" rel="noopener noreferrer"
+            >{{ link.label|trim }}</a
+          >
+          {% if not loop.last %} · {% endif %} {% endfor %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}

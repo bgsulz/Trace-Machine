@@ -1,0 +1,120 @@
+{% set placeholder_prefix = placeholder_prefix|default("analyzer-placeholder-") %}
+{% set mini_mode = mini_mode|default(False) %}
+<table class="striped">
+  <thead>
+    <tr>
+      <th scope="col" style="width: 20%">Analyzer</th>
+      <th scope="col" style="width: 15%">Status</th>
+      <th scope="col">Details</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% if containments %}
+    <tr>
+      <td style="vertical-align: top">
+        <strong>Contained Regions</strong>
+      </td>
+      <td style="vertical-align: top">
+        <span class="badge found">FOUND</span>
+      </td>
+      <td>
+        <p class="analyzer-summary" style="margin: 0 0 0.35rem">
+          This image contains regions that match previously analyzed images.
+        </p>
+        <div class="overflow-auto">
+          <table class="striped contained-regions-table">
+            <thead>
+              <tr>
+                <th scope="col">Normalized Crop (x, y, w, h)</th>
+                <th scope="col">Signals</th>
+                <th scope="col">Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for region in containments %}
+              <tr>
+                <td>
+                  <code>
+                    {{ '%.3f'|format(region.crop_box[0]) }},
+                    {{ '%.3f'|format(region.crop_box[1]) }},
+                    {{ '%.3f'|format(region.crop_box[2]) }},
+                    {{ '%.3f'|format(region.crop_box[3]) }}
+                  </code>
+                </td>
+                <td>
+                  <small
+                    >Votes: {{ region.vote_real }} / {{ region.vote_edited }} /
+                    {{ region.vote_ai }}</small
+                  ><br />
+                  {% if region.fact_count %}
+                  <small>{{ region.fact_count }} provenance facts</small>
+                  {% else %}
+                  <small>No provenance facts yet</small>
+                  {% endif %}
+                </td>
+                <td>
+                  <form
+                    action="{{ url_for('main.crop_analysis', analysis_id=analysis_id) }}"
+                    method="post"
+                    class="inline-form"
+                  >
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                    <input
+                      type="hidden"
+                      name="crop_left"
+                      value="{{ region.crop_box[0] }}"
+                    />
+                    <input
+                      type="hidden"
+                      name="crop_top"
+                      value="{{ region.crop_box[1] }}"
+                    />
+                    <input
+                      type="hidden"
+                      name="crop_width"
+                      value="{{ region.crop_box[2] }}"
+                    />
+                    <input
+                      type="hidden"
+                      name="crop_height"
+                      value="{{ region.crop_box[3] }}"
+                    />
+                    <button type="submit" class="secondary">Analyze region</button>
+                  </form>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </td>
+    </tr>
+    {% endif %}
+    {% for analyzer in analyzers %}
+    {% set row_id = placeholder_prefix ~ analyzer.slug %}
+    {% set hx_url = url_for(
+      'main.analyzer_fragment',
+      analysis_id=analysis_id,
+      slug=analyzer.slug,
+      mini=1 if mini_mode else None,
+    ) %}
+    <tr
+      id="{{ row_id }}"
+      hx-get="{{ hx_url }}"
+      hx-trigger="load"
+      hx-target="#{{ row_id }}"
+      hx-swap="outerHTML"
+    >
+      <td style="vertical-align: top">
+        <strong>{{ analyzer.name }}</strong>
+      </td>
+      <td style="vertical-align: top">
+        <span class="badge loading">RUNNING</span>
+      </td>
+      <td>
+        <em>Contacting {{ analyzer.name }}...</em>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
