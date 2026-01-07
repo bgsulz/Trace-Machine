@@ -7,7 +7,7 @@ from PIL import Image, PngImagePlugin
 
 from veracity.analyzers import AnalyzerSpec, run_all_analyzers
 from veracity.analyzers.human import run_human_consensus
-from veracity.analyzers.exif import run_exif_metadata
+from veracity.analyzers.exif import run_exif_metadata, _collect_text_chunks
 from veracity.analyzers.manager import AnalysisContext
 from conftest import _make_test_image_bytes
 
@@ -323,6 +323,8 @@ def test_exif_detects_automatic1111_metadata():
     assert metadata.get("steps") == "50"
     assert metadata.get("cfg_scale") == "5"
     assert metadata.get("seed") == "42"
+    chunks = result["data"]["chunks"]
+    assert list(chunks.keys()) == ["parameters"]
 
 
 def test_exif_detects_comfyui_prompt_and_workflow():
@@ -354,6 +356,8 @@ def test_exif_detects_comfyui_prompt_and_workflow():
     for finding in findings:
         parsed = finding["metadata"].get("parsed_json")
         assert isinstance(parsed, dict)
+    chunks = result["data"]["chunks"]
+    assert set(chunks.keys()) == {"prompt", "workflow"}
 
 
 def test_exif_returns_not_found_without_known_metadata():
@@ -372,3 +376,28 @@ def test_exif_returns_not_found_without_known_metadata():
 
     assert result["status"] == "NOT FOUND"
     assert result["data"]["findings"] == []
+    assert result["data"]["chunks"] == {}
+
+
+def test_collect_text_chunks_includes_numeric_and_exif_values():
+    class DummyImage:
+        def __init__(self):
+            self.info = {
+                "BitDepth": 8,
+                "ExtraTuple": (1, 2, 3),
+                "BinaryPayload": b"abc",
+            }
+
+        def getexif(self):
+            return {
+                40962: 2048,  # PixelXDimension
+                40963: 1024,  # PixelYDimension
+            }
+
+    chunks = _collect_text_chunks(DummyImage())
+
+    assert chunks["BitDepth"] == "8"
+    assert chunks["ExtraTuple"] == "1, 2, 3"
+    assert chunks["BinaryPayload"] == "abc"
+    assert chunks["PixelXDimension"] == "2048"
+    assert chunks["PixelYDimension"] == "1024"

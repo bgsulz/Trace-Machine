@@ -5,12 +5,12 @@ import logging
 from io import BytesIO
 from typing import Any
 
+import exifread
 from PIL import Image, UnidentifiedImageError
 
 from .context import AnalysisContext
 
 logger = logging.getLogger(__name__)
-
 
 _AUTOMATIC_KEYS = {"parameters"}
 _COMFY_PROMPT_KEYS = {"prompt"}
@@ -22,10 +22,11 @@ def run_exif_metadata(context: AnalysisContext) -> dict[str, object]:
     """Scan the image for textual metadata from popular AI tools."""
 
     try:
+        # We need both the Pillow object (for PNG chunks) and raw bytes (for ExifRead)
         with Image.open(BytesIO(context.image_bytes)) as img:
-            textual_chunks = _collect_text_chunks(img)
+            textual_chunks = _collect_text_chunks(img, context.image_bytes)
     except (UnidentifiedImageError, OSError) as exc:
-        logger.info("Unable to parse EXIF metadata: %s", exc)
+        logger.info("Unable to parse metadata: %s", exc)
         return {
             "status": "ERROR",
             "summary": "Could not inspect image metadata.",
@@ -39,23 +40,30 @@ def run_exif_metadata(context: AnalysisContext) -> dict[str, object]:
         if not value:
             continue
 
+        # Check for Automatic1111 / Stable Diffusion
         if normalized_key in _AUTOMATIC_KEYS:
             findings.append(_build_automatic1111_finding(key, value))
             continue
 
+        # Check for ComfyUI
         if normalized_key in _COMFY_PROMPT_KEYS:
             findings.append(_build_comfyui_finding(key, value, kind="prompt"))
             continue
-
         if normalized_key in _COMFY_WORKFLOW_KEYS:
             findings.append(_build_comfyui_finding(key, value, kind="workflow"))
             continue
+
+    # Sort keys for the "Raw Metadata" display
+    sorted_chunks = dict(sorted(textual_chunks.items(), key=lambda kv: kv[0].lower()))
 
     if not findings:
         return {
             "status": "NOT FOUND",
             "summary": "No AI EXIF metadata detected.",
-            "data": {"findings": []},
+            "data": {
+                "findings": [],
+                "chunks": sorted_chunks,
+            },
         }
 
     summary = (
@@ -64,23 +72,83 @@ def run_exif_metadata(context: AnalysisContext) -> dict[str, object]:
     return {
         "status": "FOUND",
         "summary": summary,
-        "data": {"findings": findings},
+        "data": {
+            "findings": findings,
+            "chunks": sorted_chunks,
+        },
     }
 
 
-def _collect_text_chunks(img: Image.Image) -> dict[str, str]:
+def _collect_text_chunks(img: Image.Image, image_bytes: bytes) -> dict[str, str]:
     chunks: dict[str, str] = {}
+
+    chunks["File Type"] = (img.format or "Unknown").upper()
+    chunks["Image Size"] = f"{img.width}x{img.height}"
+    chunks["Color Mode"] = img.mode  # e.g. RGB, RGBA, L
+
+    bit_depth_map = {"1": 1, "L": 8, "P": 8, "RGB": 8, "RGBA": 8, "CMYK": 8, "I;16": 16}
+    if img.mode in bit_depth_map:
+        chunks["Bit Depth"] = f"{bit_depth_map[img.mode]}-bit"
+
     info = getattr(img, "info", {}) or {}
     for key, value in info.items():
-        if isinstance(value, bytes):
-            try:
-                decoded = value.decode("utf-8", errors="replace")
-            except Exception:  # pragma: no cover - defensive
-                decoded = value.decode("latin-1", errors="replace")
-            chunks[key] = decoded
-        elif isinstance(value, str):
-            chunks[key] = value
+        if key in ("exif", "icc_profile"):  # Skip binary blobs
+            continue
+        string_value = _stringify_metadata_value(value)
+        if string_value:
+            chunks[str(key)] = string_value
+
+    exif_bytes = None
+
+    # If Pillow found an EXIF blob (common in PNGs), use that.
+    if "exif" in info and isinstance(info["exif"], bytes):
+        exif_bytes = info["exif"]
+    # Otherwise, if it's a JPEG/TIFF, use the whole file.
+    elif img.format in ("JPEG", "TIFF", "WEBP"):
+        exif_bytes = image_bytes
+
+    if exif_bytes:
+        try:
+            tags = exifread.process_file(BytesIO(exif_bytes), details=False)
+            for tag, value in tags.items():
+                if tag in (
+                    "JPEGThumbnail",
+                    "TIFFThumbnail",
+                    "Filename",
+                    "EXIF MakerNote",
+                ):
+                    continue
+
+                # Clean up key names
+                clean_key = str(tag)
+                if clean_key.startswith("EXIF "):
+                    clean_key = clean_key[5:]
+                elif clean_key.startswith("Image "):
+                    clean_key = clean_key[6:]
+
+                val_str = str(value)
+                if val_str and val_str.strip():
+                    chunks[clean_key] = val_str
+        except Exception as exc:
+            logger.debug("ExifRead extraction failed: %s", exc)
+
     return chunks
+
+
+def _stringify_metadata_value(value: Any) -> str:
+    if value is None:
+        return ""
+    if isinstance(value, bytes):
+        try:
+            return value.decode("utf-8")
+        except UnicodeDecodeError:
+            return value.decode("latin-1", errors="replace")
+    if isinstance(value, dict):
+        try:
+            return json.dumps(value, ensure_ascii=False)
+        except TypeError:
+            return str(value)
+    return str(value)
 
 
 def _build_automatic1111_finding(key: str, raw_value: str) -> dict[str, Any]:
@@ -147,4 +215,3 @@ def _make_preview(value: str, limit: int = _PREVIEW_LIMIT) -> str:
     if len(normalized) <= limit:
         return normalized
     return normalized[:limit].rstrip() + "…"
-

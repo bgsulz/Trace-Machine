@@ -1,11 +1,12 @@
-{% if row.data.findings %}
+{% set findings = row.data.findings %} {% set chunks = row.data.chunks or {} %}
 <div class="analyzer-detail-block">
+  {% if findings %}
   <div class="flash-warning" style="margin-bottom: 0.75rem">
     <strong>Warning:</strong>
-    Image metadata can be freely added, edited, or removed. Treat this information
-    as a clue, not definitive proof about how the image was created.
+    Image metadata can be freely added, edited, or removed. Treat this
+    information as a clue, not definitive proof about how the image was created.
   </div>
-  {% for finding in row.data.findings %}
+  {% for finding in findings %}
   <details style="margin-bottom: 0.75rem">
     <summary>
       <strong>{{ finding.tool }}</strong>
@@ -21,7 +22,9 @@
         <li>
           <strong>{{ meta_key }}:</strong>
           {% if meta_value is mapping %}
-          <pre style="white-space: pre-wrap">{{ meta_value | tojson(indent=2) }}</pre>
+          <pre style="white-space: pre-wrap">
+{{ meta_value | tojson(indent=2) }}</pre
+          >
           {% else %} {{ meta_value }} {% endif %}
         </li>
         {% endfor %}
@@ -29,6 +32,22 @@
       {% endif %}
     </div>
   </details>
-  {% endfor %}
+  {% endfor %} {% endif %} {% if row.data.chunks %}
+  <hr />
+  <details>
+    <summary><strong>Raw Metadata / EXIF</strong></summary>
+    <div style="font-size: 0.85rem; margin-top: 0.5rem">
+      <table class="striped">
+        <tbody>
+          {% for key, value in row.data.chunks.items() %}
+          <tr>
+            <td style="width: 30%"><strong>{{ key }}</strong></td>
+            <td style="word-break: break-all">{{ value }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </details>
+  {% endif %}
 </div>
-{% endif %}

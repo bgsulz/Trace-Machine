@@ -10,3 +10,4 @@ c2pa-python
 imagehash
 psycopg2-binary
 numpy
+ExifRead
