@@ -15,54 +15,59 @@
     </ul>
   </nav>
 
-  <div class="result-image-container">
-    <figure>
-      <img
-        src="{{ image_url }}"
-        alt="Analyzed image"
-        class="result-image"
-        id="result-image"
-      />
-      <figcaption>Source: {{ source }}</figcaption>
-    </figure>
-    <form
-      id="crop-form"
-      class="crop-form"
-      method="post"
-      action="{{ url_for('main.crop_analysis', analysis_id=analysis_id) }}"
-    >
-      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
-      <input type="hidden" name="crop_left" value="0" />
-      <input type="hidden" name="crop_top" value="0" />
-      <input type="hidden" name="crop_width" value="1" />
-      <input type="hidden" name="crop_height" value="1" />
+  <div class="result-layout">
+    <div class="result-primary">
+      <div class="result-image-container">
+        <figure>
+          <img
+            src="{{ image_url }}"
+            alt="Analyzed image"
+            class="result-image"
+            id="result-image"
+          />
+          <figcaption>Source: {{ source }}</figcaption>
+        </figure>
+        <form
+          id="crop-form"
+          class="crop-form"
+          method="post"
+          action="{{ url_for('main.crop_analysis', analysis_id=analysis_id) }}"
+        >
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+          <input type="hidden" name="crop_left" value="0" />
+          <input type="hidden" name="crop_top" value="0" />
+          <input type="hidden" name="crop_width" value="1" />
+          <input type="hidden" name="crop_height" value="1" />
 
-      <div class="crop-action-bar" data-state="idle">
-        <button type="button" id="crop-toggle" class="contrast">
-          Crop &amp; Re-analyze
-        </button>
-        <div id="crop-active-controls" class="crop-active-controls" hidden>
-          <button type="submit" class="contrast" id="crop-submit">
-            Re-analyze
-          </button>
-          <button type="button" class="secondary" id="crop-cancel">
-            Cancel
-          </button>
-        </div>
+          <div class="crop-action-bar" data-state="idle">
+            <button type="button" id="crop-toggle" class="contrast">
+              Crop &amp; Re-analyze
+            </button>
+            <div id="crop-active-controls" class="crop-active-controls" hidden>
+              <button type="submit" class="contrast" id="crop-submit">
+                Re-analyze
+              </button>
+              <button type="button" class="secondary" id="crop-cancel">
+                Cancel
+              </button>
+            </div>
+          </div>
+        </form>
       </div>
-    </form>
-  </div>
+    </div>
 
-  <h3>Provenance Report</h3>
-  <div class="overflow-auto">
-    {% include "partials/analysis_table.html" %}
-  </div>
+    <div class="result-secondary">
+      <h3>Provenance Report</h3>
+      <div class="overflow-auto">
+        {% include "partials/analysis_table.html" %}
+      </div>
 
-  {% if tools %}
-  <br />
-  <h3>Analysis Tools</h3>
-  {% include "partials/tools_table.html" %}
-  {% endif %}
+      {% if tools %}
+      <h3>Analysis Tools</h3>
+      {% include "partials/tools_table.html" %}
+      {% endif %}
+    </div>
+  </div>
 </section>
 {% endblock %}
 
