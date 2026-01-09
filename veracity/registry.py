@@ -40,13 +40,13 @@ def prepare_analysis_context(image_bytes: bytes) -> AnalysisContext:
         try:
             matched = False
             h2_phash = imagehash.hex_to_hash(img.phash)
-            if (base_phash - h2_phash) <= 4:
+            if (base_phash - h2_phash) <= 140:
                 matched = True
 
             img_whash_val = getattr(img, "whash", None)
             if img_whash_val:
                 h2_whash = imagehash.hex_to_hash(img_whash_val)
-                if (base_whash - h2_whash) <= 6:
+                if (base_whash - h2_whash) <= 160:
                     matched = True
 
             if matched and img.id not in seen_ids:

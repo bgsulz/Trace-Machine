@@ -9,7 +9,7 @@ from .context import AnalysisContext
 from .c2pa import run_c2pa
 from .exif import run_exif_metadata
 from .human import run_human_consensus
-# from .synthid import run_synthid_stub
+from .synthid import get_synthid_status
 
 logger = logging.getLogger(__name__)
 
@@ -42,7 +42,13 @@ ANALYZERS: Sequence[AnalyzerSpec] = (
         template="partials/analyzers/exif.html",
         tooltip="Scans EXIF blocks for hints that common AI tools left behind.",
     ),
-    # AnalyzerSpec(name="Google SynthID", func=run_synthid_stub),
+    AnalyzerSpec(
+        name="Google SynthID",
+        slug="synthid",
+        func=get_synthid_status,  # Only runs the cheap check initially!
+        template="partials/analyzers/synthid.html",
+        tooltip="Checks Google Lens for the 'Made with Google AI' watermark.",
+    ),
     AnalyzerSpec(
         name="Human Consensus",
         slug="human",

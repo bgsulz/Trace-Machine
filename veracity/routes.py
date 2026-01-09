@@ -33,6 +33,8 @@ from .config_service import (
 )
 from .registry import prepare_analysis_context
 from .voting_service import VOTE_CHOICES, apply_vote, get_voter_id
+from .analyzers.synthid import execute_synthid_search
+from .analyzers.manager import get_analyzer_spec, _format_result
 
 bp = Blueprint("main", __name__)
 
@@ -113,7 +115,9 @@ def crop_analysis(analysis_id: str):
     parent_registry_id = metadata.get("registry_id")
     if parent_registry_id:
         try:
-            save_containment_link(parent_registry_id, child_context.registry_id, sanitized_box)
+            save_containment_link(
+                parent_registry_id, child_context.registry_id, sanitized_box
+            )
         except Exception:
             # Best effort; containment links are helpful but not critical.
             current_app.logger.exception("Failed to save containment link")
@@ -171,6 +175,35 @@ def analyze_mini():
         vote_slug = None
 
     return handle_remote_analysis(image_url, vote_slug, "result_mini.html")
+
+
+@bp.route("/analysis/<analysis_id>/synthid/run", methods=["POST"])
+def run_synthid(analysis_id: str):
+    # 1. Load context
+    payload = load_analysis_payload(analysis_id)
+    if not payload:
+        return "Analysis expired", 410
+    image_bytes, metadata = payload
+
+    # 2. Rehydrate Context
+    context = prepare_analysis_context(image_bytes)
+
+    # 3. Run Expensive Logic
+    raw_result = execute_synthid_search(analysis_id, context)
+
+    # 4. Format for Template
+    spec = get_analyzer_spec("synthid")
+    formatted_row = _format_result(spec, raw_result)
+
+    # 5. Inject Context for rendering (crucial for links)
+    formatted_row["context"] = {
+        "analysis_id": analysis_id,
+        "source": metadata.get("source"),
+        "link_target": "_blank",  # or whatever your default is
+    }
+
+    # 6. Render just the row
+    return render_template("partials/analyzer_row.html", row=formatted_row)
 
 
 @bp.route("/vote", methods=["POST"])
@@ -280,9 +313,7 @@ def _crop_image_bytes(
         height_px = max(1, min(height_px, img_height - top_px))
 
         if width_px < MIN_CROP_PIXELS or height_px < MIN_CROP_PIXELS:
-            raise ValueError(
-                f"Crop must be at least {MIN_CROP_PIXELS}px on each side."
-            )
+            raise ValueError(f"Crop must be at least {MIN_CROP_PIXELS}px on each side.")
 
         right_px = left_px + width_px
         bottom_px = top_px + height_px

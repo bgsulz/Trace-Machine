@@ -5,6 +5,7 @@ from flask_migrate import Migrate
 from werkzeug.middleware.proxy_fix import ProxyFix
 from dotenv import load_dotenv
 import os
+import logging
 
 load_dotenv()
 csrf = CSRFProtect()
@@ -21,6 +22,9 @@ def create_app(test_config=None):
         instance_relative_config=True,
         instance_path=instance_path_override,
     )
+    app.logger.setLevel(logging.INFO)
+    logging.getLogger("veracity").setLevel(logging.INFO)
+
     migrate.init_app(app, db)
 
     # Trust a single upstream proxy (e.g. Nginx) for X-Forwarded-* headers.

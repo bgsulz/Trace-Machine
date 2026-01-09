@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import base64
 from typing import Any
-from urllib.parse import urlparse
+from urllib.parse import urlparse, quote_plus
 
 from flask import abort, flash, redirect, render_template, url_for
 
@@ -225,11 +225,14 @@ def _prepare_row_for_render(
         row_data["phash"] = phash
     row["data"] = row_data
 
+    lens_link = _build_google_lens_link(metadata, analysis_id)
+
     row["context"] = {
         "source": metadata.get("source", "file"),
         "analysis_link": metadata.get("analysis_link"),
         "link_target": link_target,
         "analysis_id": analysis_id,
+        "lens_link": lens_link,
     }
 
     if row.get("slug") != "human":
@@ -254,3 +257,18 @@ def _attach_vote_history(row: dict[str, Any] | None, registry_id: int) -> None:
     data = row.get("data") or {}
     data["current_vote"] = history_row.choice if history_row else None
     row["data"] = data
+
+
+def _build_google_lens_link(metadata: dict[str, Any] | None, analysis_id: str | None) -> str | None:
+    metadata = metadata or {}
+    public_url = metadata.get("public_url")
+    target_url = public_url
+
+    if not target_url and analysis_id:
+        target_url = url_for("main.serve_analysis_image", analysis_id=analysis_id, _external=True)
+
+    if not target_url:
+        return "https://images.google.com/"
+
+    encoded = quote_plus(target_url)
+    return f"https://lens.google.com/upload?url={encoded}"
