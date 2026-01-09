@@ -3,10 +3,14 @@ import json
 import logging
 from io import BytesIO
 from PIL import Image, UnidentifiedImageError
-import imagehash
 from .. import db
 from ..models import ProvenanceFact
 from .context import AnalysisContext
+from .hash_utils import (
+    compute_base_hashes,
+    compute_neighbor_distances,
+    extract_sources,
+)
 
 try:  # pragma: no cover - import guard
     from c2pa import Reader
@@ -159,58 +163,29 @@ def run_c2pa(context: AnalysisContext) -> dict[str, object]:
 
     # 3. Build a list of nearby matches from provenance facts on neighbors.
     matches: list[dict[str, object]] = []
-    try:
-        base_phash = imagehash.hex_to_hash(context.phash)
-    except Exception:  # pragma: no cover - defensive
-        base_phash = None
-
-    try:
-        base_whash = imagehash.hex_to_hash(context.whash)
-    except Exception:  # pragma: no cover - defensive
-        base_whash = None
+    base_phash, base_whash = compute_base_hashes(context.phash, context.whash)
 
     for neighbor in context.neighbors:
         phash = getattr(neighbor, "phash", None)
         if not phash:
             continue
 
-        phash_distance: int | None = None
-        whash_distance: int | None = None
-        try:
-            neighbor_hash = imagehash.hex_to_hash(phash)
-            phash_distance = int(base_phash - neighbor_hash) if base_phash else None
-        except Exception:  # pragma: no cover - defensive
-            phash_distance = None
-
         neighbor_whash_val = getattr(neighbor, "whash", None)
-        if neighbor_whash_val:
-            try:
-                neighbor_whash = imagehash.hex_to_hash(neighbor_whash_val)
-                if base_whash is not None:
-                    whash_distance = int(base_whash - neighbor_whash)
-            except Exception:  # pragma: no cover - defensive
-                whash_distance = None
+        (
+            phash_distance,
+            whash_distance,
+            display_hash,
+            display_label,
+            display_distance,
+        ) = compute_neighbor_distances(
+            base_phash, base_whash, phash, neighbor_whash_val
+        )
 
         for fact in getattr(neighbor, "facts", []) or []:
             if fact.analyzer != "c2pa":
                 continue
 
-            sources = []
-            for src in getattr(neighbor, "sources", [])[:3]:
-                url = getattr(src, "url", None)
-                if url:
-                    sources.append({"url": url})
-
-            display_hash = phash
-            display_label = "phash"
-            display_distance = phash_distance if phash_distance is not None else 0
-
-            if whash_distance is not None and (
-                phash_distance is None or whash_distance <= phash_distance
-            ):
-                display_hash = neighbor_whash_val
-                display_label = "whash"
-                display_distance = whash_distance
+            sources = extract_sources(neighbor)
 
             matches.append(
                 {

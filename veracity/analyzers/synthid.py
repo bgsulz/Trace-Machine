@@ -3,12 +3,16 @@ import json
 import logging
 import os
 import requests
-import imagehash
 from flask import url_for
 
 from .. import db
 from ..models import ProvenanceFact
 from .context import AnalysisContext
+from .hash_utils import (
+    compute_base_hashes,
+    compute_neighbor_distances,
+    extract_sources,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -149,55 +153,25 @@ def execute_synthid_search(
 def _find_neighbor_matches(context: AnalysisContext):
     """Reuse the neighbor logic to find if similar images have SynthID."""
     matches = []
-
-    try:
-        base_phash = imagehash.hex_to_hash(context.phash)
-    except Exception:
-        base_phash = None
-
-    try:
-        base_whash = imagehash.hex_to_hash(context.whash)
-    except Exception:
-        base_whash = None
+    base_phash, base_whash = compute_base_hashes(context.phash, context.whash)
 
     for neighbor in context.neighbors:
         phash = getattr(neighbor, "phash", None)
         if not phash:
             continue
 
-        phash_distance: int | None = None
-        whash_distance: int | None = None
-
-        try:
-            neighbor_hash = imagehash.hex_to_hash(phash)
-            phash_distance = int(base_phash - neighbor_hash) if base_phash else None
-        except Exception:
-            phash_distance = None
-
         neighbor_whash_val = getattr(neighbor, "whash", None)
-        if neighbor_whash_val:
-            try:
-                neighbor_whash = imagehash.hex_to_hash(neighbor_whash_val)
-                if base_whash is not None:
-                    whash_distance = int(base_whash - neighbor_whash)
-            except Exception:
-                whash_distance = None
+        (
+            phash_distance,
+            whash_distance,
+            display_hash,
+            display_label,
+            display_distance,
+        ) = compute_neighbor_distances(
+            base_phash, base_whash, phash, neighbor_whash_val
+        )
 
-        display_hash = phash
-        display_label = "phash"
-        display_distance = phash_distance if phash_distance is not None else 0
-        if whash_distance is not None and (
-            phash_distance is None or whash_distance <= phash_distance
-        ):
-            display_hash = neighbor_whash_val
-            display_label = "whash"
-            display_distance = whash_distance
-
-        sources = []
-        for src in getattr(neighbor, "sources", [])[:3]:
-            url = getattr(src, "url", None)
-            if url:
-                sources.append({"url": url})
+        sources = extract_sources(neighbor)
 
         for fact in getattr(neighbor, "facts", []) or []:
             if fact.analyzer != "synthid":
