@@ -16,6 +16,11 @@ _AUTOMATIC_KEYS = {"parameters"}
 _COMFY_PROMPT_KEYS = {"prompt"}
 _COMFY_WORKFLOW_KEYS = {"workflow", "workflow_json"}
 _PREVIEW_LIMIT = 200
+_BASIC_METADATA_KEYS = {"FileType", "ImageSize", "ColorMode", "BitDepth"}
+_EXIF_TAG_ALIASES = {
+    40962: "PixelXDimension",
+    40963: "PixelYDimension",
+}
 
 
 def run_exif_metadata(context: AnalysisContext) -> dict[str, object]:
@@ -53,8 +58,13 @@ def run_exif_metadata(context: AnalysisContext) -> dict[str, object]:
             findings.append(_build_comfyui_finding(key, value, kind="workflow"))
             continue
 
-    # Sort keys for the "Raw Metadata" display
-    sorted_chunks = dict(sorted(textual_chunks.items(), key=lambda kv: kv[0].lower()))
+    # Sort keys for the "Raw Metadata" display, excluding basic image info
+    filtered_chunks = {
+        key: value
+        for key, value in textual_chunks.items()
+        if key not in _BASIC_METADATA_KEYS
+    }
+    sorted_chunks = dict(sorted(filtered_chunks.items(), key=lambda kv: kv[0].lower()))
 
     if not findings:
         return {
@@ -79,16 +89,21 @@ def run_exif_metadata(context: AnalysisContext) -> dict[str, object]:
     }
 
 
-def _collect_text_chunks(img: Image.Image, image_bytes: bytes) -> dict[str, str]:
+def _collect_text_chunks(img: Image.Image, image_bytes: bytes | None = None) -> dict[str, str]:
     chunks: dict[str, str] = {}
 
-    chunks["File Type"] = (img.format or "Unknown").upper()
-    chunks["Image Size"] = f"{img.width}x{img.height}"
-    chunks["Color Mode"] = img.mode  # e.g. RGB, RGBA, L
+    fmt = getattr(img, "format", None)
+    chunks["FileType"] = (fmt or "Unknown").upper()
+    width = getattr(img, "width", None)
+    height = getattr(img, "height", None)
+    if width is not None and height is not None:
+        chunks["ImageSize"] = f"{width}x{height}"
+    color_mode = getattr(img, "mode", None)
+    chunks["ColorMode"] = color_mode or "Unknown"  # e.g. RGB, RGBA, L
 
     bit_depth_map = {"1": 1, "L": 8, "P": 8, "RGB": 8, "RGBA": 8, "CMYK": 8, "I;16": 16}
-    if img.mode in bit_depth_map:
-        chunks["Bit Depth"] = f"{bit_depth_map[img.mode]}-bit"
+    if color_mode in bit_depth_map:
+        chunks["BitDepth"] = str(bit_depth_map[color_mode])
 
     info = getattr(img, "info", {}) or {}
     for key, value in info.items():
@@ -98,13 +113,30 @@ def _collect_text_chunks(img: Image.Image, image_bytes: bytes) -> dict[str, str]
         if string_value:
             chunks[str(key)] = string_value
 
+    pillow_exif = None
+    getexif_fn = getattr(img, "getexif", None)
+    if callable(getexif_fn):
+        try:
+            pillow_exif = getexif_fn()
+        except Exception:
+            pillow_exif = None
+
+    if pillow_exif:
+        for tag, value in pillow_exif.items():
+            clean_key = _normalize_exif_key(tag)
+            val_str = _stringify_metadata_value(value)
+            if val_str:
+                chunks[clean_key] = val_str
+
     exif_bytes = None
+    if image_bytes is None:
+        image_bytes = b""
 
     # If Pillow found an EXIF blob (common in PNGs), use that.
     if "exif" in info and isinstance(info["exif"], bytes):
         exif_bytes = info["exif"]
     # Otherwise, if it's a JPEG/TIFF, use the whole file.
-    elif img.format in ("JPEG", "TIFF", "WEBP"):
+    elif fmt in ("JPEG", "TIFF", "WEBP"):
         exif_bytes = image_bytes
 
     if exif_bytes:
@@ -120,11 +152,7 @@ def _collect_text_chunks(img: Image.Image, image_bytes: bytes) -> dict[str, str]
                     continue
 
                 # Clean up key names
-                clean_key = str(tag)
-                if clean_key.startswith("EXIF "):
-                    clean_key = clean_key[5:]
-                elif clean_key.startswith("Image "):
-                    clean_key = clean_key[6:]
+                clean_key = _normalize_exif_key(tag)
 
                 val_str = str(value)
                 if val_str and val_str.strip():
@@ -143,12 +171,25 @@ def _stringify_metadata_value(value: Any) -> str:
             return value.decode("utf-8")
         except UnicodeDecodeError:
             return value.decode("latin-1", errors="replace")
+    if isinstance(value, (list, tuple)):
+        return ", ".join(_stringify_metadata_value(item) or "" for item in value).strip(", ")
     if isinstance(value, dict):
         try:
             return json.dumps(value, ensure_ascii=False)
         except TypeError:
             return str(value)
     return str(value)
+
+
+def _normalize_exif_key(tag: Any) -> str:
+    if tag in _EXIF_TAG_ALIASES:
+        return _EXIF_TAG_ALIASES[tag]
+    clean_key = str(tag)
+    if clean_key.startswith("EXIF "):
+        return clean_key[5:]
+    if clean_key.startswith("Image "):
+        return clean_key[6:]
+    return clean_key
 
 
 def _build_automatic1111_finding(key: str, raw_value: str) -> dict[str, Any]:
