@@ -30,10 +30,13 @@ def get_synthid_status(context: AnalysisContext) -> dict[str, object]:
 
     if existing_fact:
         data = json.loads(existing_fact.data)
-        data["matches"] = _find_neighbor_matches(context)
-        existing_fact.data = json.dumps(data)
-        db.session.add(existing_fact)
-        db.session.commit()
+        matches = _find_neighbor_matches(context)
+        prev_matches = data.get("matches")
+        data["matches"] = matches
+        if prev_matches != matches:
+            existing_fact.data = json.dumps(data)
+            db.session.add(existing_fact)
+            db.session.commit()
         return {
             "status": "FOUND" if data.get("detected") else "NOT FOUND",
             "summary": data.get("summary"),
@@ -116,8 +119,11 @@ def execute_synthid_search(
             detected = True
             badge_text = "Made with Google AI"
 
-    summary = (
-        f"{badge_text}" if detected else "No SynthID badge detected via Google Lens."
+    summary = _format_detection_message(
+        detected,
+        badge_text,
+        detected_fallback="SynthID detected",
+        clean_fallback="No SynthID badge detected via Google Lens.",
     )
 
     fact_data = {
@@ -201,14 +207,7 @@ def _find_neighbor_matches(context: AnalysisContext):
             badge_text = fact_json.get("badge_text") or ""
             summary = fact_json.get("summary") or ""
 
-            if detected and badge_text:
-                result_text = f"{badge_text}"
-            elif detected:
-                result_text = "SynthID detected"
-            elif badge_text:
-                result_text = badge_text
-            else:
-                result_text = "No SynthID detected"
+            result_text = _format_detection_message(detected, badge_text)
 
             matches.append(
                 {
@@ -229,3 +228,17 @@ def _find_neighbor_matches(context: AnalysisContext):
 
     logger.info("SynthID neighbor facts found: %d", len(matches))
     return matches
+
+
+def _format_detection_message(
+    detected: bool,
+    badge_text: str,
+    *,
+    detected_fallback: str = "SynthID detected",
+    clean_fallback: str = "No SynthID detected",
+) -> str:
+    if detected:
+        return badge_text or detected_fallback
+    if badge_text:
+        return badge_text
+    return clean_fallback
