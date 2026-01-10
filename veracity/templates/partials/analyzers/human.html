@@ -77,7 +77,10 @@
           type="submit"
           class="vote-btn-real{% if current_vote and current_vote != 'real' %} vote-btn-muted{% endif %}"
         >
-          Mark as Real
+          <span class="tooltip-trigger vote-tooltip" tabindex="0">
+            Mark as Real
+            <span class="tooltip-bubble">This is a fully human-generated image (photo or artwork.)</span>
+          </span>
         </button>
       </form>
 
@@ -103,7 +106,12 @@
           type="submit"
           class="vote-btn-edited{% if current_vote and current_vote != 'edited' %} vote-btn-muted{% endif %}"
         >
-          Mark as AI-Edited
+          <span class="tooltip-trigger vote-tooltip" tabindex="0">
+            Mark as AI-Edited
+            <span class="tooltip-bubble"
+              >This is a human-created image (photo or artwork) that was edited or modified with AI generation.</span
+            >
+          </span>
         </button>
       </form>
 
@@ -129,7 +137,10 @@
           type="submit"
           class="vote-btn-ai{% if current_vote and current_vote != 'ai' %} vote-btn-muted{% endif %}"
         >
-          Mark as AI-Gen
+          <span class="tooltip-trigger vote-tooltip" tabindex="0">
+            Mark as AI-Gen
+            <span class="tooltip-bubble">The relevant part of this image is mostly or entirely AI-generated.</span>
+          </span>
         </button>
       </form>
     </div>
