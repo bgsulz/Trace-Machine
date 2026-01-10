@@ -9,12 +9,13 @@ from PIL import Image, PngImagePlugin
 from veracity.analyzers import AnalyzerSpec, run_all_analyzers
 from veracity.analyzers.human import (
     _build_vote_breakdown,
+    _MAX_HAMMING_DISTANCE,
     run_human_consensus,
 )
 from veracity.analyzers.exif import run_exif_metadata, _collect_text_chunks
 from veracity.analyzers.manager import AnalysisContext
 from veracity.analyzers import c2pa as c2pa_analyzer
-from veracity.analyzers.c2pa import _detect_mime_type
+from veracity.analyzers.c2pa import _detect_mime_type, _run_c2pa_tool
 from conftest import _make_test_image_bytes
 
 
@@ -141,6 +142,29 @@ def test_c2pa_analyzer_writes_signer(monkeypatch):
     result = c2pa_analyzer.run_c2pa(context)
     assert result["status"] == "FOUND"
     assert "Adobe" in str(result["summary"])
+
+
+def test_run_c2pa_tool_returns_error_on_reader_failure(monkeypatch):
+    class FailingReader:
+        def __init__(self, mime_type, stream):  # noqa: D401, ARG002
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):  # noqa: D401, ARG002
+            return False
+
+        def json(self):
+            raise RuntimeError("unexpected parser failure")
+
+    monkeypatch.setattr(c2pa_analyzer, "Reader", FailingReader)
+    image_bytes = _make_test_image_bytes()
+
+    result = _run_c2pa_tool(image_bytes)
+
+    assert result["status"] == "ERROR"
+    assert "unexpected parser failure" in result["summary"]
 
 
 def test_human_consensus_returns_phash():
@@ -287,6 +311,48 @@ def test_human_consensus_attaches_sources(app):
     assert len(sources) == 2
     urls = {entry["url"] for entry in sources}
     assert urls == {"https://example.com/a.png", "https://example.com/b.png"}
+
+
+def test_human_consensus_reports_threshold_and_overall_breakdown():
+    class Neighbor:
+        def __init__(self, phash, whash, real, edited, ai):
+            self.phash = phash
+            self.whash = whash
+            self.consensus = SimpleNamespace(
+                vote_real=real,
+                vote_edited=edited,
+                vote_ai=ai,
+            )
+            self.created_at = None
+            self.sources = []
+
+    neighbors = [
+        Neighbor("0011ffaa0011ffaa", "0011ffaa0011ffab", 2, 1, 0),
+        Neighbor("0011ffaa0011ffbb", "0011ffaa0011ffcc", 0, 1, 3),
+    ]
+
+    context = AnalysisContext(
+        image_bytes=b"payload",
+        phash="0011ffaa0011ffaa",
+        whash="0011ffaa0011ffbb",
+        registry_id=1,
+        neighbors=neighbors,
+        width=12,
+        height=12,
+    )
+
+    result = run_human_consensus(context)
+    data = result["data"]
+
+    assert data["threshold"] == _MAX_HAMMING_DISTANCE
+    totals = data["totals"]
+    breakdown = data["overall_breakdown"]
+    counts = breakdown["counts"]
+
+    assert counts["real"] == totals["vote_real"]
+    assert counts["edited"] == totals["vote_edited"]
+    assert counts["ai"] == totals["vote_ai"]
+    assert breakdown["total"] == totals["total_votes"]
 
 
 def _make_png_with_text(chunks: dict[str, str]) -> bytes:
