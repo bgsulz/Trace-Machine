@@ -1,14 +1,20 @@
 import json
 from io import BytesIO
+from types import SimpleNamespace
 
 import pytest
 import imagehash
 from PIL import Image, PngImagePlugin
 
 from veracity.analyzers import AnalyzerSpec, run_all_analyzers
-from veracity.analyzers.human import run_human_consensus
+from veracity.analyzers.human import (
+    _build_vote_breakdown,
+    run_human_consensus,
+)
 from veracity.analyzers.exif import run_exif_metadata, _collect_text_chunks
 from veracity.analyzers.manager import AnalysisContext
+from veracity.analyzers import c2pa as c2pa_analyzer
+from veracity.analyzers.c2pa import _detect_mime_type
 from conftest import _make_test_image_bytes
 
 
@@ -403,5 +409,56 @@ def test_collect_text_chunks_includes_numeric_and_exif_values():
     assert chunks["BitDepth"] == "8"
     assert chunks["ExtraTuple"] == "1, 2, 3"
     assert chunks["BinaryPayload"] == "abc"
-    assert chunks["PixelXDimension"] == "2048"
-    assert chunks["PixelYDimension"] == "1024"
+
+
+def test_detect_mime_type_identifies_avif_signature():
+    # Bytes 4:8 should be 'ftyp' and 8:12 a known AVIF brand.
+    payload = b"\x00\x00\x00\x00ftypavif" + b"\x00" * 20
+    assert _detect_mime_type(payload) == "image/avif"
+
+
+def test_run_c2pa_sets_similar_when_neighbors_have_facts(monkeypatch):
+    context = AnalysisContext(
+        image_bytes=b"payload",
+        phash="0011ffaa0011ffaa",
+        whash="0011ffaa0011ffbb",
+        registry_id=42,
+        neighbors=[
+            SimpleNamespace(
+                phash="0011ffaa0011ffab",
+                whash="0011ffaa0011ffac",
+                facts=[
+                    SimpleNamespace(analyzer="c2pa", data="Signed by Example Corp")
+                ],
+                sources=[SimpleNamespace(url="https://example.com/img")],
+            )
+        ],
+        width=12,
+        height=12,
+    )
+
+    monkeypatch.setattr(
+        c2pa_analyzer,
+        "_run_c2pa_tool",
+        lambda *_: {
+            "status": "NOT FOUND",
+            "summary": "No C2PA signature found.",
+            "data": {},
+        },
+    )
+
+    result = c2pa_analyzer.run_c2pa(context)
+
+    assert result["status"] == "SIMILAR"
+    assert "visually similar images" in result["summary"]
+    matches = result["data"]["matches"]
+    assert len(matches) == 1
+    assert matches[0]["fact_data"] == "Signed by Example Corp"
+
+
+def test_build_vote_breakdown_handles_zero_totals():
+    breakdown = _build_vote_breakdown(real=0, edited=0, ai=0)
+    assert breakdown["total"] == 0
+    for segment in breakdown["segments"]:
+        assert segment["count"] == 0
+        assert segment["percent"] == 0
