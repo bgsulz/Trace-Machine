@@ -2,6 +2,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+
 import requests
 from flask import url_for
 
@@ -17,7 +18,7 @@ from .hash_utils import (
 logger = logging.getLogger(__name__)
 
 # Mock response for local development to save credits
-MOCK_SERP_RESPONSE = True
+MOCK_SERP_RESPONSE = os.getenv("FLASK_DEBUG") == "1"
 
 
 def get_synthid_status(context: AnalysisContext) -> dict[str, object]:
@@ -32,9 +33,10 @@ def get_synthid_status(context: AnalysisContext) -> dict[str, object]:
         image_id=context.registry_id, analyzer="synthid"
     ).first()
 
+    matches = _find_neighbor_matches(context)
+
     if existing_fact:
         data = json.loads(existing_fact.data)
-        matches = _find_neighbor_matches(context)
         prev_matches = data.get("matches")
         data["matches"] = matches
         if prev_matches != matches:
@@ -46,8 +48,6 @@ def get_synthid_status(context: AnalysisContext) -> dict[str, object]:
             "summary": data.get("summary"),
             "data": data,
         }
-
-    matches = _find_neighbor_matches(context)
 
     return {
         "status": "WAITING",
@@ -77,17 +77,17 @@ def execute_synthid_search(
     )
     logger.info("Public image URL: %s", public_img_url)
 
-    if "127.0.0.1" in public_img_url or "localhost" in public_img_url:
-        if not MOCK_SERP_RESPONSE:
+    if MOCK_SERP_RESPONSE:
+        logger.info("Mocking SerpApi response (FLASK_DEBUG enabled)")
+        detected = True
+        badge_text = "Mocked: Made with Google AI"
+    else:
+        if _is_local_url(public_img_url):
             return {
                 "status": "ERROR",
                 "summary": "Cannot run SerpApi on localhost (tunnel required).",
                 "data": {},
             }
-        logger.info("Mocking SerpApi response for localhost")
-        detected = True
-        badge_text = "Mocked: Made with Google AI"
-    else:
         # Real API Call
         api_key = os.environ.get("SERPAPI_KEY")
         if not api_key:
@@ -130,11 +130,12 @@ def execute_synthid_search(
         clean_fallback="No SynthID badge detected via Google Lens.",
     )
 
+    matches = _find_neighbor_matches(context, use_cache=False)
     fact_data = {
         "detected": detected,
         "badge_text": badge_text,
         "summary": summary,
-        "matches": _find_neighbor_matches(context),  # Refresh neighbors
+        "matches": matches,
     }
 
     new_fact = ProvenanceFact(
@@ -150,10 +151,15 @@ def execute_synthid_search(
     }
 
 
-def _find_neighbor_matches(context: AnalysisContext):
+def _find_neighbor_matches(context: AnalysisContext, *, use_cache: bool = True):
     """Reuse the neighbor logic to find if similar images have SynthID."""
+    if use_cache:
+        cached = getattr(context, "_synthid_neighbor_matches", None)
+        if cached is not None:
+            return cached
+
     matches = []
-    base_phash, base_whash = compute_base_hashes(context.phash, context.whash)
+    base_phash, base_whash = _get_base_hashes(context)
 
     for neighbor in context.neighbors:
         phash = getattr(neighbor, "phash", None)
@@ -201,6 +207,9 @@ def _find_neighbor_matches(context: AnalysisContext):
             break
 
     logger.info("SynthID neighbor facts found: %d", len(matches))
+
+    if use_cache:
+        context._synthid_neighbor_matches = matches
     return matches
 
 
@@ -216,3 +225,17 @@ def _format_detection_message(
     if badge_text:
         return badge_text
     return clean_fallback
+
+
+def _get_base_hashes(context: AnalysisContext):
+    cached = getattr(context, "_base_hashes", None)
+    if cached is None:
+        cached = compute_base_hashes(context.phash, context.whash)
+        setattr(context, "_base_hashes", cached)
+    return cached
+
+
+def _is_local_url(url: str) -> bool:
+    if not url:
+        return False
+    return "127.0.0.1" in url or "localhost" in url
