@@ -1,5 +1,6 @@
 import imagehash
 from io import BytesIO
+from types import SimpleNamespace
 from PIL import Image
 from sqlalchemy.orm import joinedload
 from . import db
@@ -53,20 +54,10 @@ def prepare_analysis_context(image_bytes: bytes) -> AnalysisContext:
                     matched = True
 
             if matched and img.id not in seen_ids:
-                neighbors.append(img)
+                neighbors.append(_serialize_neighbor(img))
                 seen_ids.add(img.id)
         except Exception:
             continue
-
-    for neighbor in neighbors:
-        db.session.expunge(neighbor)
-        consensus = getattr(neighbor, "consensus", None)
-        if consensus is not None:
-            db.session.expunge(consensus)
-        for source in getattr(neighbor, "sources", []) or []:
-            db.session.expunge(source)
-        for fact in getattr(neighbor, "facts", []) or []:
-            db.session.expunge(fact)
 
     return AnalysisContext(
         image_bytes=image_bytes,
@@ -76,4 +67,39 @@ def prepare_analysis_context(image_bytes: bytes) -> AnalysisContext:
         neighbors=neighbors,
         width=width,
         height=height,
+    )
+
+
+def _serialize_neighbor(registry_obj: ImageRegistry) -> SimpleNamespace:
+    consensus = getattr(registry_obj, "consensus", None)
+    consensus_snapshot = None
+    if consensus is not None:
+        consensus_snapshot = SimpleNamespace(
+            vote_real=int(consensus.vote_real or 0),
+            vote_edited=int(consensus.vote_edited or 0),
+            vote_ai=int(consensus.vote_ai or 0),
+        )
+
+    sources_snapshot = []
+    for source in getattr(registry_obj, "sources", []) or []:
+        url = getattr(source, "url", None)
+        if url:
+            sources_snapshot.append(SimpleNamespace(url=url))
+
+    facts_snapshot = []
+    for fact in getattr(registry_obj, "facts", []) or []:
+        analyzer = getattr(fact, "analyzer", None)
+        data = getattr(fact, "data", None)
+        if analyzer is None or data is None:
+            continue
+        facts_snapshot.append(SimpleNamespace(analyzer=analyzer, data=data))
+
+    return SimpleNamespace(
+        id=registry_obj.id,
+        phash=getattr(registry_obj, "phash", None),
+        whash=getattr(registry_obj, "whash", None),
+        created_at=getattr(registry_obj, "created_at", None),
+        consensus=consensus_snapshot,
+        sources=sources_snapshot,
+        facts=facts_snapshot,
     )
