@@ -324,7 +324,7 @@ def test_exif_detects_automatic1111_metadata():
     assert metadata.get("cfg_scale") == "5"
     assert metadata.get("seed") == "42"
     chunks = result["data"]["chunks"]
-    assert list(chunks.keys()) == ["parameters"]
+    assert "parameters" in chunks
 
 
 def test_exif_detects_comfyui_prompt_and_workflow():
@@ -357,7 +357,7 @@ def test_exif_detects_comfyui_prompt_and_workflow():
         parsed = finding["metadata"].get("parsed_json")
         assert isinstance(parsed, dict)
     chunks = result["data"]["chunks"]
-    assert set(chunks.keys()) == {"prompt", "workflow"}
+    assert {"prompt", "workflow"}.issubset(chunks.keys())
 
 
 def test_exif_returns_not_found_without_known_metadata():
@@ -376,7 +376,11 @@ def test_exif_returns_not_found_without_known_metadata():
 
     assert result["status"] == "NOT FOUND"
     assert result["data"]["findings"] == []
-    assert result["data"]["chunks"] == {}
+    chunks = result["data"]["chunks"]
+    assert chunks  # should expose all raw metadata even without detections
+    assert chunks["FileType"] == "PNG"
+    assert chunks["ImageSize"] == "10x10"
+    assert chunks["ColorMode"] == "RGB"
 
 
 def test_collect_text_chunks_includes_numeric_and_exif_values():

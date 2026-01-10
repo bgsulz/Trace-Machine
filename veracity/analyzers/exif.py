@@ -58,13 +58,8 @@ def run_exif_metadata(context: AnalysisContext) -> dict[str, object]:
             findings.append(_build_comfyui_finding(key, value, kind="workflow"))
             continue
 
-    # Sort keys for the "Raw Metadata" display, excluding basic image info
-    filtered_chunks = {
-        key: value
-        for key, value in textual_chunks.items()
-        if key not in _BASIC_METADATA_KEYS
-    }
-    sorted_chunks = dict(sorted(filtered_chunks.items(), key=lambda kv: kv[0].lower()))
+    # Sort keys for the "Raw Metadata" display
+    sorted_chunks = dict(sorted(textual_chunks.items(), key=lambda kv: kv[0].lower()))
 
     if not findings:
         return {
@@ -89,7 +84,9 @@ def run_exif_metadata(context: AnalysisContext) -> dict[str, object]:
     }
 
 
-def _collect_text_chunks(img: Image.Image, image_bytes: bytes | None = None) -> dict[str, str]:
+def _collect_text_chunks(
+    img: Image.Image, image_bytes: bytes | None = None
+) -> dict[str, str]:
     chunks: dict[str, str] = {}
 
     fmt = getattr(img, "format", None)
@@ -172,7 +169,9 @@ def _stringify_metadata_value(value: Any) -> str:
         except UnicodeDecodeError:
             return value.decode("latin-1", errors="replace")
     if isinstance(value, (list, tuple)):
-        return ", ".join(_stringify_metadata_value(item) or "" for item in value).strip(", ")
+        return ", ".join(_stringify_metadata_value(item) or "" for item in value).strip(
+            ", "
+        )
     if isinstance(value, dict):
         try:
             return json.dumps(value, ensure_ascii=False)
