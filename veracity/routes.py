@@ -21,6 +21,7 @@ from .analysis_service import (
     handle_remote_analysis,
     perform_analysis,
     render_analyzer_fragment_html,
+    _prepare_row_for_render,
 )
 from .analyzers.manager import ANALYZERS
 from .analysis_cache import load_analysis_payload
@@ -195,12 +196,13 @@ def run_synthid(analysis_id: str):
     spec = get_analyzer_spec("synthid")
     formatted_row = _format_result(spec, raw_result)
 
-    # 5. Inject Context for rendering (crucial for links)
-    formatted_row["context"] = {
-        "analysis_id": analysis_id,
-        "source": metadata.get("source"),
-        "link_target": "_blank",  # or whatever your default is
-    }
+    # 5. Inject full context (links, matches, etc.)
+    _prepare_row_for_render(
+        formatted_row,
+        metadata,
+        link_target="_blank",
+        analysis_id=analysis_id,
+    )
 
     # 6. Render just the row
     return render_template("partials/analyzer_row.html", row=formatted_row)

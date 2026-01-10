@@ -11,3 +11,4 @@ imagehash
 psycopg2-binary
 numpy
 ExifRead
+lxml

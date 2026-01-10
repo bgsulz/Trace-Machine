@@ -450,6 +450,16 @@ nav {
   color: var(--pico-muted-color);
 }
 
+button .tooltip-trigger::after {
+  color: #fff;
+  border-color: #fff;
+}
+
+button.vote-btn-edited .tooltip-trigger::after {
+  color: #000;
+  border-color: #000;
+}
+
 .tooltip-bubble {
   position: absolute;
   top: calc(100% + 0.35rem);
@@ -508,7 +518,7 @@ nav {
 
 .badge.found,
 .badge.detected {
-  background-color: var(--veracity-badge-success);
+  background-color: var(--veracity-badge-danger);
   color: #fff;
 }
 
