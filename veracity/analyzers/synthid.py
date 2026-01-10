@@ -37,16 +37,12 @@ def get_synthid_status(context: AnalysisContext) -> dict[str, object]:
 
     if existing_fact:
         data = json.loads(existing_fact.data)
-        prev_matches = data.get("matches")
-        data["matches"] = matches
-        if prev_matches != matches:
-            existing_fact.data = json.dumps(data)
-            db.session.add(existing_fact)
-            db.session.commit()
+        response_data = dict(data)
+        response_data["matches"] = matches
         return {
-            "status": "FOUND" if data.get("detected") else "NOT FOUND",
-            "summary": data.get("summary"),
-            "data": data,
+            "status": "FOUND" if response_data.get("detected") else "NOT FOUND",
+            "summary": response_data.get("summary"),
+            "data": response_data,
         }
 
     return {
@@ -130,12 +126,10 @@ def execute_synthid_search(
         clean_fallback="No SynthID badge detected via Google Lens.",
     )
 
-    matches = _find_neighbor_matches(context, use_cache=False)
     fact_data = {
         "detected": detected,
         "badge_text": badge_text,
         "summary": summary,
-        "matches": matches,
     }
 
     new_fact = ProvenanceFact(
@@ -144,10 +138,14 @@ def execute_synthid_search(
     db.session.add(new_fact)
     db.session.commit()
 
+    matches = _find_neighbor_matches(context, use_cache=False)
+    response_data = dict(fact_data)
+    response_data["matches"] = matches
+
     return {
         "status": "FOUND" if detected else "NOT FOUND",
         "summary": summary,
-        "data": fact_data,
+        "data": response_data,
     }
 
 
