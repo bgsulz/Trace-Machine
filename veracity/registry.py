@@ -28,10 +28,13 @@ def prepare_analysis_context(image_bytes: bytes) -> AnalysisContext:
     base_phash = imagehash.hex_to_hash(phash_str)
     base_whash = imagehash.hex_to_hash(whash_str)
 
-    all_images = ImageRegistry.query.options(
-        joinedload(ImageRegistry.consensus),
-        joinedload(ImageRegistry.sources),
-    ).all()
+    all_images = (
+        ImageRegistry.query.options(
+            joinedload(ImageRegistry.consensus),
+            joinedload(ImageRegistry.sources),
+            joinedload(ImageRegistry.facts),
+        ).all()
+    )
 
     neighbors = []
     seen_ids: set[int] = set()
@@ -54,6 +57,16 @@ def prepare_analysis_context(image_bytes: bytes) -> AnalysisContext:
                 seen_ids.add(img.id)
         except Exception:
             continue
+
+    for neighbor in neighbors:
+        db.session.expunge(neighbor)
+        consensus = getattr(neighbor, "consensus", None)
+        if consensus is not None:
+            db.session.expunge(consensus)
+        for source in getattr(neighbor, "sources", []) or []:
+            db.session.expunge(source)
+        for fact in getattr(neighbor, "facts", []) or []:
+            db.session.expunge(fact)
 
     return AnalysisContext(
         image_bytes=image_bytes,

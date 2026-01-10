@@ -1,6 +1,6 @@
 {% set placeholder_prefix = placeholder_prefix|default("analyzer-placeholder-") %}
 {% set mini_mode = mini_mode|default(False) %}
-<table class="striped table-responsive">
+<table class="table-responsive">
   <thead>
     <tr>
       <th scope="col" style="width: 20%">Analyzer</th>
@@ -22,7 +22,7 @@
           This image contains regions that match previously analyzed images.
         </p>
         <div>
-          <table class="striped contained-regions-table">
+          <table class="contained-regions-table">
             <thead>
               <tr>
                 <th scope="col">Normalized Crop (x, y, w, h)</th>

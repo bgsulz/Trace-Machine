@@ -26,6 +26,7 @@ from .models import VoteHistory
 from .registry import prepare_analysis_context
 from .tools import generate_external_tools
 from . import voting_service
+from .analyzers.human import _build_vote_breakdown
 
 
 def handle_remote_analysis(image_url: str, vote_slug: str | None, template_name: str):
@@ -242,6 +243,7 @@ def _prepare_row_for_render(
     if registry_id is None:
         return
 
+    _ensure_human_vote_defaults(row_data)
     _attach_vote_history(row, registry_id)
 
 
@@ -257,6 +259,37 @@ def _attach_vote_history(row: dict[str, Any] | None, registry_id: int) -> None:
     data = row.get("data") or {}
     data["current_vote"] = history_row.choice if history_row else None
     row["data"] = data
+
+
+def _ensure_human_vote_defaults(row_data: dict[str, Any]) -> None:
+    totals = row_data.get("totals")
+    if not isinstance(totals, dict):
+        totals = {}
+
+    vote_real = int(totals.get("vote_real") or 0)
+    vote_edited = int(totals.get("vote_edited") or 0)
+    vote_ai = int(totals.get("vote_ai") or 0)
+
+    row_totals = {
+        "vote_real": vote_real,
+        "vote_edited": vote_edited,
+        "vote_ai": vote_ai,
+        "total_votes": vote_real + vote_edited + vote_ai,
+    }
+    row_data["totals"] = row_totals
+
+    breakdown = row_data.get("overall_breakdown")
+    if not isinstance(breakdown, dict) or "segments" not in breakdown:
+        row_data["overall_breakdown"] = _build_vote_breakdown(
+            real=vote_real,
+            edited=vote_edited,
+            ai=vote_ai,
+        )
+
+    row_data.setdefault("matches", [])
+    row_data.setdefault("matches_summary", "")
+    row_data.setdefault("has_matches", False)
+    row_data.setdefault("no_votes_message", "No votes yet.")
 
 
 def _build_google_lens_link(metadata: dict[str, Any] | None, analysis_id: str | None) -> str | None:
