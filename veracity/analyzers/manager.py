@@ -45,9 +45,9 @@ ANALYZERS: Sequence[AnalyzerSpec] = (
     AnalyzerSpec(
         name="Google SynthID",
         slug="synthid",
-        func=get_synthid_status,  # Only runs the cheap check initially!
+        func=get_synthid_status,  
         template="partials/analyzers/synthid.html",
-        tooltip="Checks Google Lens for the 'Made with Google AI' watermark.",
+        tooltip="Uses Google reverse image search to check for an invisible watermark.",
     ),
     AnalyzerSpec(
         name="Human Consensus",

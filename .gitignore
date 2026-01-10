@@ -24,3 +24,4 @@ __pycache__/
 .windsurf/
 .DS_Store
 thumbs.db
+**/comp.txt

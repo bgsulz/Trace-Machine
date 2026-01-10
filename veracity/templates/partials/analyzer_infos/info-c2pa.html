@@ -4,6 +4,9 @@
 <p>
   When a C2PA manifest is present, we can report who signed the asset (such as Adobe, Nikon, or OpenAI), what changes were made along the way, and whether the cryptographic credentials appear intact. If someone tries to alter the image without properly updating the manifest, the signature breaks, alerting viewers that the provenance chain may have been compromised.
 </p>
+<div class="flash-warning" style="margin-bottom: 0.75rem">
+  <strong>Important limitation:</strong> While C2PA manifests are cryptographically signed and tamper-evident, they can be completely removed through simple actions like screenshotting the image, saving it in a format that doesn't support metadata, or using basic editing tools that strip embedded data. Once removed, there's no way to recover the provenance information. Additionally, C2PA only documents what participating tools chose to record—if the first tool in the chain doesn't support C2PA, or if someone creates a forgery and then signs it with false credentials, the manifest will only reflect that falsified history. C2PA verifies the integrity of the provenance chain, not the truthfulness of its contents.
+</div>
 <br/>
 <section>
   <h3>C2PA demo image</h3>
@@ -14,7 +17,7 @@
       class="demo-image"
     />
     <figcaption>
-      This demo image was generated using GPT-4o image generation with the prompt "An infrared photo of a tree on a hill."
+      This demo image was generated using GPT-4o image generation (also known as gpt-image-1) with the prompt "An infrared photo of a tree on a hill."
     </figcaption>
   </figure>
   <form action="{{ url_for('main.analyze') }}" method="get" style="display: inline" class="demo-buttons">

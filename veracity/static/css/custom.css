@@ -15,11 +15,15 @@
   --veracity-badge-danger: var(--veracity-danger);
 }
 
-a::after:not(.site-nav a::after) {
+a:not(.site-header a)::after {
   content: " ⮺";
   font-size: 0.6em;
   vertical-align: super;
   text-decoration: none;
+}
+
+hr {
+  border-style: dashed;
 }
 
 /* Branding & Layout */
@@ -260,7 +264,7 @@ nav {
 .result-layout {
   display: flex;
   flex-direction: column;
-  gap: 2rem;
+  gap: 3.5rem;
 }
 
 .result-primary,
@@ -306,7 +310,6 @@ nav {
     grid-template-areas:
       "primary secondary"
       "analyzer secondary";
-    gap: 2.5rem;
     align-items: start;
   }
 
@@ -515,7 +518,8 @@ nav {
 }
 
 .badge.not-found,
-.badge.not-detected {
+.badge.not-detected,
+.badge.waiting {
   background-color: var(--veracity-badge-bg);
   color: var(--veracity-badge-fg);
 }
@@ -651,6 +655,7 @@ nav {
 }
 
 .vote-buttons button,
+.synthid-buttons button,
 .demo-buttons button {
   font-size: 0.8rem;
   padding: 0.4rem 0.8rem;
