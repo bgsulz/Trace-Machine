@@ -4,10 +4,10 @@
   --pico-font-family: monospace;
 
   /* Custom color tokens */
-  --veracity-success: #2da44e;
-  --veracity-warning: #d29922;
-  --veracity-warning-dark: #815903;
-  --veracity-danger: #cf222e;
+  --veracity-success: #00804f;
+  --veracity-warning: #ffbc64;
+  --veracity-warning-dark: #92570a;
+  --veracity-danger: #a0123c;
   --veracity-badge-bg: var(--pico-muted-border-color);
   --veracity-badge-fg: var(--pico-color);
   --veracity-badge-success: var(--veracity-success);
