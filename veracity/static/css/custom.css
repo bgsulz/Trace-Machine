@@ -678,10 +678,30 @@ button.vote-btn-edited .tooltip-trigger::after {
   --pico-border-color: var(--veracity-success);
 }
 
+.vote-btn-real:hover {
+  --vote-btn-real-hover-color: color-mix(
+    in srgb,
+    var(--veracity-success) 90%,
+    white
+  );
+  background-color: var(--vote-btn-real-hover-color);
+  border-color: var(--vote-btn-real-hover-color);
+}
+
 .vote-btn-edited {
   --pico-background-color: var(--veracity-warning);
   --pico-border-color: var(--veracity-warning);
   color: #000;
+}
+
+.vote-btn-edited:hover {
+  --vote-btn-edited-hover-color: color-mix(
+    in srgb,
+    var(--veracity-warning) 90%,
+    white
+  );
+  background-color: var(--vote-btn-edited-hover-color);
+  border-color: var(--vote-btn-edited-hover-color);
 }
 
 .vote-btn-ai {
@@ -689,15 +709,19 @@ button.vote-btn-edited .tooltip-trigger::after {
   --pico-border-color: var(--veracity-danger);
 }
 
+.vote-btn-ai:hover {
+  --vote-btn-ai-hover-color: color-mix(
+    in srgb,
+    var(--veracity-danger) 90%,
+    white
+  );
+  background-color: var(--vote-btn-ai-hover-color);
+  border-color: var(--vote-btn-ai-hover-color);
+}
+
 .vote-btn-muted {
   opacity: 0.5;
   filter: grayscale(80%);
-}
-
-.vote-btn-real:hover,
-.vote-btn-edited:hover,
-.vote-btn-ai:hover {
-  color: white;
 }
 
 /* Flash messages */
