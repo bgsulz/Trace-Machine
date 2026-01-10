@@ -56,13 +56,9 @@ def prepare_analysis_context(image_bytes: bytes) -> AnalysisContext:
         registry_entry = ImageRegistry(phash=phash_str, whash=whash_str)
         db.session.add(registry_entry)
         db.session.commit()
-    elif not getattr(registry_entry, "whash", None):
-        registry_entry.whash = whash_str
-        db.session.add(registry_entry)
-        db.session.commit()
 
-    base_phash = imagehash.hex_to_hash(phash_str)
-    base_whash = imagehash.hex_to_hash(whash_str)
+    base_phash = target_phash
+    base_whash = target_whash
 
     all_images = ImageRegistry.query.options(
         joinedload(ImageRegistry.consensus),
