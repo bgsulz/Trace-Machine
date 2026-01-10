@@ -1,11 +1,46 @@
-import imagehash
+import logging
+from dataclasses import dataclass
 from io import BytesIO
-from types import SimpleNamespace
+
+import imagehash
 from PIL import Image
 from sqlalchemy.orm import joinedload
+
 from . import db
-from .models import ImageRegistry
 from .analyzers.context import AnalysisContext
+from .models import ImageRegistry
+
+
+logger = logging.getLogger(__name__)
+
+
+@dataclass(slots=True)
+class ConsensusSnapshot:
+    vote_real: int
+    vote_edited: int
+    vote_ai: int
+
+
+@dataclass(slots=True)
+class SourceSnapshot:
+    url: str
+
+
+@dataclass(slots=True)
+class FactSnapshot:
+    analyzer: str
+    data: str
+
+
+@dataclass(slots=True)
+class NeighborSnapshot:
+    id: int | None
+    phash: str | None
+    whash: str | None
+    created_at: object | None
+    consensus: ConsensusSnapshot | None
+    sources: tuple[SourceSnapshot, ...]
+    facts: tuple[FactSnapshot, ...]
 
 
 def prepare_analysis_context(image_bytes: bytes) -> AnalysisContext:
@@ -29,13 +64,11 @@ def prepare_analysis_context(image_bytes: bytes) -> AnalysisContext:
     base_phash = imagehash.hex_to_hash(phash_str)
     base_whash = imagehash.hex_to_hash(whash_str)
 
-    all_images = (
-        ImageRegistry.query.options(
-            joinedload(ImageRegistry.consensus),
-            joinedload(ImageRegistry.sources),
-            joinedload(ImageRegistry.facts),
-        ).all()
-    )
+    all_images = ImageRegistry.query.options(
+        joinedload(ImageRegistry.consensus),
+        joinedload(ImageRegistry.sources),
+        joinedload(ImageRegistry.facts),
+    ).all()
 
     neighbors = []
     seen_ids: set[int] = set()
@@ -57,6 +90,10 @@ def prepare_analysis_context(image_bytes: bytes) -> AnalysisContext:
                 neighbors.append(_serialize_neighbor(img))
                 seen_ids.add(img.id)
         except Exception:
+            logger.exception(
+                "Failed to evaluate registry neighbor candidate id=%s",
+                getattr(img, "id", None),
+            )
             continue
 
     return AnalysisContext(
@@ -70,36 +107,36 @@ def prepare_analysis_context(image_bytes: bytes) -> AnalysisContext:
     )
 
 
-def _serialize_neighbor(registry_obj: ImageRegistry) -> SimpleNamespace:
+def _serialize_neighbor(registry_obj: ImageRegistry) -> NeighborSnapshot:
     consensus = getattr(registry_obj, "consensus", None)
     consensus_snapshot = None
     if consensus is not None:
-        consensus_snapshot = SimpleNamespace(
+        consensus_snapshot = ConsensusSnapshot(
             vote_real=int(consensus.vote_real or 0),
             vote_edited=int(consensus.vote_edited or 0),
             vote_ai=int(consensus.vote_ai or 0),
         )
 
-    sources_snapshot = []
+    sources_snapshot: list[SourceSnapshot] = []
     for source in getattr(registry_obj, "sources", []) or []:
         url = getattr(source, "url", None)
         if url:
-            sources_snapshot.append(SimpleNamespace(url=url))
+            sources_snapshot.append(SourceSnapshot(url=url))
 
-    facts_snapshot = []
+    facts_snapshot: list[FactSnapshot] = []
     for fact in getattr(registry_obj, "facts", []) or []:
         analyzer = getattr(fact, "analyzer", None)
         data = getattr(fact, "data", None)
         if analyzer is None or data is None:
             continue
-        facts_snapshot.append(SimpleNamespace(analyzer=analyzer, data=data))
+        facts_snapshot.append(FactSnapshot(analyzer=analyzer, data=data))
 
-    return SimpleNamespace(
-        id=registry_obj.id,
+    return NeighborSnapshot(
+        id=getattr(registry_obj, "id", None),
         phash=getattr(registry_obj, "phash", None),
         whash=getattr(registry_obj, "whash", None),
         created_at=getattr(registry_obj, "created_at", None),
         consensus=consensus_snapshot,
-        sources=sources_snapshot,
-        facts=facts_snapshot,
+        sources=tuple(sources_snapshot),
+        facts=tuple(facts_snapshot),
     )
