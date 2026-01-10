@@ -2,7 +2,10 @@ from __future__ import annotations
 import json
 import logging
 from io import BytesIO
+
 from PIL import Image, UnidentifiedImageError
+from sqlalchemy.exc import IntegrityError
+
 from .. import db
 from ..models import ProvenanceFact
 from .context import AnalysisContext
@@ -149,14 +152,21 @@ def run_c2pa(context: AnalysisContext) -> dict[str, object]:
 
     # 2. If we found fresh metadata, save it to the DB.
     if status == "FOUND":
+        fact = ProvenanceFact(
+            image_id=context.registry_id,
+            analyzer="c2pa",
+            data=str(result.get("summary", "")),
+        )
         try:
-            fact = ProvenanceFact(
-                image_id=context.registry_id,
-                analyzer="c2pa",
-                data=str(result.get("summary", "")),
-            )
             db.session.add(fact)
             db.session.commit()
+        except IntegrityError as exc:  # duplicate fact is expected sometimes
+            db.session.rollback()
+            logger.info(
+                "C2PA fact already persisted for image %s: %s",
+                context.registry_id,
+                exc.orig or exc,
+            )
         except Exception:  # pragma: no cover - defensive
             db.session.rollback()
             logger.exception("Failed to persist C2PA provenance fact")

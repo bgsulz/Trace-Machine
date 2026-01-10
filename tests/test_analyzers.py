@@ -6,6 +6,7 @@ import pytest
 import imagehash
 from PIL import Image, PngImagePlugin
 
+from veracity import db
 from veracity.analyzers import AnalyzerSpec, run_all_analyzers
 from veracity.analyzers.human import (
     _build_vote_breakdown,
@@ -16,6 +17,7 @@ from veracity.analyzers.exif import run_exif_metadata, _collect_text_chunks
 from veracity.analyzers.manager import AnalysisContext
 from veracity.analyzers import c2pa as c2pa_analyzer
 from veracity.analyzers.c2pa import _detect_mime_type, _run_c2pa_tool
+from veracity.models import ImageRegistry, ProvenanceFact
 from conftest import _make_test_image_bytes
 
 
@@ -142,6 +144,39 @@ def test_c2pa_analyzer_writes_signer(monkeypatch):
     result = c2pa_analyzer.run_c2pa(context)
     assert result["status"] == "FOUND"
     assert "Adobe" in str(result["summary"])
+
+
+def test_c2pa_analyzer_handles_duplicate_fact(monkeypatch, app):
+    image = ImageRegistry(phash="deadbeefdeadbeef", whash="feedfacefeedface")
+    db.session.add(image)
+    db.session.commit()
+
+    fact = ProvenanceFact(
+        image_id=image.id, analyzer="c2pa", data="Signed by OpenAI"
+    )
+    db.session.add(fact)
+    db.session.commit()
+
+    def _fake_tool(_image_bytes):
+        return {"status": "FOUND", "summary": "Signed by OpenAI", "data": {}}
+
+    monkeypatch.setattr(c2pa_analyzer, "_run_c2pa_tool", _fake_tool)
+
+    context = AnalysisContext(
+        image_bytes=_make_test_image_bytes(),
+        phash=image.phash,
+        whash=image.whash,
+        registry_id=image.id,
+        neighbors=[],
+    )
+
+    result = c2pa_analyzer.run_c2pa(context)
+
+    assert result["status"] == "FOUND"
+    assert (
+        ProvenanceFact.query.filter_by(image_id=image.id, analyzer="c2pa").count()
+        == 1
+    )
 
 
 def test_run_c2pa_tool_returns_error_on_reader_failure(monkeypatch):
