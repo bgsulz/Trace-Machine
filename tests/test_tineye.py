@@ -6,7 +6,7 @@ from types import SimpleNamespace
 import pytest
 import requests
 
-from veracity import db
+from veracity import db, limiter
 from veracity.analyzers import tineye
 from veracity.analyzers.context import AnalysisContext
 from veracity.analyzers.tineye import (
@@ -31,6 +31,13 @@ from veracity.analyzers.tineye import (
     STALE_THRESHOLD_DAYS,
 )
 from veracity.models import ImageRegistry, TinEyeResult
+
+
+class TestLimiterInitialized:
+    def test_limiter_initialized(self, app):
+        with app.app_context():
+            assert limiter is not None
+            assert hasattr(limiter, "limit")
 
 
 class TestParseShameList:
