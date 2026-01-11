@@ -853,3 +853,60 @@ class TestRunTinEyeRoute:
 
         response = client.post("/analysis/test-id/tineye/run")
         assert response.status_code == 429
+
+
+class TestTinEyeTemplates:
+    def test_tineye_template_renders_waiting_state(self, app):
+        from flask import render_template
+
+        with app.test_request_context():
+            row = {
+                "status": "WAITING",
+                "summary": "Manual check required",
+                "data": {"matches": []},
+                "context": {"analysis_id": "test-123", "link_target": "_blank"},
+            }
+            html = render_template("partials/analyzers/tineye.html", row=row)
+            assert "Check TinEye" in html
+            assert "tineye/run" in html
+
+    def test_tineye_template_renders_found_state(self, app):
+        from flask import render_template
+
+        with app.test_request_context():
+            row = {
+                "status": "FOUND",
+                "summary": "10 matches found",
+                "data": {"matches": []},
+                "context": {"analysis_id": "test-123", "link_target": "_blank"},
+            }
+            html = render_template("partials/analyzers/tineye.html", row=row)
+            assert "Check TinEye" not in html
+
+    def test_tineye_template_renders_error_state(self, app):
+        from flask import render_template
+
+        with app.test_request_context():
+            row = {
+                "status": "ERROR",
+                "summary": "API request failed",
+                "data": {"matches": []},
+                "context": {"analysis_id": "test-123", "link_target": "_blank"},
+            }
+            html = render_template("partials/analyzers/tineye.html", row=row)
+            assert "Something went wrong" in html
+            assert "Check TinEye" in html
+
+    def test_tineye_template_renders_stale_state(self, app):
+        from flask import render_template
+
+        with app.test_request_context():
+            row = {
+                "status": "STALE",
+                "summary": "10 matches found",
+                "data": {"matches": []},
+                "context": {"analysis_id": "test-123", "link_target": "_blank"},
+            }
+            html = render_template("partials/analyzers/tineye.html", row=row)
+            assert "Refresh TinEye" in html
+            assert "outdated" in html

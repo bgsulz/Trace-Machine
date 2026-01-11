@@ -1,1 +1,35 @@
-{# TinEye analyzer template - placeholder for chunk 8 #}
+{% from "partials/macros/tineye.html" import render_tineye_button, render_tineye_matches %}
+
+{% if row.status == "WAITING" %}
+<div class="analyzer-interactive">
+  <p>
+    TinEye reverse image search requires an external API call.
+  </p>
+
+  {{ render_tineye_button(row.context.analysis_id) }}
+  {{ render_tineye_matches(row.data.matches, row.context.link_target if row.context else None) }}
+</div>
+
+{% elif row.status == "STALE" %}
+<div class="analyzer-interactive">
+  <p>
+    Results may be outdated.
+    {{ render_tineye_button(row.context.analysis_id, is_refresh=true) }}
+  </p>
+  {{ render_tineye_matches(row.data.matches, row.context.link_target if row.context else None) }}
+</div>
+
+{% elif row.status == "ERROR" %}
+<div class="analyzer-interactive">
+  <p class="flash-warning">
+    Something went wrong. Please try again.
+  </p>
+  {{ render_tineye_button(row.context.analysis_id) }}
+  {{ render_tineye_matches(row.data.matches, row.context.link_target if row.context else None) }}
+</div>
+
+{% else %}
+<div class="analyzer-detail-block">
+  {{ render_tineye_matches(row.data.matches, row.context.link_target if row.context else None) }}
+</div>
+{% endif %}
