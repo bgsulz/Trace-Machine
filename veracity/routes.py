@@ -16,7 +16,7 @@ from flask import (
 )
 from PIL import Image, ImageOps
 
-from . import csrf, ingestion
+from . import csrf, ingestion, limiter
 from .analysis_service import (
     handle_remote_analysis,
     perform_analysis,
@@ -35,6 +35,7 @@ from .config_service import (
 from .registry import prepare_analysis_context
 from .voting_service import VOTE_CHOICES, apply_vote, get_voter_id
 from .analyzers.synthid import execute_synthid_search
+from .analyzers.tineye import execute_tineye_search
 from .analyzers.manager import get_analyzer_spec, _format_result
 
 bp = Blueprint("main", __name__)
@@ -205,6 +206,30 @@ def run_synthid(analysis_id: str):
     )
 
     # 6. Render just the row
+    return render_template("partials/analyzer_row.html", row=formatted_row)
+
+
+@bp.route("/analysis/<analysis_id>/tineye/run", methods=["POST"])
+@limiter.limit("5 per hour")
+def run_tineye(analysis_id: str):
+    payload = load_analysis_payload(analysis_id)
+    if not payload:
+        return "Analysis expired", 410
+    image_bytes, metadata = payload
+
+    context = prepare_analysis_context(image_bytes)
+    raw_result = execute_tineye_search(analysis_id, context)
+
+    spec = get_analyzer_spec("tineye")
+    formatted_row = _format_result(spec, raw_result)
+
+    _prepare_row_for_render(
+        formatted_row,
+        metadata,
+        link_target="_blank",
+        analysis_id=analysis_id,
+    )
+
     return render_template("partials/analyzer_row.html", row=formatted_row)
 
 

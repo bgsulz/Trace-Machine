@@ -749,3 +749,93 @@ class TestExecuteTinEyeSearch:
 
         assert result["status"] == "ERROR"
         assert "API request failed" in result["summary"]
+
+
+class TestRunTinEyeRoute:
+    def test_run_tineye_route_expired_analysis(self, app):
+        client = app.test_client()
+        response = client.post("/analysis/nonexistent-id/tineye/run")
+        assert response.status_code == 410
+
+    def test_run_tineye_route_success(self, app, monkeypatch):
+        from veracity import routes
+        from veracity.analyzers.manager import AnalyzerSpec
+        from io import BytesIO
+        from PIL import Image
+
+        img = Image.new("RGB", (100, 100), color=(255, 0, 0))
+        buf = BytesIO()
+        img.save(buf, format="PNG")
+        image_bytes = buf.getvalue()
+
+        monkeypatch.setattr(
+            routes,
+            "load_analysis_payload",
+            lambda aid: (image_bytes, {"mime_type": "image/png", "source": "file"}),
+        )
+
+        def mock_execute(analysis_id, context):
+            return {
+                "status": "NOT FOUND",
+                "summary": "No matches found.",
+                "data": {"total_matches": 0, "matches": []},
+            }
+
+        monkeypatch.setattr(routes, "execute_tineye_search", mock_execute)
+
+        mock_spec = AnalyzerSpec(
+            slug="tineye",
+            name="TinEye",
+            tooltip="TinEye reverse image search",
+            template="partials/analyzers/default.html",
+            func=lambda ctx: {},
+        )
+        monkeypatch.setattr(routes, "get_analyzer_spec", lambda slug: mock_spec)
+
+        client = app.test_client()
+        response = client.post("/analysis/test-id/tineye/run")
+        assert response.status_code == 200
+
+    def test_run_tineye_route_rate_limited(self, app, monkeypatch):
+        from veracity import routes
+        from veracity.analyzers.manager import AnalyzerSpec
+        from io import BytesIO
+        from PIL import Image
+
+        img = Image.new("RGB", (100, 100), color=(255, 0, 0))
+        buf = BytesIO()
+        img.save(buf, format="PNG")
+        image_bytes = buf.getvalue()
+
+        monkeypatch.setattr(
+            routes,
+            "load_analysis_payload",
+            lambda aid: (image_bytes, {"mime_type": "image/png", "source": "file"}),
+        )
+
+        def mock_execute(analysis_id, context):
+            return {
+                "status": "NOT FOUND",
+                "summary": "No matches found.",
+                "data": {"total_matches": 0, "matches": []},
+            }
+
+        monkeypatch.setattr(routes, "execute_tineye_search", mock_execute)
+
+        mock_spec = AnalyzerSpec(
+            slug="tineye",
+            name="TinEye",
+            tooltip="TinEye reverse image search",
+            template="partials/analyzers/default.html",
+            func=lambda ctx: {},
+        )
+        monkeypatch.setattr(routes, "get_analyzer_spec", lambda slug: mock_spec)
+
+        client = app.test_client()
+
+        for i in range(5):
+            response = client.post("/analysis/test-id/tineye/run")
+            assert response.status_code == 200, f"Request {i+1} failed unexpectedly"
+
+        response = client.post("/analysis/test-id/tineye/run")
+        assert response.status_code == 429
