@@ -8,7 +8,8 @@
       {% for match in buckets.oldest %}
       <div class="bucket-match">
         <a href="{{ match.url }}" target="_blank" rel="noopener noreferrer" class="match-link">
-          <img src="{{ match.url }}" alt="Match image" class="match-thumbnail" loading="lazy" />
+          <img src="{{ match.url }}" alt="Match image" class="match-thumbnail" loading="lazy" 
+               onerror="this.onerror=null; this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTIwIiBoZWlnaHQ9IjEyMCIgdmlld0JveD0iMCAwIDEyMCAxMjAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIxMjAiIGhlaWdodD0iMTIwIiBmaWxsPSIjZjVmNWY1Ii8+CjxwYXRoIGQ9Ik00MCA2MEg4ME02MCA0MFY4MCIgc3Ryb2tlPSIjY2NjIiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIvPgo8L3N2Zz4K'; this.classList.add('match-thumbnail-error');" />
         </a>
         <div class="match-info">
           <div class="match-domain">{{ match.domain }}</div>
@@ -28,7 +29,8 @@
       {% for match in buckets.newest %}
       <div class="bucket-match">
         <a href="{{ match.url }}" target="_blank" rel="noopener noreferrer" class="match-link">
-          <img src="{{ match.url }}" alt="Match image" class="match-thumbnail" loading="lazy" />
+          <img src="{{ match.url }}" alt="Match image" class="match-thumbnail" loading="lazy" 
+               onerror="this.onerror=null; this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTIwIiBoZWlnaHQ9IjEyMCIgdmlld0JveD0iMCAwIDEyMCAxMjAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIxMjAiIGhlaWdodD0iMTIwIiBmaWxsPSIjZjVmNWY1Ii8+CjxwYXRoIGQ9Ik00MCA2MEg4ME02MCA0MFY4MCIgc3Ryb2tlPSIjY2NjIiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIvPgo8L3N2Zz4K'; this.classList.add('match-thumbnail-error');" />
         </a>
         <div class="match-info">
           <div class="match-domain">{{ match.domain }}</div>

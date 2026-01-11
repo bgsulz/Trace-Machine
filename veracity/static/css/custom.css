@@ -888,7 +888,12 @@ button.vote-btn-edited .tooltip-trigger::after {
   transition: transform 120ms ease;
 }
 
-.match-link:hover .match-thumbnail {
+.match-thumbnail-error {
+  object-fit: contain !important;
+  transform: none !important;
+}
+
+.match-link:hover .match-thumbnail:not(.match-thumbnail-error) {
   transform: scale(1.05);
 }
 
