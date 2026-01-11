@@ -67,6 +67,7 @@ class TestAnalyzerRegistration:
                 total_matches=10,
                 earliest_date=None,
                 on_shame_list=True,
+                matches_json="{}",
             ),
         )
         assert snapshot.tineye_result is not None
@@ -391,8 +392,9 @@ class TestFilterMatchesBySimilarity:
             {"url": "c", "domain": "c.com", "crawl_date": "2023-03-01T00:00:00", "similarity": 0.45},
         ]
         filtered = filter_matches_by_similarity(matches)
-        assert len(filtered) == 3  # All 3 should pass with 10% threshold
-        assert all(m["similarity"] >= 0.1 for m in filtered)
+        expected_count = len([m for m in matches if m["similarity"] >= SIMILARITY_THRESHOLD / 100])
+        assert len(filtered) == expected_count
+        assert all(m["similarity"] >= SIMILARITY_THRESHOLD / 100 for m in filtered)
 
     def test_custom_threshold(self):
         matches = [
@@ -812,7 +814,7 @@ class TestRunTinEyeRoute:
             return {
                 "status": "NOT FOUND",
                 "summary": "No matches found.",
-                "data": {"total_matches": 0, "matches": []},
+                "data": {"total_matches": 0, "matches": [], "buckets": {"oldest": [], "newest": [], "shame_list": []}},
             }
 
         monkeypatch.setattr(routes, "execute_tineye_search", mock_execute)
@@ -841,7 +843,7 @@ class TestRunTinEyeRoute:
             return {
                 "status": "NOT FOUND",
                 "summary": "No matches found.",
-                "data": {"total_matches": 0, "matches": []},
+                "data": {"total_matches": 0, "matches": [], "buckets": {"oldest": [], "newest": [], "shame_list": []}},
             }
 
         monkeypatch.setattr(routes, "execute_tineye_search", mock_execute)
@@ -878,7 +880,7 @@ class TestTinEyeTemplates:
             row = {
                 "status": "FOUND",
                 "summary": "10 matches found",
-                "data": {"matches": []},
+                "data": {"matches": [], "buckets": {"oldest": [], "newest": [], "shame_list": []}},
                 "context": {"analysis_id": "test-123", "link_target": "_blank"},
             }
             html = render_template("partials/analyzers/tineye.html", row=row)
@@ -890,8 +892,8 @@ class TestTinEyeTemplates:
         with app.test_request_context():
             row = {
                 "status": "ERROR",
-                "summary": "API request failed",
-                "data": {"matches": []},
+                "summary": "API error",
+                "data": {"matches": [], "buckets": {"oldest": [], "newest": [], "shame_list": []}},
                 "context": {"analysis_id": "test-123", "link_target": "_blank"},
             }
             html = render_template("partials/analyzers/tineye.html", row=row)
@@ -905,7 +907,7 @@ class TestTinEyeTemplates:
             row = {
                 "status": "STALE",
                 "summary": "10 matches found",
-                "data": {"matches": []},
+                "data": {"matches": [], "buckets": {"oldest": [], "newest": [], "shame_list": []}},
                 "context": {"analysis_id": "test-123", "link_target": "_blank"},
             }
             html = render_template("partials/analyzers/tineye.html", row=row)

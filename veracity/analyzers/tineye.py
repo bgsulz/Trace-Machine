@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 STALE_THRESHOLD_DAYS = 60
 
 TINEYE_API_URL = "https://api.tineye.com/rest/search/"
-SIMILARITY_THRESHOLD = 10  # Minimum score (0-100) to include in results
+SIMILARITY_THRESHOLD = 70 # Minimum score (0-100) to include in results
 
 SHAME_LIST_URL = (
     "https://raw.githubusercontent.com/laylavish/uBlockOrigin-HUGE-AI-Blocklist"
