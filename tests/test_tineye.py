@@ -40,6 +40,40 @@ class TestLimiterInitialized:
             assert hasattr(limiter, "limit")
 
 
+class TestAnalyzerRegistration:
+    def test_tineye_analyzer_in_manager(self):
+        from veracity.analyzers.manager import ANALYZERS, get_analyzer_spec
+
+        slugs = [spec.slug for spec in ANALYZERS]
+        assert "tineye" in slugs
+
+        spec = get_analyzer_spec("tineye")
+        assert spec is not None
+        assert spec.name == "TinEye"
+        assert spec.template == "partials/analyzers/tineye.html"
+
+    def test_context_includes_tineye_neighbor_data(self, app):
+        from veracity.registry import TinEyeSnapshot, NeighborSnapshot
+
+        snapshot = NeighborSnapshot(
+            id=1,
+            phash="abc123",
+            whash="def456",
+            created_at=None,
+            consensus=None,
+            sources=(),
+            facts=(),
+            tineye_result=TinEyeSnapshot(
+                total_matches=10,
+                earliest_date=None,
+                on_shame_list=True,
+            ),
+        )
+        assert snapshot.tineye_result is not None
+        assert snapshot.tineye_result.total_matches == 10
+        assert snapshot.tineye_result.on_shame_list is True
+
+
 class TestParseShameList:
     def test_ignores_comments(self):
         raw = """
@@ -759,7 +793,6 @@ class TestRunTinEyeRoute:
 
     def test_run_tineye_route_success(self, app, monkeypatch):
         from veracity import routes
-        from veracity.analyzers.manager import AnalyzerSpec
         from io import BytesIO
         from PIL import Image
 
@@ -782,15 +815,6 @@ class TestRunTinEyeRoute:
             }
 
         monkeypatch.setattr(routes, "execute_tineye_search", mock_execute)
-
-        mock_spec = AnalyzerSpec(
-            slug="tineye",
-            name="TinEye",
-            tooltip="TinEye reverse image search",
-            template="partials/analyzers/default.html",
-            func=lambda ctx: {},
-        )
-        monkeypatch.setattr(routes, "get_analyzer_spec", lambda slug: mock_spec)
 
         client = app.test_client()
         response = client.post("/analysis/test-id/tineye/run")
@@ -798,7 +822,6 @@ class TestRunTinEyeRoute:
 
     def test_run_tineye_route_rate_limited(self, app, monkeypatch):
         from veracity import routes
-        from veracity.analyzers.manager import AnalyzerSpec
         from io import BytesIO
         from PIL import Image
 
@@ -821,15 +844,6 @@ class TestRunTinEyeRoute:
             }
 
         monkeypatch.setattr(routes, "execute_tineye_search", mock_execute)
-
-        mock_spec = AnalyzerSpec(
-            slug="tineye",
-            name="TinEye",
-            tooltip="TinEye reverse image search",
-            template="partials/analyzers/default.html",
-            func=lambda ctx: {},
-        )
-        monkeypatch.setattr(routes, "get_analyzer_spec", lambda slug: mock_spec)
 
         client = app.test_client()
 

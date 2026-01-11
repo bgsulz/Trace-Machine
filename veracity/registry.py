@@ -33,6 +33,13 @@ class FactSnapshot:
 
 
 @dataclass(slots=True)
+class TinEyeSnapshot:
+    total_matches: int
+    earliest_date: object | None
+    on_shame_list: bool
+
+
+@dataclass(slots=True)
 class NeighborSnapshot:
     id: int | None
     phash: str | None
@@ -41,6 +48,7 @@ class NeighborSnapshot:
     consensus: ConsensusSnapshot | None
     sources: tuple[SourceSnapshot, ...]
     facts: tuple[FactSnapshot, ...]
+    tineye_result: TinEyeSnapshot | None = None
 
 
 def prepare_analysis_context(image_bytes: bytes) -> AnalysisContext:
@@ -64,6 +72,7 @@ def prepare_analysis_context(image_bytes: bytes) -> AnalysisContext:
         joinedload(ImageRegistry.consensus),
         joinedload(ImageRegistry.sources),
         joinedload(ImageRegistry.facts),
+        joinedload(ImageRegistry.tineye_result),
     ).all()
 
     neighbors = []
@@ -127,6 +136,15 @@ def _serialize_neighbor(registry_obj: ImageRegistry) -> NeighborSnapshot:
             continue
         facts_snapshot.append(FactSnapshot(analyzer=analyzer, data=data))
 
+    tineye_snapshot = None
+    tineye_result = getattr(registry_obj, "tineye_result", None)
+    if tineye_result is not None:
+        tineye_snapshot = TinEyeSnapshot(
+            total_matches=tineye_result.total_matches,
+            earliest_date=tineye_result.earliest_date,
+            on_shame_list=tineye_result.on_shame_list,
+        )
+
     return NeighborSnapshot(
         id=getattr(registry_obj, "id", None),
         phash=getattr(registry_obj, "phash", None),
@@ -135,4 +153,5 @@ def _serialize_neighbor(registry_obj: ImageRegistry) -> NeighborSnapshot:
         consensus=consensus_snapshot,
         sources=tuple(sources_snapshot),
         facts=tuple(facts_snapshot),
+        tineye_result=tineye_snapshot,
     )
