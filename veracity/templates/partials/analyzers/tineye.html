@@ -1,4 +1,4 @@
-{% from "partials/macros/tineye.html" import render_tineye_button, render_tineye_matches %}
+{% from "partials/macros/tineye.html" import render_tineye_button, render_tineye_matches, render_tineye_buckets %}
 
 {% if row.status == "WAITING" %}
 <div class="analyzer-interactive">
@@ -31,5 +31,6 @@
 {% else %}
 <div class="analyzer-detail-block">
   {{ render_tineye_matches(row.data.matches, row.context.link_target if row.context else None) }}
+  {{ render_tineye_buckets(row.data.buckets) }}
 </div>
 {% endif %}

@@ -37,6 +37,7 @@ class TinEyeSnapshot:
     total_matches: int
     earliest_date: object | None
     on_shame_list: bool
+    matches_json: str
 
 
 @dataclass(slots=True)
@@ -143,6 +144,7 @@ def _serialize_neighbor(registry_obj: ImageRegistry) -> NeighborSnapshot:
             total_matches=tineye_result.total_matches,
             earliest_date=tineye_result.earliest_date,
             on_shame_list=tineye_result.on_shame_list,
+            matches_json=tineye_result.matches_json or "{}",
         )
 
     return NeighborSnapshot(

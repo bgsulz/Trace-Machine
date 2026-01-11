@@ -821,3 +821,98 @@ button.vote-btn-edited .tooltip-trigger::after {
 *::-webkit-scrollbar-corner {
   background: var(--pico-background-color);
 }
+
+/* TinEye Bucket Display */
+.tineye-buckets {
+  margin-top: 2rem;
+}
+
+.bucket-section {
+  margin-bottom: 1.5rem;
+}
+
+.bucket-section:last-child {
+  margin-bottom: 0;
+}
+
+.bucket-section h4 {
+  margin: 0 0 0.75rem 0;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--pico-color);
+}
+
+.bucket-scroll {
+  display: flex;
+  gap: 0.75rem;
+  overflow-x: auto;
+  padding: 0.5rem 0;
+  scrollbar-width: thin;
+  scrollbar-color: var(--pico-muted-border-color) transparent;
+}
+
+.bucket-match {
+  flex: 0 0 auto;
+  width: 120px;
+  border: 1px solid var(--pico-muted-border-color);
+  border-radius: var(--pico-border-radius);
+  background: var(--pico-card-background-color);
+  overflow: hidden;
+  transition: border-color 120ms ease, box-shadow 120ms ease;
+}
+
+.bucket-match:hover {
+  border-color: var(--pico-primary-border);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.bucket-match.shame-list {
+  border-color: var(--veracity-warning);
+}
+
+.bucket-match.shame-list:hover {
+  border-color: var(--veracity-warning-dark);
+}
+
+.match-link {
+  display: block;
+  text-decoration: none;
+  aspect-ratio: 1;
+  overflow: hidden;
+}
+
+.match-thumbnail {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 120ms ease;
+}
+
+.match-link:hover .match-thumbnail {
+  transform: scale(1.05);
+}
+
+.match-info {
+  padding: 0.5rem;
+  font-size: 0.7rem;
+  line-height: 1.2;
+}
+
+.match-domain {
+  font-weight: 600;
+  color: var(--pico-color);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-bottom: 0.25rem;
+}
+
+.match-date {
+  color: var(--pico-muted-color);
+  margin-bottom: 0.25rem;
+}
+
+.match-score {
+  color: var(--pico-primary);
+  font-weight: 700;
+}

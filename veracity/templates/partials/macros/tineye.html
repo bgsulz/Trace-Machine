@@ -1,3 +1,69 @@
+{% macro render_tineye_buckets(buckets) %}
+{% if buckets.oldest or buckets.newest or buckets.shame_list %}
+<div class="tineye-buckets">
+  {% if buckets.oldest %}
+  <div class="bucket-section">
+    <h4>5 Oldest Matches</h4>
+    <div class="bucket-scroll">
+      {% for match in buckets.oldest %}
+      <div class="bucket-match">
+        <a href="{{ match.url }}" target="_blank" rel="noopener noreferrer" class="match-link">
+          <img src="{{ match.url }}" alt="Match image" class="match-thumbnail" loading="lazy" />
+        </a>
+        <div class="match-info">
+          <div class="match-domain">{{ match.domain }}</div>
+          <div class="match-date">{{ match.crawl_date[:10] if match.crawl_date else '—' }}</div>
+          <div class="match-score">{{ "%.1f"|format(match.similarity * 100) }}%</div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  {% if buckets.newest %}
+  <div class="bucket-section">
+    <h4>5 Newest Matches</h4>
+    <div class="bucket-scroll">
+      {% for match in buckets.newest %}
+      <div class="bucket-match">
+        <a href="{{ match.url }}" target="_blank" rel="noopener noreferrer" class="match-link">
+          <img src="{{ match.url }}" alt="Match image" class="match-thumbnail" loading="lazy" />
+        </a>
+        <div class="match-info">
+          <div class="match-domain">{{ match.domain }}</div>
+          <div class="match-date">{{ match.crawl_date[:10] if match.crawl_date else '—' }}</div>
+          <div class="match-score">{{ "%.1f"|format(match.similarity * 100) }}%</div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  {% if buckets.shame_list %}
+  <div class="bucket-section">
+    <h4>⚠️ Found on AI Image Sites ({{ buckets.shame_list|length }})</h4>
+    <div class="bucket-scroll">
+      {% for match in buckets.shame_list %}
+      <div class="bucket-match shame-list">
+        <a href="{{ match.url }}" target="_blank" rel="noopener noreferrer" class="match-link">
+          <img src="{{ match.url }}" alt="Match image" class="match-thumbnail" loading="lazy" />
+        </a>
+        <div class="match-info">
+          <div class="match-domain">{{ match.domain }}</div>
+          <div class="match-date">{{ match.crawl_date[:10] if match.crawl_date else '—' }}</div>
+          <div class="match-score">{{ "%.1f"|format(match.similarity * 100) }}%</div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+</div>
+{% endif %}
+{% endmacro %}
+
 {% macro render_tineye_button(analysis_id, is_refresh=false) %}
 <form
   class="tineye-buttons"
