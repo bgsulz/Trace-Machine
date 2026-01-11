@@ -1,9 +1,14 @@
+import json
 import time
+from datetime import datetime, timedelta, UTC
+from types import SimpleNamespace
 
 import pytest
 import requests
 
+from veracity import db
 from veracity.analyzers import tineye
+from veracity.analyzers.context import AnalysisContext
 from veracity.analyzers.tineye import (
     GlobMatcher,
     RegexMatcher,
@@ -17,9 +22,15 @@ from veracity.analyzers.tineye import (
     extract_earliest_date,
     bucket_matches,
     process_tineye_response,
+    get_tineye_status,
+    execute_tineye_search,
+    _is_result_stale,
+    _build_summary,
     SHAME_LIST_TTL_SECONDS,
     SIMILARITY_THRESHOLD,
+    STALE_THRESHOLD_DAYS,
 )
+from veracity.models import ImageRegistry, TinEyeResult
 
 
 class TestParseShameList:
@@ -442,3 +453,292 @@ class TestProcessTinEyeResponse:
         assert processed["earliest_date"] == "2022-01-01T00:00:00"
         assert processed["on_shame_list"] is True
         assert len(processed["buckets"]["shame_list"]) == 1
+
+
+def _make_context(registry_id: int, neighbors=None):
+    return AnalysisContext(
+        image_bytes=b"test image",
+        phash="0011ffaa0011ffaa",
+        whash="0011ffaa0011ffbb",
+        registry_id=registry_id,
+        neighbors=neighbors or [],
+        width=100,
+        height=100,
+    )
+
+
+def _create_registry(app):
+    with app.app_context():
+        registry = ImageRegistry(phash="0011ffaa0011ffaa", whash="0011ffaa0011ffbb")
+        db.session.add(registry)
+        db.session.commit()
+        return registry.id
+
+
+class TestIsResultStale:
+    def test_no_searched_at_is_stale(self, app):
+        with app.app_context():
+            result = TinEyeResult(
+                image_id=1,
+                total_matches=0,
+                on_shame_list=False,
+                matches_json="{}",
+                searched_at=None,
+            )
+            assert _is_result_stale(result) is True
+
+    def test_old_result_is_stale(self, app):
+        with app.app_context():
+            old_date = datetime.now(UTC) - timedelta(days=STALE_THRESHOLD_DAYS + 1)
+            result = TinEyeResult(
+                image_id=1,
+                total_matches=0,
+                on_shame_list=False,
+                matches_json="{}",
+                searched_at=old_date,
+            )
+            assert _is_result_stale(result) is True
+
+    def test_recent_result_is_not_stale(self, app):
+        with app.app_context():
+            recent_date = datetime.now(UTC) - timedelta(days=30)
+            result = TinEyeResult(
+                image_id=1,
+                total_matches=0,
+                on_shame_list=False,
+                matches_json="{}",
+                searched_at=recent_date,
+            )
+            assert _is_result_stale(result) is False
+
+
+class TestBuildSummary:
+    def test_no_matches(self):
+        summary = _build_summary(0, None, False)
+        assert summary == "No matches found."
+
+    def test_with_matches_and_date(self):
+        summary = _build_summary(10, "2022-06-15T00:00:00", False)
+        assert "10 matches found." in summary
+        assert "Jun 2022" in summary
+        assert "Not on known AI sites." in summary
+
+    def test_with_shame_list(self):
+        summary = _build_summary(5, "2023-01-01T00:00:00", True)
+        assert "⚠️ Found on AI image sites." in summary
+
+
+class TestGetTinEyeStatus:
+    def test_returns_waiting_when_no_result(self, app):
+        registry_id = _create_registry(app)
+        context = _make_context(registry_id)
+
+        with app.app_context():
+            result = get_tineye_status(context)
+
+        assert result["status"] == "WAITING"
+        assert "Manual check required" in result["summary"]
+
+    def test_returns_found_with_cached_result(self, app):
+        registry_id = _create_registry(app)
+
+        with app.app_context():
+            tineye_result = TinEyeResult(
+                image_id=registry_id,
+                total_matches=25,
+                earliest_date=datetime(2022, 6, 15, tzinfo=UTC),
+                on_shame_list=False,
+                matches_json=json.dumps({"oldest": [], "newest": [], "shame_list": []}),
+                searched_at=datetime.now(UTC),
+            )
+            db.session.add(tineye_result)
+            db.session.commit()
+
+        context = _make_context(registry_id)
+
+        with app.app_context():
+            result = get_tineye_status(context)
+
+        assert result["status"] == "FOUND"
+        assert "25 matches found" in result["summary"]
+
+    def test_returns_not_found_when_zero_matches(self, app):
+        registry_id = _create_registry(app)
+
+        with app.app_context():
+            tineye_result = TinEyeResult(
+                image_id=registry_id,
+                total_matches=0,
+                earliest_date=None,
+                on_shame_list=False,
+                matches_json=json.dumps({"oldest": [], "newest": [], "shame_list": []}),
+                searched_at=datetime.now(UTC),
+            )
+            db.session.add(tineye_result)
+            db.session.commit()
+
+        context = _make_context(registry_id)
+
+        with app.app_context():
+            result = get_tineye_status(context)
+
+        assert result["status"] == "NOT FOUND"
+
+    def test_returns_stale_when_old(self, app):
+        registry_id = _create_registry(app)
+
+        with app.app_context():
+            old_date = datetime.now(UTC) - timedelta(days=STALE_THRESHOLD_DAYS + 1)
+            tineye_result = TinEyeResult(
+                image_id=registry_id,
+                total_matches=10,
+                earliest_date=datetime(2022, 1, 1, tzinfo=UTC),
+                on_shame_list=False,
+                matches_json=json.dumps({"oldest": [], "newest": [], "shame_list": []}),
+                searched_at=old_date,
+            )
+            db.session.add(tineye_result)
+            db.session.commit()
+
+        context = _make_context(registry_id)
+
+        with app.app_context():
+            result = get_tineye_status(context)
+
+        assert result["status"] == "STALE"
+
+    def test_includes_neighbor_matches(self, app):
+        registry_id = _create_registry(app)
+
+        neighbor_tineye = SimpleNamespace(
+            total_matches=5,
+            earliest_date=datetime(2023, 1, 1, tzinfo=UTC),
+            on_shame_list=True,
+            matches_json=json.dumps({"oldest": [], "newest": [], "shame_list": []}),
+        )
+        neighbor = SimpleNamespace(
+            phash="1122334455667788",
+            whash="1122334455667799",
+            tineye_result=neighbor_tineye,
+            sources=[],
+        )
+        context = _make_context(registry_id, neighbors=[neighbor])
+
+        with app.app_context():
+            result = get_tineye_status(context)
+
+        assert result["status"] == "WAITING"
+        assert len(result["data"]["matches"]) == 1
+        assert result["data"]["matches"][0]["total_matches"] == 5
+
+
+class TestExecuteTinEyeSearch:
+    def test_creates_result(self, app, monkeypatch):
+        registry_id = _create_registry(app)
+        context = _make_context(registry_id)
+
+        def mock_call_api(**kwargs):
+            return {
+                "success": True,
+                "error": None,
+                "total_matches": 15,
+                "matches": [
+                    {"url": "https://example.com/img", "domain": "example.com", "crawl_date": "2022-03-15T00:00:00", "similarity": 0.8},
+                ],
+            }
+
+        monkeypatch.setattr(tineye, "call_tineye_api", mock_call_api)
+        monkeypatch.setattr(tineye, "get_shame_list_matchers", lambda **k: [])
+
+        with app.app_context():
+            result = execute_tineye_search("analysis-123", context)
+            saved = TinEyeResult.query.filter_by(image_id=registry_id).first()
+
+        assert result["status"] in ("FOUND", "NOT FOUND")
+        assert saved is not None
+        assert saved.total_matches == 15
+
+    def test_replaces_stale_result(self, app, monkeypatch):
+        registry_id = _create_registry(app)
+
+        with app.app_context():
+            old_date = datetime.now(UTC) - timedelta(days=STALE_THRESHOLD_DAYS + 1)
+            old_result = TinEyeResult(
+                image_id=registry_id,
+                total_matches=5,
+                earliest_date=None,
+                on_shame_list=False,
+                matches_json=json.dumps({"oldest": [], "newest": [], "shame_list": []}),
+                searched_at=old_date,
+            )
+            db.session.add(old_result)
+            db.session.commit()
+
+        context = _make_context(registry_id)
+
+        def mock_call_api(**kwargs):
+            return {
+                "success": True,
+                "error": None,
+                "total_matches": 30,
+                "matches": [],
+            }
+
+        monkeypatch.setattr(tineye, "call_tineye_api", mock_call_api)
+        monkeypatch.setattr(tineye, "get_shame_list_matchers", lambda **k: [])
+
+        with app.app_context():
+            result = execute_tineye_search("analysis-123", context)
+            updated = TinEyeResult.query.filter_by(image_id=registry_id).first()
+
+        assert updated.total_matches == 30
+
+    def test_skips_if_fresh_exists(self, app, monkeypatch):
+        registry_id = _create_registry(app)
+
+        with app.app_context():
+            fresh_result = TinEyeResult(
+                image_id=registry_id,
+                total_matches=20,
+                earliest_date=None,
+                on_shame_list=False,
+                matches_json=json.dumps({"oldest": [], "newest": [], "shame_list": []}),
+                searched_at=datetime.now(UTC),
+            )
+            db.session.add(fresh_result)
+            db.session.commit()
+
+        context = _make_context(registry_id)
+        api_called = []
+
+        def mock_call_api(**kwargs):
+            api_called.append(True)
+            return {"success": True, "error": None, "total_matches": 999, "matches": []}
+
+        monkeypatch.setattr(tineye, "call_tineye_api", mock_call_api)
+
+        with app.app_context():
+            result = execute_tineye_search("analysis-123", context)
+
+        assert len(api_called) == 0
+        assert result["data"]["total_matches"] == 20
+
+    def test_returns_error_on_api_failure(self, app, monkeypatch):
+        registry_id = _create_registry(app)
+        context = _make_context(registry_id)
+
+        def mock_call_api(**kwargs):
+            return {
+                "success": False,
+                "error": "API request failed",
+                "total_matches": 0,
+                "matches": [],
+            }
+
+        monkeypatch.setattr(tineye, "call_tineye_api", mock_call_api)
+
+        with app.app_context():
+            result = execute_tineye_search("analysis-123", context)
+
+        assert result["status"] == "ERROR"
+        assert "API request failed" in result["summary"]

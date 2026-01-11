@@ -1,16 +1,24 @@
 from __future__ import annotations
 import fnmatch
+import json
 import logging
 import os
 import re
 import time
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta, UTC
 from typing import Protocol, TypedDict
 
 import requests
 
+from .. import db
+from ..models import TinEyeResult
+from .context import AnalysisContext
+from .hash_utils import compute_base_hashes, compute_neighbor_distances, extract_sources
+
 logger = logging.getLogger(__name__)
+
+STALE_THRESHOLD_DAYS = 60
 
 TINEYE_API_URL = "https://api.tineye.com/rest/search/"
 SIMILARITY_THRESHOLD = 40  # Minimum score (0-100) to include in results
@@ -344,3 +352,200 @@ def process_tineye_response(
         "on_shame_list": len(buckets["shame_list"]) > 0,
         "buckets": buckets,
     }
+
+
+def _is_result_stale(result: TinEyeResult) -> bool:
+    if not result.searched_at:
+        return True
+    threshold = datetime.now(UTC) - timedelta(days=STALE_THRESHOLD_DAYS)
+    searched_at = result.searched_at
+    if searched_at.tzinfo is None:
+        searched_at = searched_at.replace(tzinfo=UTC)
+    return searched_at < threshold
+
+
+def _build_summary(
+    total_matches: int,
+    earliest_date: str | None,
+    on_shame_list: bool,
+) -> str:
+    if total_matches == 0:
+        return "No matches found."
+
+    parts = [f"{total_matches} matches found."]
+
+    if earliest_date:
+        try:
+            dt = datetime.fromisoformat(earliest_date)
+            parts.append(f"Earliest: {dt.strftime('%b %Y')}.")
+        except ValueError:
+            pass
+
+    if on_shame_list:
+        parts.append("⚠️ Found on AI image sites.")
+    else:
+        parts.append("Not on known AI sites.")
+
+    return " ".join(parts)
+
+
+def _find_neighbor_matches(context: AnalysisContext) -> list[dict]:
+    matches = []
+    base_phash, base_whash = compute_base_hashes(context.phash, context.whash)
+
+    for neighbor in context.neighbors:
+        neighbor_phash = getattr(neighbor, "phash", None)
+        if not neighbor_phash:
+            continue
+
+        tineye_result = getattr(neighbor, "tineye_result", None)
+        if not tineye_result:
+            continue
+
+        neighbor_whash = getattr(neighbor, "whash", None)
+        (
+            phash_distance,
+            whash_distance,
+            display_hash,
+            display_label,
+            display_distance,
+        ) = compute_neighbor_distances(base_phash, base_whash, neighbor_phash, neighbor_whash)
+
+        sources = extract_sources(neighbor)
+
+        earliest_date = None
+        if tineye_result.earliest_date:
+            earliest_date = tineye_result.earliest_date.isoformat()
+
+        matches.append({
+            "phash": neighbor_phash,
+            "whash": neighbor_whash,
+            "hash_display": f"{display_hash} ({display_label})",
+            "distance": display_distance,
+            "distance_phash": phash_distance,
+            "distance_whash": whash_distance,
+            "total_matches": tineye_result.total_matches,
+            "earliest_date": earliest_date,
+            "on_shame_list": tineye_result.on_shame_list,
+            "summary": _build_summary(
+                tineye_result.total_matches,
+                earliest_date,
+                tineye_result.on_shame_list,
+            ),
+            "sources": sources,
+        })
+
+    return matches
+
+
+def get_tineye_status(context: AnalysisContext) -> dict[str, object]:
+    logger.info("Getting TinEye status for %s", context.phash)
+
+    existing = TinEyeResult.query.filter_by(image_id=context.registry_id).first()
+    matches = _find_neighbor_matches(context)
+
+    if existing:
+        is_stale = _is_result_stale(existing)
+
+        try:
+            buckets = json.loads(existing.matches_json)
+        except (json.JSONDecodeError, TypeError):
+            buckets = {"oldest": [], "newest": [], "shame_list": []}
+
+        earliest_date = None
+        if existing.earliest_date:
+            earliest_date = existing.earliest_date.isoformat()
+
+        summary = _build_summary(
+            existing.total_matches,
+            earliest_date,
+            existing.on_shame_list,
+        )
+
+        status = "STALE" if is_stale else ("FOUND" if existing.total_matches > 0 else "NOT FOUND")
+
+        return {
+            "status": status,
+            "summary": summary,
+            "data": {
+                "total_matches": existing.total_matches,
+                "earliest_date": earliest_date,
+                "on_shame_list": existing.on_shame_list,
+                "buckets": buckets,
+                "searched_at": existing.searched_at.isoformat() if existing.searched_at else None,
+                "matches": matches,
+            },
+        }
+
+    return {
+        "status": "WAITING",
+        "summary": "Manual check required.",
+        "data": {
+            "matches": matches,
+        },
+    }
+
+
+def execute_tineye_search(
+    analysis_id: str,
+    context: AnalysisContext,
+) -> dict[str, object]:
+    logger.info("Executing TinEye search for %s", context.phash)
+
+    existing = TinEyeResult.query.filter_by(image_id=context.registry_id).first()
+    if existing and not _is_result_stale(existing):
+        return get_tineye_status(context)
+
+    api_result = call_tineye_api(image_bytes=context.image_bytes)
+
+    if not api_result["success"]:
+        return {
+            "status": "ERROR",
+            "summary": api_result["error"] or "Something went wrong.",
+            "data": {
+                "matches": _find_neighbor_matches(context),
+            },
+        }
+
+    processed = process_tineye_response(api_result)
+
+    earliest_dt = None
+    if processed["earliest_date"]:
+        try:
+            earliest_dt = datetime.fromisoformat(processed["earliest_date"])
+            if earliest_dt.tzinfo is None:
+                earliest_dt = earliest_dt.replace(tzinfo=UTC)
+        except ValueError:
+            pass
+
+    if existing:
+        existing.total_matches = processed["total_matches"]
+        existing.earliest_date = earliest_dt
+        existing.on_shame_list = processed["on_shame_list"]
+        existing.matches_json = json.dumps(processed["buckets"])
+        existing.searched_at = datetime.now(UTC)
+    else:
+        existing = TinEyeResult(
+            image_id=context.registry_id,
+            total_matches=processed["total_matches"],
+            earliest_date=earliest_dt,
+            on_shame_list=processed["on_shame_list"],
+            matches_json=json.dumps(processed["buckets"]),
+            searched_at=datetime.now(UTC),
+        )
+        db.session.add(existing)
+
+    try:
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        logger.exception("Failed to save TinEye result")
+        return {
+            "status": "ERROR",
+            "summary": "Failed to save results.",
+            "data": {
+                "matches": _find_neighbor_matches(context),
+            },
+        }
+
+    return get_tineye_status(context)
