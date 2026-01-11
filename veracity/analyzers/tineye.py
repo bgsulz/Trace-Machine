@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 STALE_THRESHOLD_DAYS = 60
 
 TINEYE_API_URL = "https://api.tineye.com/rest/search/"
-SIMILARITY_THRESHOLD = 40  # Minimum score (0-100) to include in results
+SIMILARITY_THRESHOLD = 10  # Minimum score (0-100) to include in results
 
 SHAME_LIST_URL = (
     "https://raw.githubusercontent.com/laylavish/uBlockOrigin-HUGE-AI-Blocklist"
@@ -164,6 +164,7 @@ class ProcessedTinEyeResult(TypedDict):
     success: bool
     error: str | None
     total_matches: int
+    filtered_match_count: int
     earliest_date: str | None  # ISO format
     on_shame_list: bool
     buckets: BucketedMatches
@@ -174,6 +175,8 @@ def call_tineye_api(
     image_url: str | None = None,
 ) -> TinEyeAPIResult:
     api_key = os.environ.get("TINEYE_KEY", "")
+    logger.info("TinEye API call - URL: %s, API key present: %s", image_url, bool(api_key))
+    
     if not api_key:
         return {
             "success": False,
@@ -192,29 +195,22 @@ def call_tineye_api(
                 "sort": "crawl_date",
                 "order": "asc",
             }
+            logger.info("Making TinEye API request to %s with params: %s", TINEYE_API_URL, params)
             resp = requests.get(
                 TINEYE_API_URL, params=params, headers=headers, timeout=30
             )
-        elif image_bytes:
-            params = {
-                "limit": "100",
-                "sort": "crawl_date",
-                "order": "asc",
-            }
-            files = {"image_upload": ("image.jpg", image_bytes)}
-            resp = requests.post(
-                TINEYE_API_URL, data=params, files=files, headers=headers, timeout=30
-            )
+            logger.info("TinEye API response status: %s", resp.status_code)
         else:
             return {
                 "success": False,
-                "error": "No image provided",
+                "error": "No image URL provided",
                 "total_matches": 0,
                 "matches": [],
             }
 
         resp.raise_for_status()
         data = resp.json()
+        logger.info("TinEye API raw response: %s", json.dumps(data, indent=2))
 
     except requests.RequestException as e:
         logger.exception("TinEye API request failed")
@@ -235,6 +231,7 @@ def call_tineye_api(
 
     if data.get("code") != 200:
         error_messages = data.get("messages", ["Unknown error"])
+        logger.error("TinEye API returned error code %s: %s", data.get("code"), error_messages)
         return {
             "success": False,
             "error": "; ".join(error_messages),
@@ -245,6 +242,8 @@ def call_tineye_api(
     results = data.get("results", {})
     raw_matches = results.get("matches", [])
     total_results = results.get("total_results", 0)
+    
+    logger.info("TinEye API results - total_results: %s, raw_matches count: %s", total_results, len(raw_matches))
 
     matches: list[TinEyeMatch] = []
     for m in raw_matches:
@@ -271,6 +270,7 @@ def call_tineye_api(
             "similarity": score / 100.0,
         })
 
+    logger.info("Processed %s matches from TinEye API", len(matches))
     return {
         "success": True,
         "error": None,
@@ -283,7 +283,9 @@ def filter_matches_by_similarity(
     matches: list[TinEyeMatch],
     threshold: float = SIMILARITY_THRESHOLD / 100.0,
 ) -> list[TinEyeMatch]:
-    return [m for m in matches if m["similarity"] >= threshold]
+    filtered = [m for m in matches if m["similarity"] >= threshold]
+    logger.info("Filtered matches: %s/%s above similarity threshold %.2f", len(filtered), len(matches), threshold)
+    return filtered
 
 
 def extract_earliest_date(matches: list[TinEyeMatch]) -> str | None:
@@ -293,10 +295,13 @@ def extract_earliest_date(matches: list[TinEyeMatch]) -> str | None:
             dates.append(m["crawl_date"])
     
     if not dates:
+        logger.info("No crawl dates found in matches")
         return None
     
     dates.sort()
-    return dates[0]
+    earliest = dates[0]
+    logger.info("Earliest crawl date found: %s", earliest)
+    return earliest
 
 
 def bucket_matches(
@@ -319,6 +324,7 @@ def bucket_matches(
         if m["url"] and url_matches_shame_list(m["url"], matchers):
             shame_list.append(m)
 
+    logger.info("Bucketed matches - oldest: %s, newest: %s, shame_list: %s", len(oldest), len(newest), len(shame_list))
     return {
         "oldest": oldest,
         "newest": newest,
@@ -330,11 +336,14 @@ def process_tineye_response(
     api_result: TinEyeAPIResult,
     matchers: list[Matcher] | None = None,
 ) -> ProcessedTinEyeResult:
+    logger.info("Processing TinEye response - success: %s, total_matches: %s", api_result["success"], api_result["total_matches"])
+    
     if not api_result["success"]:
         return {
             "success": False,
             "error": api_result["error"],
             "total_matches": 0,
+            "filtered_match_count": 0,
             "earliest_date": None,
             "on_shame_list": False,
             "buckets": {"oldest": [], "newest": [], "shame_list": []},
@@ -344,14 +353,19 @@ def process_tineye_response(
     earliest = extract_earliest_date(filtered)
     buckets = bucket_matches(filtered, matchers)
 
-    return {
+    result = {
         "success": True,
         "error": None,
         "total_matches": api_result["total_matches"],
+        "filtered_match_count": len(filtered),
         "earliest_date": earliest,
         "on_shame_list": len(buckets["shame_list"]) > 0,
         "buckets": buckets,
     }
+    
+    logger.info("Processed TinEye result - total_matches: %s, filtered_matches: %s, earliest: %s, on_shame_list: %s", 
+                result["total_matches"], len(filtered), earliest, result["on_shame_list"])
+    return result
 
 
 def _is_result_stale(result: TinEyeResult) -> bool:
@@ -366,13 +380,17 @@ def _is_result_stale(result: TinEyeResult) -> bool:
 
 def _build_summary(
     total_matches: int,
+    filtered_match_count: int,
     earliest_date: str | None,
     on_shame_list: bool,
 ) -> str:
-    if total_matches == 0:
+    # For sandbox API, use filtered_match_count instead of total_matches
+    display_count = filtered_match_count if filtered_match_count > 0 else total_matches
+    
+    if display_count == 0:
         return "No matches found."
 
-    parts = [f"{total_matches} matches found."]
+    parts = [f"{display_count} matches found."]
 
     if earliest_date:
         try:
@@ -417,6 +435,14 @@ def _find_neighbor_matches(context: AnalysisContext) -> list[dict]:
         if tineye_result.earliest_date:
             earliest_date = tineye_result.earliest_date.isoformat()
 
+        # Calculate filtered match count from stored buckets
+        filtered_match_count = 0
+        try:
+            buckets = json.loads(tineye_result.matches_json)
+            filtered_match_count = len(buckets.get("oldest", [])) + len(buckets.get("newest", [])) + len(buckets.get("shame_list", []))
+        except (json.JSONDecodeError, TypeError):
+            pass
+
         matches.append({
             "phash": neighbor_phash,
             "whash": neighbor_whash,
@@ -429,6 +455,7 @@ def _find_neighbor_matches(context: AnalysisContext) -> list[dict]:
             "on_shame_list": tineye_result.on_shame_list,
             "summary": _build_summary(
                 tineye_result.total_matches,
+                filtered_match_count,
                 earliest_date,
                 tineye_result.on_shame_list,
             ),
@@ -456,13 +483,18 @@ def get_tineye_status(context: AnalysisContext) -> dict[str, object]:
         if existing.earliest_date:
             earliest_date = existing.earliest_date.isoformat()
 
+        # Calculate filtered match count from stored buckets
+        filtered_match_count = len(buckets.get("oldest", [])) + len(buckets.get("newest", [])) + len(buckets.get("shame_list", []))
+
         summary = _build_summary(
             existing.total_matches,
+            filtered_match_count,
             earliest_date,
             existing.on_shame_list,
         )
 
-        status = "STALE" if is_stale else ("FOUND" if existing.total_matches > 0 else "NOT FOUND")
+        # Use filtered match count for status determination
+        status = "STALE" if is_stale else ("FOUND" if filtered_match_count > 0 else "NOT FOUND")
 
         return {
             "status": status,
@@ -494,11 +526,20 @@ def execute_tineye_search(
 
     existing = TinEyeResult.query.filter_by(image_id=context.registry_id).first()
     if existing and not _is_result_stale(existing):
+        logger.info("Using fresh existing TinEye result for %s", context.phash)
         return get_tineye_status(context)
 
-    api_result = call_tineye_api(image_bytes=context.image_bytes)
+    # Generate external URL for the image
+    from flask import url_for
+    image_url = url_for(
+        "main.serve_analysis_image", analysis_id=analysis_id, _external=True
+    )
+    
+    logger.info("Generated external URL for TinEye search: %s", image_url)
+    api_result = call_tineye_api(image_url=image_url)
 
     if not api_result["success"]:
+        logger.error("TinEye API call failed: %s", api_result["error"])
         return {
             "status": "ERROR",
             "summary": api_result["error"] or "Something went wrong.",
@@ -508,6 +549,7 @@ def execute_tineye_search(
         }
 
     processed = process_tineye_response(api_result)
+    logger.info("TinEye processing completed - total_matches: %s, success: %s", processed["total_matches"], processed["success"])
 
     earliest_dt = None
     if processed["earliest_date"]:
@@ -519,12 +561,14 @@ def execute_tineye_search(
             pass
 
     if existing:
+        logger.info("Updating existing TinEye result for %s", context.phash)
         existing.total_matches = processed["total_matches"]
         existing.earliest_date = earliest_dt
         existing.on_shame_list = processed["on_shame_list"]
         existing.matches_json = json.dumps(processed["buckets"])
         existing.searched_at = datetime.now(UTC)
     else:
+        logger.info("Creating new TinEye result for %s", context.phash)
         existing = TinEyeResult(
             image_id=context.registry_id,
             total_matches=processed["total_matches"],
@@ -537,6 +581,7 @@ def execute_tineye_search(
 
     try:
         db.session.commit()
+        logger.info("TinEye result saved to database")
     except Exception:
         db.session.rollback()
         logger.exception("Failed to save TinEye result")

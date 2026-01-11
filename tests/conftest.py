@@ -31,6 +31,9 @@ def _create_testing_app(*, enable_csrf=False, instance_path):
         "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:",
         "INSTANCE_PATH": instance_path,
         "KOFI_TOKEN": "test-token",
+        "SERVER_NAME": "localhost.localdomain",
+        "APPLICATION_ROOT": "/",
+        "PREFERRED_URL_SCHEME": "http",
     }
     app = create_app(test_config)
     with app.app_context():

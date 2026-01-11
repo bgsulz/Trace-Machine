@@ -283,7 +283,7 @@ class TestShameListCache:
 class TestCallTinEyeAPI:
     def test_missing_api_key_returns_error(self, monkeypatch):
         monkeypatch.delenv("TINEYE_KEY", raising=False)
-        result = call_tineye_api(image_bytes=b"fake image data")
+        result = call_tineye_api(image_url="https://example.com/test.jpg")
         assert result["success"] is False
         assert "missing TINEYE_KEY" in result["error"]
 
@@ -291,7 +291,7 @@ class TestCallTinEyeAPI:
         monkeypatch.setenv("TINEYE_KEY", "test-key")
         result = call_tineye_api()
         assert result["success"] is False
-        assert "No image provided" in result["error"]
+        assert "No image URL provided" in result["error"]
 
     def test_api_request_failure_returns_error(self, monkeypatch):
         monkeypatch.setenv("TINEYE_KEY", "test-key")
@@ -375,9 +375,9 @@ class TestCallTinEyeAPI:
                     "results": {"total_results": 0, "matches": []},
                 }
 
-        monkeypatch.setattr(tineye.requests, "post", lambda *a, **k: MockResponse())
+        monkeypatch.setattr(tineye.requests, "get", lambda *a, **k: MockResponse())
 
-        result = call_tineye_api(image_bytes=b"fake image data")
+        result = call_tineye_api(image_url="https://example.com/test.jpg")
         assert result["success"] is True
         assert result["total_matches"] == 0
         assert result["matches"] == []
@@ -391,8 +391,8 @@ class TestFilterMatchesBySimilarity:
             {"url": "c", "domain": "c.com", "crawl_date": "2023-03-01T00:00:00", "similarity": 0.45},
         ]
         filtered = filter_matches_by_similarity(matches)
-        assert len(filtered) == 2
-        assert all(m["similarity"] >= 0.4 for m in filtered)
+        assert len(filtered) == 3  # All 3 should pass with 10% threshold
+        assert all(m["similarity"] >= 0.1 for m in filtered)
 
     def test_custom_threshold(self):
         matches = [
@@ -555,17 +555,18 @@ class TestIsResultStale:
 
 class TestBuildSummary:
     def test_no_matches(self):
-        summary = _build_summary(0, None, False)
+        summary = _build_summary(0, 0, None, False)
         assert summary == "No matches found."
 
     def test_with_matches_and_date(self):
-        summary = _build_summary(10, "2022-06-15T00:00:00", False)
-        assert "10 matches found." in summary
+        summary = _build_summary(10, 8, "2022-06-15T00:00:00", False)
+        assert "8 matches found." in summary  # Should use filtered count
         assert "Jun 2022" in summary
         assert "Not on known AI sites." in summary
 
     def test_with_shame_list(self):
-        summary = _build_summary(5, "2023-01-01T00:00:00", True)
+        summary = _build_summary(5, 3, "2023-01-01T00:00:00", True)
+        assert "3 matches found." in summary  # Should use filtered count
         assert "⚠️ Found on AI image sites." in summary
 
 
@@ -589,7 +590,7 @@ class TestGetTinEyeStatus:
                 total_matches=25,
                 earliest_date=datetime(2022, 6, 15, tzinfo=UTC),
                 on_shame_list=False,
-                matches_json=json.dumps({"oldest": [], "newest": [], "shame_list": []}),
+                matches_json=json.dumps({"oldest": [{"url": "test"}], "newest": [], "shame_list": []}),
                 searched_at=datetime.now(UTC),
             )
             db.session.add(tineye_result)
@@ -601,7 +602,7 @@ class TestGetTinEyeStatus:
             result = get_tineye_status(context)
 
         assert result["status"] == "FOUND"
-        assert "25 matches found" in result["summary"]
+        assert "1 matches found" in result["summary"]  # Should show filtered count, not total
 
     def test_returns_not_found_when_zero_matches(self, app):
         registry_id = _create_registry(app)
