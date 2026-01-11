@@ -1,37 +1,35 @@
 {% set status_class = row.status|lower|replace(' ', '-') %}
 {% set details_template = row.template or "partials/analyzers/default.html" %}
 {% set link_target = row.context.link_target if row.context else None %}
-<tr id="analyzer-row-{{ row.slug }}">
-  <td style="vertical-align: top">
-    <strong class="analyzer-title">
-      <span class="tooltip-trigger" tabindex="0">
-        {{ row.name }}
+{% set is_notable = status_class not in ['not-found', 'not-detected', 'waiting'] %}
+{% set expand_by_default = row.slug == 'human' or is_notable %}
+
+<details class="analyzer-item" id="analyzer-row-{{ row.slug }}" {{ 'open' if expand_by_default else '' }}>
+  <summary class="analyzer-header">
+    <div class="analyzer-header-info">
+      <span class="analyzer-title">
+        <strong>{{ row.name }}</strong>
         {% if row.tooltip %}
-        <span class="tooltip-bubble" role="tooltip">
-          {{ row.tooltip }}
+        <span class="tooltip-trigger" tabindex="0">
+          <span class="tooltip-bubble" role="tooltip">{{ row.tooltip }}</span>
         </span>
         {% endif %}
       </span>
-    </strong>
-    {% if row.info_id %}
-    <div class="analyzer-links">
-      <a
-        href="{{ url_for('main.analyzer_info') }}#{{ row.info_id }}"
-        {% if link_target %}target="{{ link_target }}" rel="noopener noreferrer"{% endif %}
-        >Learn more</a
-      >
+      {% if row.info_id %}
+      <div class="analyzer-links">
+        <a
+          href="{{ url_for('main.analyzer_info') }}#{{ row.info_id }}"
+          {% if link_target %}target="{{ link_target }}" rel="noopener noreferrer"{% endif %}
+        >Learn more</a>
+      </div>
+      {% endif %}
     </div>
-    {% endif %}
-  </td>
-  <td style="vertical-align: top">
     <span class="badge {{ status_class }}">{{ row.status }}</span>
-  </td>
-  <td style="vertical-align: top">
+  </summary>
+  <div class="analyzer-content">
     {% if row.summary %}
-    <p class="analyzer-summary" style="margin: 0 0 0.35rem">
-      {{ row.summary }}
-    </p>
+    <p class="analyzer-summary">{{ row.summary }}</p>
     {% endif %}
     {% include details_template %}
-  </td>
-</tr>
+  </div>
+</details>

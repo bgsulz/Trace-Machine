@@ -563,6 +563,62 @@ button.vote-btn-edited .tooltip-trigger::after {
   }
 }
 
+/* Analyzer List */
+.analyzer-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.analyzer-item {
+  border: 1px solid var(--pico-muted-border-color);
+  border-radius: var(--pico-border-radius);
+  background: var(--pico-card-background-color);
+}
+
+.analyzer-item[open] {
+  border-color: var(--pico-primary-border);
+}
+
+.analyzer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.75rem 1rem;
+  cursor: pointer;
+  list-style: none;
+}
+
+.analyzer-header::-webkit-details-marker {
+  display: none;
+}
+
+.analyzer-header-info {
+  flex: 1;
+}
+
+.analyzer-header-info .analyzer-title {
+  display: inline;
+}
+
+.analyzer-header-info .analyzer-links {
+  margin-top: 0.25rem;
+  font-size: 0.85rem;
+}
+
+.analyzer-content {
+  padding: 0.75rem 1rem 1rem;
+  border-top: 1px dashed var(--pico-muted-border-color);
+  font-size: 0.9rem;
+}
+
+.analyzer-content .analyzer-summary {
+  margin: 0 0 0.5rem;
+}
+
+
+
 /* Analyzer Details */
 .analyzer-detail-block {
   background-color: var(--pico-card-section-background-color);
