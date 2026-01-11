@@ -93,6 +93,7 @@ def test_execute_synthid_search_localhost_uses_mock_response(app, monkeypatch):
         registry = _create_registry()
         context = _make_context(registry_id=registry.id)
 
+    monkeypatch.setattr(synthid, "MOCK_SERP_RESPONSE", True, raising=False)
     monkeypatch.setattr(
         synthid,
         "url_for",
@@ -106,7 +107,7 @@ def test_execute_synthid_search_localhost_uses_mock_response(app, monkeypatch):
         ).all()
 
     assert result["status"] == "FOUND"
-    assert "Mocked" in result["summary"]
+    assert result["summary"] == "Made with Google AI"
     assert result["data"]["detected"] is True
     assert len(facts) == 1
 
@@ -117,6 +118,7 @@ def test_execute_synthid_search_remote_missing_api_key_errors(app, monkeypatch):
         context = _make_context(registry_id=registry.id)
 
     monkeypatch.delenv("SERPAPI_KEY", raising=False)
+    monkeypatch.setattr(synthid, "MOCK_SERP_RESPONSE", False, raising=False)
     monkeypatch.setattr(
         synthid, "url_for", lambda *args, **kwargs: "https://example.com/image.png"
     )
@@ -136,6 +138,7 @@ def test_execute_synthid_search_remote_api_failure_returns_error(
         context = _make_context(registry_id=registry.id)
 
     monkeypatch.setenv("SERPAPI_KEY", "secret-key")
+    monkeypatch.setattr(synthid, "MOCK_SERP_RESPONSE", False, raising=False)
     monkeypatch.setattr(
         synthid, "url_for", lambda *args, **kwargs: "https://example.com/image.png"
     )
