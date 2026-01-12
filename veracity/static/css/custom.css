@@ -891,6 +891,8 @@ button.vote-btn-edited .tooltip-trigger::after {
 .match-thumbnail-error {
   object-fit: contain !important;
   transform: none !important;
+  background: #f5f5f5;
+  min-height: 80px;
 }
 
 .match-link:hover .match-thumbnail:not(.match-thumbnail-error) {

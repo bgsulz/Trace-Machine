@@ -1,22 +1,26 @@
+{% macro render_match_card(match, extra_class="") %}
+<div class="bucket-match {{ extra_class }}">
+  <a href="{{ match.url }}" target="_blank" rel="noopener noreferrer" class="match-link">
+    <img src="{{ match.url }}" alt="Match image" class="match-thumbnail" loading="lazy"
+         onerror="this.onerror=null; this.classList.add('match-thumbnail-error');" />
+  </a>
+  <div class="match-info">
+    <div class="match-domain">{{ match.domain }}</div>
+    <div class="match-date">{{ match.crawl_date[:10] if match.crawl_date else '—' }}</div>
+    <div class="match-score">{{ "%.1f"|format(match.similarity * 100) }}%</div>
+  </div>
+</div>
+{% endmacro %}
+
 {% macro render_tineye_buckets(buckets) %}
 {% if buckets.oldest or buckets.newest or buckets.shame_list %}
 <div class="tineye-buckets">
   {% if buckets.oldest %}
   <div class="bucket-section">
-    <h4>5 Oldest Matches</h4>
+    <h4>Oldest Matches</h4>
     <div class="bucket-scroll">
       {% for match in buckets.oldest %}
-      <div class="bucket-match">
-        <a href="{{ match.url }}" target="_blank" rel="noopener noreferrer" class="match-link">
-          <img src="{{ match.url }}" alt="Match image" class="match-thumbnail" loading="lazy" 
-               onerror="this.onerror=null; this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTIwIiBoZWlnaHQ9IjEyMCIgdmlld0JveD0iMCAwIDEyMCAxMjAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIxMjAiIGhlaWdodD0iMTIwIiBmaWxsPSIjZjVmNWY1Ii8+CjxwYXRoIGQ9Ik00MCA2MEg4ME02MCA0MFY4MCIgc3Ryb2tlPSIjY2NjIiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIvPgo8L3N2Zz4K'; this.classList.add('match-thumbnail-error');" />
-        </a>
-        <div class="match-info">
-          <div class="match-domain">{{ match.domain }}</div>
-          <div class="match-date">{{ match.crawl_date[:10] if match.crawl_date else '—' }}</div>
-          <div class="match-score">{{ "%.1f"|format(match.similarity * 100) }}%</div>
-        </div>
-      </div>
+      {{ render_match_card(match) }}
       {% endfor %}
     </div>
   </div>
@@ -24,20 +28,10 @@
 
   {% if buckets.newest %}
   <div class="bucket-section">
-    <h4>5 Newest Matches</h4>
+    <h4>Newest Matches</h4>
     <div class="bucket-scroll">
       {% for match in buckets.newest %}
-      <div class="bucket-match">
-        <a href="{{ match.url }}" target="_blank" rel="noopener noreferrer" class="match-link">
-          <img src="{{ match.url }}" alt="Match image" class="match-thumbnail" loading="lazy" 
-               onerror="this.onerror=null; this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTIwIiBoZWlnaHQ9IjEyMCIgdmlld0JveD0iMCAwIDEyMCAxMjAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIxMjAiIGhlaWdodD0iMTIwIiBmaWxsPSIjZjVmNWY1Ii8+CjxwYXRoIGQ9Ik00MCA2MEg4ME02MCA0MFY4MCIgc3Ryb2tlPSIjY2NjIiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIvPgo8L3N2Zz4K'; this.classList.add('match-thumbnail-error');" />
-        </a>
-        <div class="match-info">
-          <div class="match-domain">{{ match.domain }}</div>
-          <div class="match-date">{{ match.crawl_date[:10] if match.crawl_date else '—' }}</div>
-          <div class="match-score">{{ "%.1f"|format(match.similarity * 100) }}%</div>
-        </div>
-      </div>
+      {{ render_match_card(match) }}
       {% endfor %}
     </div>
   </div>
@@ -48,16 +42,7 @@
     <h4>⚠️ Found on AI Image Sites ({{ buckets.shame_list|length }})</h4>
     <div class="bucket-scroll">
       {% for match in buckets.shame_list %}
-      <div class="bucket-match shame-list">
-        <a href="{{ match.url }}" target="_blank" rel="noopener noreferrer" class="match-link">
-          <img src="{{ match.url }}" alt="Match image" class="match-thumbnail" loading="lazy" />
-        </a>
-        <div class="match-info">
-          <div class="match-domain">{{ match.domain }}</div>
-          <div class="match-date">{{ match.crawl_date[:10] if match.crawl_date else '—' }}</div>
-          <div class="match-score">{{ "%.1f"|format(match.similarity * 100) }}%</div>
-        </div>
-      </div>
+      {{ render_match_card(match, "shame-list") }}
       {% endfor %}
     </div>
   </div>
