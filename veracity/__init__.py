@@ -13,7 +13,11 @@ load_dotenv()
 csrf = CSRFProtect()
 db = SQLAlchemy()
 migrate = Migrate()
-limiter = Limiter(key_func=get_remote_address)
+limiter = Limiter(
+    key_func=get_remote_address,
+    storage_uri=os.environ.get("LIMITER_STORAGE_URL", "memory://"),
+)
+
 
 def create_app(test_config=None):
     instance_path_override = None
