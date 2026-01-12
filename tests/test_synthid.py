@@ -155,3 +155,39 @@ def test_execute_synthid_search_remote_api_failure_returns_error(
     assert result["status"] == "ERROR"
     assert result["summary"] == "External API failed"
     assert fact_count == 0
+
+
+class TestRunSynthIDRoute:
+    def test_run_synthid_route_expired_analysis(self, app):
+        client = app.test_client()
+        response = client.post("/analysis/nonexistent-id/synthid/run")
+        assert response.status_code == 410
+
+    def test_run_synthid_route_success(self, app, monkeypatch):
+        from veracity import routes
+        from io import BytesIO
+        from PIL import Image
+
+        img = Image.new("RGB", (100, 100), color=(0, 255, 0))
+        buf = BytesIO()
+        img.save(buf, format="PNG")
+        image_bytes = buf.getvalue()
+
+        monkeypatch.setattr(
+            routes,
+            "load_analysis_payload",
+            lambda aid: (image_bytes, {"mime_type": "image/png", "source": "file"}),
+        )
+
+        def mock_execute(analysis_id, context):
+            return {
+                "status": "NOT FOUND",
+                "summary": "No SynthID detected.",
+                "data": {"detected": False, "matches": []},
+            }
+
+        monkeypatch.setattr(routes, "execute_synthid_search", mock_execute)
+
+        client = app.test_client()
+        response = client.post("/analysis/test-id/synthid/run")
+        assert response.status_code == 200

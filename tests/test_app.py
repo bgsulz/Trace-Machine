@@ -13,6 +13,11 @@ def test_index_renders_ok(client):
     assert b"Analyze an image" in resp.data
 
 
+def test_info_page_renders(client):
+    resp = client.get("/info")
+    assert resp.status_code == 200
+
+
 def test_analyze_with_file_upload(client, app):
     # CSRF disabled via config
     image_bytes = _make_test_image_bytes()
@@ -260,7 +265,4 @@ def test_vote_redirects_back_to_url_analysis_missing_metadata_falls_back(client)
     vote_data = {"phash": phash, "vote": "real"}
     resp_vote = client.post("/vote", data=vote_data, follow_redirects=False)
     assert resp_vote.status_code == 302
-    assert resp_vote.headers["Location"] == "/"
-
-    # Additional assertion to check the referrer URL
     assert resp_vote.headers["Location"] == "/"
