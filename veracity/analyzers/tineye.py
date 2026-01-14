@@ -505,6 +505,7 @@ def get_tineye_status(context: AnalysisContext) -> dict[str, object]:
 
         # Use filtered match count for status determination
         status = "STALE" if is_stale else ("FOUND" if filtered_match_count > 0 else "NOT FOUND")
+        allow_manual_refresh = filtered_match_count == 0
 
         return {
             "status": status,
@@ -516,6 +517,7 @@ def get_tineye_status(context: AnalysisContext) -> dict[str, object]:
                 "buckets": buckets,
                 "searched_at": existing.searched_at.isoformat() if existing.searched_at else None,
                 "matches": matches,
+                "allow_manual_refresh": allow_manual_refresh,
             },
         }
 
@@ -524,6 +526,7 @@ def get_tineye_status(context: AnalysisContext) -> dict[str, object]:
         "summary": "Manual check required.",
         "data": {
             "matches": matches,
+            "allow_manual_refresh": False,
         },
     }
 
@@ -552,6 +555,7 @@ def execute_tineye_search(
             "summary": api_result["error"] or "Something went wrong.",
             "data": {
                 "matches": _find_neighbor_matches(context),
+                "allow_manual_refresh": False,
             },
         }
 
@@ -596,6 +600,7 @@ def execute_tineye_search(
             "summary": "Failed to save results.",
             "data": {
                 "matches": _find_neighbor_matches(context),
+                "allow_manual_refresh": False,
             },
         }
 

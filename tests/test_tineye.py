@@ -149,6 +149,28 @@ class TestGetTinEyeStatus:
         assert len(result["data"]["matches"]) == 1
         assert result["data"]["matches"][0]["total_matches"] == 5
 
+    def test_zero_matches_allows_manual_refresh_flag(self, app):
+        registry_id = _create_registry(app)
+
+        with app.app_context():
+            tineye_result = TinEyeResult(
+                image_id=registry_id,
+                total_matches=0,
+                earliest_date=None,
+                on_shame_list=False,
+                matches_json=json.dumps({"oldest": [], "newest": [], "shame_list": []}),
+                searched_at=datetime.now(UTC),
+            )
+            db.session.add(tineye_result)
+            db.session.commit()
+
+        context = _make_context(registry_id)
+
+        with app.app_context():
+            result = get_tineye_status(context)
+
+        assert result["data"]["allow_manual_refresh"] is True
+
 
 class TestExecuteTinEyeSearch:
     def test_creates_result(self, app, monkeypatch):
@@ -261,6 +283,7 @@ class TestExecuteTinEyeSearch:
 
         assert result["status"] == "ERROR"
         assert "API request failed" in result["summary"]
+        assert result["data"]["allow_manual_refresh"] is False
 
 
 class TestRunTinEyeRoute:
