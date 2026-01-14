@@ -18,7 +18,6 @@ limiter = Limiter(
     storage_uri=os.environ.get("LIMITER_STORAGE_URL", "memory://"),
 )
 
-
 def create_app(test_config=None):
     instance_path_override = None
     if test_config is not None:
@@ -47,6 +46,8 @@ def create_app(test_config=None):
 
     secret_key = os.environ.get("SECRET_KEY", "dev")
     kofi_token = os.environ.get("KOFI_TOKEN", "")
+    debug_flag = os.environ.get("FLASK_DEBUG") == "1"
+    synthid_mock_mode = debug_flag
     app.config.from_mapping(
         SECRET_KEY=secret_key,
         SQLALCHEMY_DATABASE_URI=db_url,
@@ -54,6 +55,7 @@ def create_app(test_config=None):
         MAX_CONTENT_LENGTH=10 * 1024 * 1024,
         ALLOWED_EXTENSIONS={"png", "jpg", "jpeg", "webp", "gif"},
         KOFI_TOKEN=kofi_token,
+        SYNTHID_MOCK_MODE=synthid_mock_mode,
     )
 
     if test_config is not None:

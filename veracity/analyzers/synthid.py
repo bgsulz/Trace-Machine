@@ -5,7 +5,7 @@ import os
 from pathlib import Path
 
 import requests
-from flask import url_for
+from flask import current_app, url_for
 from lxml import html as lxml_html
 
 from .. import db
@@ -22,8 +22,17 @@ logger = logging.getLogger(__name__)
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent
 _SERP_MOCK_PATH = _PROJECT_ROOT / "static" / ".local" / "serp_mock.html"
 
-# Mock response for local development to save credits
-MOCK_SERP_RESPONSE = os.getenv("FLASK_DEBUG") == "1"
+
+def _mock_mode_enabled() -> bool:
+    try:
+        config_value = current_app.config.get("SYNTHID_MOCK_MODE")
+    except RuntimeError:
+        config_value = None
+
+    if config_value is not None:
+        return config_value
+
+    return os.environ.get("SYNTHID_MOCK_MODE") == "1"
 
 
 def get_synthid_status(context: AnalysisContext) -> dict[str, object]:
@@ -69,8 +78,9 @@ def execute_synthid_search(
     )
     logger.info("Public image URL: %s", public_img_url)
 
-    if MOCK_SERP_RESPONSE:
-        logger.info("Mocking SerpApi response (FLASK_DEBUG enabled)")
+    mock_mode = _mock_mode_enabled()
+    if mock_mode:
+        logger.info("Mocking SerpApi response (SYNTHID_MOCK_MODE enabled)")
         detected, badge_text = _parse_mock_serp_html()
         if detected is None:
             return {
