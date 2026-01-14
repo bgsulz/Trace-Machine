@@ -2,8 +2,6 @@ import json
 from datetime import datetime, timedelta, UTC
 from types import SimpleNamespace
 
-import pytest
-
 from veracity import db
 from veracity.analyzers import tineye
 from veracity.analyzers.context import AnalysisContext
@@ -208,7 +206,7 @@ class TestExecuteTinEyeSearch:
         monkeypatch.setattr(tineye, "get_shame_list_matchers", lambda **k: [])
 
         with app.app_context():
-            result = execute_tineye_search("analysis-123", context)
+            execute_tineye_search("analysis-123", context, force_refresh=True)
             updated = TinEyeResult.query.filter_by(image_id=registry_id).first()
 
         assert updated.total_matches == 30
@@ -223,6 +221,7 @@ class TestExecuteTinEyeSearch:
                 earliest_date=None,
                 on_shame_list=False,
                 matches_json=json.dumps({"oldest": [], "newest": [], "shame_list": []}),
+                filtered_match_count=0,
                 searched_at=datetime.now(UTC),
             )
             db.session.add(fresh_result)
@@ -258,7 +257,7 @@ class TestExecuteTinEyeSearch:
         monkeypatch.setattr(tineye, "call_tineye_api", mock_call_api)
 
         with app.app_context():
-            result = execute_tineye_search("analysis-123", context)
+            result = execute_tineye_search("analysis-123", context, force_refresh=True)
 
         assert result["status"] == "ERROR"
         assert "API request failed" in result["summary"]
@@ -286,7 +285,7 @@ class TestRunTinEyeRoute:
             lambda aid: (image_bytes, {"mime_type": "image/png", "source": "file"}),
         )
 
-        def mock_execute(analysis_id, context):
+        def mock_execute(analysis_id, context, **kwargs):
             return {
                 "status": "NOT FOUND",
                 "summary": "No matches found.",
@@ -315,7 +314,7 @@ class TestRunTinEyeRoute:
             lambda aid: (image_bytes, {"mime_type": "image/png", "source": "file"}),
         )
 
-        def mock_execute(analysis_id, context):
+        def mock_execute(analysis_id, context, **kwargs):
             return {
                 "status": "NOT FOUND",
                 "summary": "No matches found.",

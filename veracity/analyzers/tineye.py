@@ -280,6 +280,14 @@ def extract_earliest_date(matches: list[TinEyeMatch]) -> str | None:
     return min(dates) if dates else None
 
 
+def _match_identity(match: TinEyeMatch) -> tuple[str, str, str]:
+    return (
+        match.get("url", "") or "",
+        match.get("domain", "") or "",
+        match.get("crawl_date", "") or "",
+    )
+
+
 def bucket_matches(
     matches: list[TinEyeMatch],
     matchers: list[Matcher] | None = None,
@@ -293,7 +301,17 @@ def bucket_matches(
     )
 
     oldest = sorted_by_date[:5]
-    newest = sorted_by_date[-5:][::-1] if len(sorted_by_date) > 5 else []
+    if len(sorted_by_date) <= 5:
+        newest = list(reversed(sorted_by_date))
+    else:
+        newest_candidates = list(reversed(sorted_by_date[-5:]))
+        oldest_identities = {_match_identity(match) for match in oldest}
+        newest = []
+        for match in newest_candidates:
+            identity = _match_identity(match)
+            if identity in oldest_identities:
+                continue
+            newest.append(match)
 
     shame_list: list[TinEyeMatch] = [
         m for m in matches if m["url"] and url_matches_shame_list(m["url"], matchers)
@@ -304,6 +322,41 @@ def bucket_matches(
         "newest": newest,
         "shame_list": shame_list,
     }
+
+
+def _load_bucket_payload(raw_json: str | None) -> BucketedMatches:
+    empty: BucketedMatches = {"oldest": [], "newest": [], "shame_list": []}
+    if not raw_json:
+        return empty
+
+    try:
+        data = json.loads(raw_json)
+    except (json.JSONDecodeError, TypeError):
+        return empty
+
+    return {
+        "oldest": data.get("oldest", []) or [],
+        "newest": data.get("newest", []) or [],
+        "shame_list": data.get("shame_list", []) or [],
+    }
+
+
+def _resolve_filtered_count(
+    result: TinEyeResult, buckets: BucketedMatches
+) -> int:
+    stored = getattr(result, "filtered_match_count", -1) or -1
+    if stored >= 0:
+        return stored
+
+    seen = {
+        _match_identity(match)
+        for match in (
+            list(buckets.get("oldest", []))
+            + list(buckets.get("newest", []))
+            + list(buckets.get("shame_list", []))
+        )
+    }
+    return len(seen)
 
 
 def process_tineye_response(
@@ -403,13 +456,8 @@ def _find_neighbor_matches(context: AnalysisContext) -> list[dict]:
         if tineye_result.earliest_date:
             earliest_date = tineye_result.earliest_date.isoformat()
 
-        # Calculate filtered match count from stored buckets
-        filtered_match_count = 0
-        try:
-            buckets = json.loads(tineye_result.matches_json)
-            filtered_match_count = len(buckets.get("oldest", [])) + len(buckets.get("newest", [])) + len(buckets.get("shame_list", []))
-        except (json.JSONDecodeError, TypeError):
-            pass
+        buckets = _load_bucket_payload(tineye_result.matches_json)
+        filtered_match_count = _resolve_filtered_count(tineye_result, buckets)
 
         matches.append({
             "phash": neighbor_phash,
@@ -440,17 +488,13 @@ def get_tineye_status(context: AnalysisContext) -> dict[str, object]:
     if existing:
         is_stale = _is_result_stale(existing)
 
-        try:
-            buckets = json.loads(existing.matches_json)
-        except (json.JSONDecodeError, TypeError):
-            buckets = {"oldest": [], "newest": [], "shame_list": []}
+        buckets = _load_bucket_payload(existing.matches_json)
 
         earliest_date = None
         if existing.earliest_date:
             earliest_date = existing.earliest_date.isoformat()
 
-        # Calculate filtered match count from stored buckets
-        filtered_match_count = len(buckets.get("oldest", [])) + len(buckets.get("newest", [])) + len(buckets.get("shame_list", []))
+        filtered_match_count = _resolve_filtered_count(existing, buckets)
 
         summary = _build_summary(
             existing.total_matches,
@@ -487,9 +531,11 @@ def get_tineye_status(context: AnalysisContext) -> dict[str, object]:
 def execute_tineye_search(
     analysis_id: str,
     context: AnalysisContext,
+    *,
+    force_refresh: bool = False,
 ) -> dict[str, object]:
     existing = TinEyeResult.query.filter_by(image_id=context.registry_id).first()
-    if existing and not _is_result_stale(existing):
+    if existing and not _is_result_stale(existing) and not force_refresh:
         return get_tineye_status(context)
 
     # Generate external URL for the image
@@ -519,21 +565,24 @@ def execute_tineye_search(
                 earliest_dt = earliest_dt.replace(tzinfo=UTC)
         except ValueError:
             pass
-
+    buckets_json = json.dumps(processed["buckets"])
+    searched_at = datetime.now(UTC)
     if existing:
         existing.total_matches = processed["total_matches"]
+        existing.filtered_match_count = processed["filtered_match_count"]
         existing.earliest_date = earliest_dt
         existing.on_shame_list = processed["on_shame_list"]
-        existing.matches_json = json.dumps(processed["buckets"])
-        existing.searched_at = datetime.now(UTC)
+        existing.matches_json = buckets_json
+        existing.searched_at = searched_at
     else:
         existing = TinEyeResult(
             image_id=context.registry_id,
             total_matches=processed["total_matches"],
+            filtered_match_count=processed["filtered_match_count"],
             earliest_date=earliest_dt,
             on_shame_list=processed["on_shame_list"],
-            matches_json=json.dumps(processed["buckets"]),
-            searched_at=datetime.now(UTC),
+            matches_json=buckets_json,
+            searched_at=searched_at,
         )
         db.session.add(existing)
 

@@ -86,6 +86,7 @@ class TinEyeResult(db.Model):
     )
 
     total_matches = db.Column(db.Integer, nullable=False, default=0)
+    filtered_match_count = db.Column(db.Integer, nullable=False, default=-1)
     earliest_date = db.Column(db.DateTime(timezone=True), nullable=True)
     on_shame_list = db.Column(db.Boolean, nullable=False, default=False)
     matches_json = db.Column(db.Text, nullable=False)

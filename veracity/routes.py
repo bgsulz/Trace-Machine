@@ -218,7 +218,7 @@ def run_tineye(analysis_id: str):
     image_bytes, metadata = payload
 
     context = prepare_analysis_context(image_bytes)
-    raw_result = execute_tineye_search(analysis_id, context)
+    raw_result = execute_tineye_search(analysis_id, context, force_refresh=True)
 
     spec = get_analyzer_spec("tineye")
     formatted_row = _format_result(spec, raw_result)
