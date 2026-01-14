@@ -2,17 +2,15 @@
 
 {% set link_target = row.context.link_target if row.context else None %}
 
-{% if row.status in ("WAITING", "STALE", "ERROR") %}
+{% if row.status in ("WAITING", "ERROR") %}
 <div class="analyzer-interactive">
   {% if row.status == "ERROR" %}
   <p class="flash-warning">Something went wrong. Please try again.</p>
-  {% elif row.status == "STALE" %}
-  <p>Results may be outdated.</p>
   {% else %}
   <p>TinEye reverse image search requires an external API call.</p>
   {% endif %}
 
-  {{ render_tineye_button(row.context.analysis_id, is_refresh=(row.status == "STALE")) }}
+  {{ render_tineye_button(row.context.analysis_id, is_refresh=false) }}
   {{ render_tineye_matches(row.data.matches, link_target) }}
 </div>
 

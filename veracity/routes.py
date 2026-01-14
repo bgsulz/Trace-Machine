@@ -1,6 +1,7 @@
 from io import BytesIO
 import json
 import math
+from datetime import datetime
 
 from flask import (
     Blueprint,
@@ -35,7 +36,7 @@ from .config_service import (
 from .registry import prepare_analysis_context
 from .voting_service import VOTE_CHOICES, apply_vote, get_voter_id
 from .analyzers.synthid import execute_synthid_search
-from .analyzers.tineye import execute_tineye_search
+from .analyzers.tineye import call_tineye_api, process_tineye_response, get_shame_list_matchers
 from .analyzers.manager import get_analyzer_spec, _format_result
 
 bp = Blueprint("main", __name__)
@@ -217,8 +218,55 @@ def run_tineye(analysis_id: str):
         return "Analysis expired", 410
     image_bytes, metadata = payload
 
-    context = prepare_analysis_context(image_bytes)
-    raw_result = execute_tineye_search(analysis_id, context, force_refresh=True)
+    # Generate external URL for the image
+    image_url = url_for(
+        "main.serve_analysis_image", analysis_id=analysis_id, _external=True
+    )
+    
+    # Call TinEye API directly without persisting results
+    api_result = call_tineye_api(image_url=image_url)
+    
+    if not api_result["success"]:
+        raw_result = {
+            "status": "ERROR",
+            "summary": api_result["error"] or "Something went wrong.",
+            "data": {
+                "matches": [],
+                "allow_manual_refresh": False,
+            },
+        }
+    else:
+        processed = process_tineye_response(api_result, matchers=get_shame_list_matchers())
+        
+        # Build summary for display
+        if processed["filtered_match_count"] == 0:
+            summary = "No matches found."
+        else:
+            parts = [f"{processed['filtered_match_count']} matches found."]
+            if processed["earliest_date"]:
+                try:
+                    dt = datetime.fromisoformat(processed["earliest_date"])
+                    parts.append(f"Earliest: {dt.strftime('%b %Y')}.")
+                except ValueError:
+                    pass
+            if processed["on_shame_list"]:
+                parts.append("⚠️ Found on AI image sites.")
+            else:
+                parts.append("Not on known AI sites.")
+            summary = " ".join(parts)
+        
+        raw_result = {
+            "status": "FOUND" if processed["filtered_match_count"] > 0 else "NOT FOUND",
+            "summary": summary,
+            "data": {
+                "total_matches": processed["total_matches"],
+                "earliest_date": processed["earliest_date"],
+                "on_shame_list": processed["on_shame_list"],
+                "buckets": processed["buckets"],
+                "matches": [],
+                "allow_manual_refresh": True,
+            },
+        }
 
     spec = get_analyzer_spec("tineye")
     formatted_row = _format_result(spec, raw_result)

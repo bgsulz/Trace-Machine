@@ -77,27 +77,6 @@ class VoteHistory(db.Model):
     choice = db.Column(db.String(16), nullable=False)
 
 
-class TinEyeResult(db.Model):
-    __tablename__ = "tineye_result"
-
-    id = db.Column(db.Integer, primary_key=True)
-    image_id = db.Column(
-        db.Integer, db.ForeignKey("image_registry.id"), nullable=False, unique=True, index=True
-    )
-
-    total_matches = db.Column(db.Integer, nullable=False, default=0)
-    filtered_match_count = db.Column(db.Integer, nullable=False, default=-1)
-    earliest_date = db.Column(db.DateTime(timezone=True), nullable=True)
-    on_shame_list = db.Column(db.Boolean, nullable=False, default=False)
-    matches_json = db.Column(db.Text, nullable=False)
-
-    searched_at = db.Column(
-        db.DateTime(timezone=True), default=lambda: datetime.now(UTC)
-    )
-
-    image = db.relationship(
-        "ImageRegistry", backref=db.backref("tineye_result", uselist=False)
-    )
 
 
 class GlobalConfig(db.Model):

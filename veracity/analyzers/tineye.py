@@ -6,13 +6,11 @@ import os
 import re
 import time
 from dataclasses import dataclass
-from datetime import datetime, timedelta, UTC
+from datetime import datetime
 from typing import Protocol, TypedDict
 
 import requests
 
-from .. import db
-from ..models import TinEyeResult
 from .context import AnalysisContext
 from .hash_utils import compute_base_hashes, compute_neighbor_distances, extract_sources
 
@@ -341,22 +339,6 @@ def _load_bucket_payload(raw_json: str | None) -> BucketedMatches:
     }
 
 
-def _resolve_filtered_count(
-    result: TinEyeResult, buckets: BucketedMatches
-) -> int:
-    stored = getattr(result, "filtered_match_count", -1) or -1
-    if stored >= 0:
-        return stored
-
-    seen = {
-        _match_identity(match)
-        for match in (
-            list(buckets.get("oldest", []))
-            + list(buckets.get("newest", []))
-            + list(buckets.get("shame_list", []))
-        )
-    }
-    return len(seen)
 
 
 def process_tineye_response(
@@ -387,16 +369,6 @@ def process_tineye_response(
         "on_shame_list": len(buckets["shame_list"]) > 0,
         "buckets": buckets,
     }
-
-
-def _is_result_stale(result: TinEyeResult) -> bool:
-    if not result.searched_at:
-        return True
-    threshold = datetime.now(UTC) - timedelta(days=STALE_THRESHOLD_DAYS)
-    searched_at = result.searched_at
-    if searched_at.tzinfo is None:
-        searched_at = searched_at.replace(tzinfo=UTC)
-    return searched_at < threshold
 
 
 def _build_summary(
@@ -457,7 +429,17 @@ def _find_neighbor_matches(context: AnalysisContext) -> list[dict]:
             earliest_date = tineye_result.earliest_date.isoformat()
 
         buckets = _load_bucket_payload(tineye_result.matches_json)
-        filtered_match_count = _resolve_filtered_count(tineye_result, buckets)
+        
+        # Simple count of unique matches across all buckets
+        seen = {
+            _match_identity(match)
+            for match in (
+                list(buckets.get("oldest", []))
+                + list(buckets.get("newest", []))
+                + list(buckets.get("shame_list", []))
+            )
+        }
+        filtered_match_count = len(seen)
 
         matches.append({
             "phash": neighbor_phash,
@@ -482,126 +464,15 @@ def _find_neighbor_matches(context: AnalysisContext) -> list[dict]:
 
 
 def get_tineye_status(context: AnalysisContext) -> dict[str, object]:
-    existing = TinEyeResult.query.filter_by(image_id=context.registry_id).first()
     matches = _find_neighbor_matches(context)
-
-    if existing:
-        is_stale = _is_result_stale(existing)
-
-        buckets = _load_bucket_payload(existing.matches_json)
-
-        earliest_date = None
-        if existing.earliest_date:
-            earliest_date = existing.earliest_date.isoformat()
-
-        filtered_match_count = _resolve_filtered_count(existing, buckets)
-
-        summary = _build_summary(
-            existing.total_matches,
-            filtered_match_count,
-            earliest_date,
-            existing.on_shame_list,
-        )
-
-        # Use filtered match count for status determination
-        status = "STALE" if is_stale else ("FOUND" if filtered_match_count > 0 else "NOT FOUND")
-        allow_manual_refresh = filtered_match_count == 0
-
-        return {
-            "status": status,
-            "summary": summary,
-            "data": {
-                "total_matches": existing.total_matches,
-                "earliest_date": earliest_date,
-                "on_shame_list": existing.on_shame_list,
-                "buckets": buckets,
-                "searched_at": existing.searched_at.isoformat() if existing.searched_at else None,
-                "matches": matches,
-                "allow_manual_refresh": allow_manual_refresh,
-            },
-        }
 
     return {
         "status": "WAITING",
         "summary": "Manual check required.",
         "data": {
             "matches": matches,
-            "allow_manual_refresh": False,
+            "allow_manual_refresh": True,
         },
     }
 
 
-def execute_tineye_search(
-    analysis_id: str,
-    context: AnalysisContext,
-    *,
-    force_refresh: bool = False,
-) -> dict[str, object]:
-    existing = TinEyeResult.query.filter_by(image_id=context.registry_id).first()
-    if existing and not _is_result_stale(existing) and not force_refresh:
-        return get_tineye_status(context)
-
-    # Generate external URL for the image
-    from flask import url_for
-    image_url = url_for(
-        "main.serve_analysis_image", analysis_id=analysis_id, _external=True
-    )
-    api_result = call_tineye_api(image_url=image_url)
-
-    if not api_result["success"]:
-        logger.error("TinEye API call failed: %s", api_result["error"])
-        return {
-            "status": "ERROR",
-            "summary": api_result["error"] or "Something went wrong.",
-            "data": {
-                "matches": _find_neighbor_matches(context),
-                "allow_manual_refresh": False,
-            },
-        }
-
-    processed = process_tineye_response(api_result)
-
-    earliest_dt = None
-    if processed["earliest_date"]:
-        try:
-            earliest_dt = datetime.fromisoformat(processed["earliest_date"])
-            if earliest_dt.tzinfo is None:
-                earliest_dt = earliest_dt.replace(tzinfo=UTC)
-        except ValueError:
-            pass
-    buckets_json = json.dumps(processed["buckets"])
-    searched_at = datetime.now(UTC)
-    if existing:
-        existing.total_matches = processed["total_matches"]
-        existing.filtered_match_count = processed["filtered_match_count"]
-        existing.earliest_date = earliest_dt
-        existing.on_shame_list = processed["on_shame_list"]
-        existing.matches_json = buckets_json
-        existing.searched_at = searched_at
-    else:
-        existing = TinEyeResult(
-            image_id=context.registry_id,
-            total_matches=processed["total_matches"],
-            filtered_match_count=processed["filtered_match_count"],
-            earliest_date=earliest_dt,
-            on_shame_list=processed["on_shame_list"],
-            matches_json=buckets_json,
-            searched_at=searched_at,
-        )
-        db.session.add(existing)
-
-    try:
-        db.session.commit()
-    except Exception:
-        db.session.rollback()
-        logger.exception("Failed to save TinEye result")
-        return {
-            "status": "ERROR",
-            "summary": "Failed to save results.",
-            "data": {
-                "matches": _find_neighbor_matches(context),
-                "allow_manual_refresh": False,
-            },
-        }
-
-    return get_tineye_status(context)

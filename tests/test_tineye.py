@@ -1,16 +1,11 @@
 import json
-from datetime import datetime, timedelta, UTC
+from datetime import datetime, UTC
 from types import SimpleNamespace
 
 from veracity import db
-from veracity.analyzers import tineye
 from veracity.analyzers.context import AnalysisContext
-from veracity.analyzers.tineye import (
-    get_tineye_status,
-    execute_tineye_search,
-    STALE_THRESHOLD_DAYS,
-)
-from veracity.models import ImageRegistry, TinEyeResult
+from veracity.analyzers.tineye import get_tineye_status
+from veracity.models import ImageRegistry
 
 
 class TestAnalyzerRegistration:
@@ -56,74 +51,7 @@ class TestGetTinEyeStatus:
 
         assert result["status"] == "WAITING"
         assert "Manual check required" in result["summary"]
-
-    def test_returns_found_with_cached_result(self, app):
-        registry_id = _create_registry(app)
-
-        with app.app_context():
-            tineye_result = TinEyeResult(
-                image_id=registry_id,
-                total_matches=25,
-                earliest_date=datetime(2022, 6, 15, tzinfo=UTC),
-                on_shame_list=False,
-                matches_json=json.dumps({"oldest": [{"url": "test"}], "newest": [], "shame_list": []}),
-                searched_at=datetime.now(UTC),
-            )
-            db.session.add(tineye_result)
-            db.session.commit()
-
-        context = _make_context(registry_id)
-
-        with app.app_context():
-            result = get_tineye_status(context)
-
-        assert result["status"] == "FOUND"
-        assert "1 matches found" in result["summary"]
-
-    def test_returns_not_found_when_zero_matches(self, app):
-        registry_id = _create_registry(app)
-
-        with app.app_context():
-            tineye_result = TinEyeResult(
-                image_id=registry_id,
-                total_matches=0,
-                earliest_date=None,
-                on_shame_list=False,
-                matches_json=json.dumps({"oldest": [], "newest": [], "shame_list": []}),
-                searched_at=datetime.now(UTC),
-            )
-            db.session.add(tineye_result)
-            db.session.commit()
-
-        context = _make_context(registry_id)
-
-        with app.app_context():
-            result = get_tineye_status(context)
-
-        assert result["status"] == "NOT FOUND"
-
-    def test_returns_stale_when_old(self, app):
-        registry_id = _create_registry(app)
-
-        with app.app_context():
-            old_date = datetime.now(UTC) - timedelta(days=STALE_THRESHOLD_DAYS + 1)
-            tineye_result = TinEyeResult(
-                image_id=registry_id,
-                total_matches=10,
-                earliest_date=datetime(2022, 1, 1, tzinfo=UTC),
-                on_shame_list=False,
-                matches_json=json.dumps({"oldest": [], "newest": [], "shame_list": []}),
-                searched_at=old_date,
-            )
-            db.session.add(tineye_result)
-            db.session.commit()
-
-        context = _make_context(registry_id)
-
-        with app.app_context():
-            result = get_tineye_status(context)
-
-        assert result["status"] == "STALE"
+        assert result["data"]["allow_manual_refresh"] is True
 
     def test_includes_neighbor_matches(self, app):
         registry_id = _create_registry(app)
@@ -149,142 +77,6 @@ class TestGetTinEyeStatus:
         assert len(result["data"]["matches"]) == 1
         assert result["data"]["matches"][0]["total_matches"] == 5
 
-    def test_zero_matches_allows_manual_refresh_flag(self, app):
-        registry_id = _create_registry(app)
-
-        with app.app_context():
-            tineye_result = TinEyeResult(
-                image_id=registry_id,
-                total_matches=0,
-                earliest_date=None,
-                on_shame_list=False,
-                matches_json=json.dumps({"oldest": [], "newest": [], "shame_list": []}),
-                searched_at=datetime.now(UTC),
-            )
-            db.session.add(tineye_result)
-            db.session.commit()
-
-        context = _make_context(registry_id)
-
-        with app.app_context():
-            result = get_tineye_status(context)
-
-        assert result["data"]["allow_manual_refresh"] is True
-
-
-class TestExecuteTinEyeSearch:
-    def test_creates_result(self, app, monkeypatch):
-        registry_id = _create_registry(app)
-        context = _make_context(registry_id)
-
-        def mock_call_api(**kwargs):
-            return {
-                "success": True,
-                "error": None,
-                "total_matches": 15,
-                "matches": [
-                    {"url": "https://example.com/img", "domain": "example.com", "crawl_date": "2022-03-15T00:00:00", "similarity": 0.8},
-                ],
-            }
-
-        monkeypatch.setattr(tineye, "call_tineye_api", mock_call_api)
-        monkeypatch.setattr(tineye, "get_shame_list_matchers", lambda **k: [])
-
-        with app.app_context():
-            result = execute_tineye_search("analysis-123", context)
-            saved = TinEyeResult.query.filter_by(image_id=registry_id).first()
-
-        assert result["status"] in ("FOUND", "NOT FOUND")
-        assert saved is not None
-        assert saved.total_matches == 15
-
-    def test_replaces_stale_result(self, app, monkeypatch):
-        registry_id = _create_registry(app)
-
-        with app.app_context():
-            old_date = datetime.now(UTC) - timedelta(days=STALE_THRESHOLD_DAYS + 1)
-            old_result = TinEyeResult(
-                image_id=registry_id,
-                total_matches=5,
-                earliest_date=None,
-                on_shame_list=False,
-                matches_json=json.dumps({"oldest": [], "newest": [], "shame_list": []}),
-                searched_at=old_date,
-            )
-            db.session.add(old_result)
-            db.session.commit()
-
-        context = _make_context(registry_id)
-
-        def mock_call_api(**kwargs):
-            return {
-                "success": True,
-                "error": None,
-                "total_matches": 30,
-                "matches": [],
-            }
-
-        monkeypatch.setattr(tineye, "call_tineye_api", mock_call_api)
-        monkeypatch.setattr(tineye, "get_shame_list_matchers", lambda **k: [])
-
-        with app.app_context():
-            execute_tineye_search("analysis-123", context, force_refresh=True)
-            updated = TinEyeResult.query.filter_by(image_id=registry_id).first()
-
-        assert updated.total_matches == 30
-
-    def test_skips_if_fresh_exists(self, app, monkeypatch):
-        registry_id = _create_registry(app)
-
-        with app.app_context():
-            fresh_result = TinEyeResult(
-                image_id=registry_id,
-                total_matches=20,
-                earliest_date=None,
-                on_shame_list=False,
-                matches_json=json.dumps({"oldest": [], "newest": [], "shame_list": []}),
-                filtered_match_count=0,
-                searched_at=datetime.now(UTC),
-            )
-            db.session.add(fresh_result)
-            db.session.commit()
-
-        context = _make_context(registry_id)
-        api_called = []
-
-        def mock_call_api(**kwargs):
-            api_called.append(True)
-            return {"success": True, "error": None, "total_matches": 999, "matches": []}
-
-        monkeypatch.setattr(tineye, "call_tineye_api", mock_call_api)
-
-        with app.app_context():
-            result = execute_tineye_search("analysis-123", context)
-
-        assert len(api_called) == 0
-        assert result["data"]["total_matches"] == 20
-
-    def test_returns_error_on_api_failure(self, app, monkeypatch):
-        registry_id = _create_registry(app)
-        context = _make_context(registry_id)
-
-        def mock_call_api(**kwargs):
-            return {
-                "success": False,
-                "error": "API request failed",
-                "total_matches": 0,
-                "matches": [],
-            }
-
-        monkeypatch.setattr(tineye, "call_tineye_api", mock_call_api)
-
-        with app.app_context():
-            result = execute_tineye_search("analysis-123", context, force_refresh=True)
-
-        assert result["status"] == "ERROR"
-        assert "API request failed" in result["summary"]
-        assert result["data"]["allow_manual_refresh"] is False
-
 
 class TestRunTinEyeRoute:
     def test_run_tineye_route_expired_analysis(self, app):
@@ -308,14 +100,31 @@ class TestRunTinEyeRoute:
             lambda aid: (image_bytes, {"mime_type": "image/png", "source": "file"}),
         )
 
-        def mock_execute(analysis_id, context, **kwargs):
+        def mock_call_api(**kwargs):
             return {
-                "status": "NOT FOUND",
-                "summary": "No matches found.",
-                "data": {"total_matches": 0, "matches": [], "buckets": {"oldest": [], "newest": [], "shame_list": []}},
+                "success": True,
+                "error": None,
+                "total_matches": 0,
+                "matches": [],
             }
 
-        monkeypatch.setattr(routes, "execute_tineye_search", mock_execute)
+        def mock_process_response(api_result, **kwargs):
+            return {
+                "success": True,
+                "error": None,
+                "total_matches": 0,
+                "filtered_match_count": 0,
+                "earliest_date": None,
+                "on_shame_list": False,
+                "buckets": {"oldest": [], "newest": [], "shame_list": []},
+            }
+
+        def mock_get_matchers(**kwargs):
+            return []
+
+        monkeypatch.setattr(routes, "call_tineye_api", mock_call_api)
+        monkeypatch.setattr(routes, "process_tineye_response", mock_process_response)
+        monkeypatch.setattr(routes, "get_shame_list_matchers", mock_get_matchers)
 
         client = app.test_client()
         response = client.post("/analysis/test-id/tineye/run")
@@ -337,14 +146,31 @@ class TestRunTinEyeRoute:
             lambda aid: (image_bytes, {"mime_type": "image/png", "source": "file"}),
         )
 
-        def mock_execute(analysis_id, context, **kwargs):
+        def mock_call_api(**kwargs):
             return {
-                "status": "NOT FOUND",
-                "summary": "No matches found.",
-                "data": {"total_matches": 0, "matches": [], "buckets": {"oldest": [], "newest": [], "shame_list": []}},
+                "success": True,
+                "error": None,
+                "total_matches": 0,
+                "matches": [],
             }
 
-        monkeypatch.setattr(routes, "execute_tineye_search", mock_execute)
+        def mock_process_response(api_result, **kwargs):
+            return {
+                "success": True,
+                "error": None,
+                "total_matches": 0,
+                "filtered_match_count": 0,
+                "earliest_date": None,
+                "on_shame_list": False,
+                "buckets": {"oldest": [], "newest": [], "shame_list": []},
+            }
+
+        def mock_get_matchers(**kwargs):
+            return []
+
+        monkeypatch.setattr(routes, "call_tineye_api", mock_call_api)
+        monkeypatch.setattr(routes, "process_tineye_response", mock_process_response)
+        monkeypatch.setattr(routes, "get_shame_list_matchers", mock_get_matchers)
 
         client = app.test_client()
 
@@ -397,17 +223,3 @@ class TestTinEyeTemplates:
             html = render_template("partials/analyzers/tineye.html", row=row)
             assert "Something went wrong" in html
             assert "Check TinEye" in html
-
-    def test_tineye_template_renders_stale_state(self, app):
-        from flask import render_template
-
-        with app.test_request_context():
-            row = {
-                "status": "STALE",
-                "summary": "10 matches found",
-                "data": {"matches": [], "buckets": {"oldest": [], "newest": [], "shame_list": []}},
-                "context": {"analysis_id": "test-123", "link_target": "_blank"},
-            }
-            html = render_template("partials/analyzers/tineye.html", row=row)
-            assert "Refresh TinEye" in html
-            assert "outdated" in html
