@@ -43,13 +43,14 @@ ANALYZERS: Sequence[AnalyzerSpec] = (
         template="partials/analyzers/exif.html",
         tooltip="Scans EXIF blocks for hints that common AI tools left behind.",
     ),
-    AnalyzerSpec(
-        name="Google SynthID",
-        slug="synthid",
-        func=get_synthid_status,  
-        template="partials/analyzers/synthid.html",
-        tooltip="Uses Google reverse image search to check for an invisible watermark.",
-    ),
+    # SynthID temporarily disabled pending API review
+    # AnalyzerSpec(
+    #     name="Google SynthID",
+    #     slug="synthid",
+    #     func=get_synthid_status,
+    #     template="partials/analyzers/synthid.html",
+    #     tooltip="Uses Google reverse image search to check for an invisible watermark.",
+    # ),
     AnalyzerSpec(
         name="TinEye",
         slug="tineye",
