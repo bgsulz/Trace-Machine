@@ -196,9 +196,12 @@ def run_tineye(analysis_id: str):
     api_result = call_tineye_api(image_url=image_url)
 
     if not api_result["success"]:
+        # Log the actual error for debugging, but show a generic message to users
+        if api_result["error"]:
+            current_app.logger.warning("TinEye API error: %s", api_result["error"])
         raw_result = {
             "status": "ERROR",
-            "summary": api_result["error"] or "Something went wrong.",
+            "summary": "Unable to complete TinEye search. Please try again later.",
             "data": {
                 "allow_manual_refresh": False,
             },

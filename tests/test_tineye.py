@@ -215,3 +215,128 @@ class TestTinEyeTemplates:
             html = render_template("partials/analyzers/tineye.html", row=row)
             assert "Something went wrong" in html
             assert "Check TinEye" in html
+
+
+class TestShameListParsing:
+    """Tests for shame list parsing and URL matching."""
+
+    def test_glob_matcher_matches_subdomain(self):
+        from veracity.analyzers.tineye import GlobMatcher
+
+        matcher = GlobMatcher("*://*.civitai.com/*")
+        assert matcher.matches("https://www.civitai.com/images/123")
+        assert matcher.matches("https://cdn.civitai.com/images/123")
+        assert matcher.matches("http://images.civitai.com/foo")
+
+    def test_glob_matcher_matches_apex_domain(self):
+        from veracity.analyzers.tineye import GlobMatcher
+
+        matcher = GlobMatcher("*://*.civitai.com/*")
+        # Apex domains should match due to the fix
+        assert matcher.matches("https://civitai.com/images/123")
+        assert matcher.matches("http://civitai.com/")
+
+    def test_glob_matcher_rejects_non_matching_domains(self):
+        from veracity.analyzers.tineye import GlobMatcher
+
+        matcher = GlobMatcher("*://*.civitai.com/*")
+        assert not matcher.matches("https://example.com/civitai.com/")
+        assert not matcher.matches("https://notcivitai.com/images")
+        assert not matcher.matches("https://civitai.org/images")
+
+    def test_regex_matcher_basic(self):
+        from veracity.analyzers.tineye import RegexMatcher
+        import re
+
+        matcher = RegexMatcher(re.compile(r"civitai\.com"))
+        assert matcher.matches("https://civitai.com/images/123")
+        assert matcher.matches("https://www.civitai.com/foo")
+        assert not matcher.matches("https://example.com/")
+
+    def test_regex_matcher_case_insensitive(self):
+        from veracity.analyzers.tineye import RegexMatcher
+        import re
+
+        matcher = RegexMatcher(re.compile(r"civitai\.com", re.IGNORECASE))
+        assert matcher.matches("https://CIVITAI.COM/images")
+        assert matcher.matches("https://CiViTaI.cOm/foo")
+
+    def test_parse_regex_line_basic(self):
+        from veracity.analyzers.tineye import _parse_regex_line
+
+        regex_str, flags = _parse_regex_line("/civitai\\.com/")
+        assert regex_str == "civitai\\.com"
+        assert flags == 0
+
+    def test_parse_regex_line_case_insensitive(self):
+        from veracity.analyzers.tineye import _parse_regex_line
+        import re
+
+        regex_str, flags = _parse_regex_line("/civitai\\.com/i")
+        assert regex_str == "civitai\\.com"
+        assert flags == re.IGNORECASE
+
+    def test_parse_regex_line_non_regex(self):
+        from veracity.analyzers.tineye import _parse_regex_line
+
+        regex_str, flags = _parse_regex_line("*://example.com/*")
+        assert regex_str == ""
+        assert flags == 0
+
+    def test_parse_shame_list_mixed_patterns(self):
+        from veracity.analyzers.tineye import _parse_shame_list, GlobMatcher, RegexMatcher
+
+        raw_text = """# Comment line
+*://*.civitai.com/*
+/artstation\\.com\\/artwork/i
+
+# Another comment
+*://*.huggingface.co/*
+"""
+        matchers = _parse_shame_list(raw_text)
+
+        assert len(matchers) == 3
+        assert isinstance(matchers[0], GlobMatcher)
+        assert isinstance(matchers[1], RegexMatcher)
+        assert isinstance(matchers[2], GlobMatcher)
+
+    def test_parse_shame_list_skips_empty_and_comments(self):
+        from veracity.analyzers.tineye import _parse_shame_list
+
+        raw_text = """
+# This is a comment
+   # Indented comment
+
+*://*.example.com/*
+
+"""
+        matchers = _parse_shame_list(raw_text)
+        assert len(matchers) == 1
+
+    def test_parse_shame_list_handles_invalid_regex(self):
+        from veracity.analyzers.tineye import _parse_shame_list
+
+        raw_text = """*://*.valid.com/*
+/[invalid(regex/
+*://*.another.com/*
+"""
+        # Should not raise, should skip invalid regex
+        matchers = _parse_shame_list(raw_text)
+        assert len(matchers) == 2  # Only the two valid glob patterns
+
+    def test_url_matches_shame_list_with_custom_matchers(self):
+        from veracity.analyzers.tineye import url_matches_shame_list, GlobMatcher
+
+        matchers = [
+            GlobMatcher("*://*.civitai.com/*"),
+            GlobMatcher("*://*.artbreeder.com/*"),
+        ]
+
+        assert url_matches_shame_list("https://civitai.com/images/123", matchers)
+        assert url_matches_shame_list("https://www.artbreeder.com/foo", matchers)
+        assert not url_matches_shame_list("https://example.com/", matchers)
+
+    def test_url_matches_shame_list_empty_matchers(self):
+        from veracity.analyzers.tineye import url_matches_shame_list
+
+        assert not url_matches_shame_list("https://anything.com/", [])
