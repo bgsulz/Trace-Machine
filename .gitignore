@@ -22,6 +22,7 @@ __pycache__/
 .idea/
 .vscode/
 .windsurf/
+.claude/
 .DS_Store
 thumbs.db
 **/comp.txt
