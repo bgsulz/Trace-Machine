@@ -200,7 +200,6 @@ def run_tineye(analysis_id: str):
             "status": "ERROR",
             "summary": api_result["error"] or "Something went wrong.",
             "data": {
-                "matches": [],
                 "allow_manual_refresh": False,
             },
         }
@@ -222,7 +221,6 @@ def run_tineye(analysis_id: str):
                 "earliest_date": processed["earliest_date"],
                 "on_shame_list": processed["on_shame_list"],
                 "buckets": processed["buckets"],
-                "matches": [],
                 "allow_manual_refresh": True,
             },
         }

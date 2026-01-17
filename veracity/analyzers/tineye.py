@@ -1,6 +1,5 @@
 from __future__ import annotations
 import fnmatch
-import json
 import logging
 import os
 import re
@@ -384,25 +383,6 @@ def bucket_matches(
     }
 
 
-def _load_bucket_payload(raw_json: str | None) -> BucketedMatches:
-    empty: BucketedMatches = {"oldest": [], "newest": [], "shame_list": []}
-    if not raw_json:
-        return empty
-
-    try:
-        data = json.loads(raw_json)
-    except (json.JSONDecodeError, TypeError):
-        return empty
-
-    return {
-        "oldest": data.get("oldest", []) or [],
-        "newest": data.get("newest", []) or [],
-        "shame_list": data.get("shame_list", []) or [],
-    }
-
-
-
-
 def process_tineye_response(
     api_result: TinEyeAPIResult,
     matchers: list[Matcher] | None = None,
@@ -467,7 +447,6 @@ def get_tineye_status(context: AnalysisContext) -> dict[str, object]:
         "status": "WAITING",
         "summary": "Manual check required.",
         "data": {
-            "matches": [],
             "allow_manual_refresh": True,
         },
     }

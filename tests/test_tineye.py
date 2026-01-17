@@ -51,9 +51,9 @@ class TestGetTinEyeStatus:
         assert "Manual check required" in result["summary"]
         assert result["data"]["allow_manual_refresh"] is True
 
-    def test_always_returns_empty_matches(self, app):
-        """TinEye neighbor matching was removed for TOS compliance.
-        get_tineye_status now always returns empty matches."""
+    def test_ignores_neighbors(self, app):
+        """TinEye status ignores neighbors - it always returns WAITING
+        since the actual lookup requires user action."""
         registry_id = _create_registry(app)
 
         neighbor = SimpleNamespace(
@@ -67,7 +67,7 @@ class TestGetTinEyeStatus:
             result = get_tineye_status(context)
 
         assert result["status"] == "WAITING"
-        assert result["data"]["matches"] == []
+        assert result["data"]["allow_manual_refresh"] is True
 
 
 class TestRunTinEyeRoute:
@@ -182,7 +182,7 @@ class TestTinEyeTemplates:
             row = {
                 "status": "WAITING",
                 "summary": "Manual check required",
-                "data": {"matches": []},
+                "data": {},
                 "context": {"analysis_id": "test-123", "link_target": "_blank"},
             }
             html = render_template("partials/analyzers/tineye.html", row=row)
@@ -196,7 +196,7 @@ class TestTinEyeTemplates:
             row = {
                 "status": "FOUND",
                 "summary": "10 matches found",
-                "data": {"matches": [], "buckets": {"oldest": [], "newest": [], "shame_list": []}},
+                "data": {"buckets": {"oldest": [], "newest": [], "shame_list": []}},
                 "context": {"analysis_id": "test-123", "link_target": "_blank"},
             }
             html = render_template("partials/analyzers/tineye.html", row=row)
@@ -209,7 +209,7 @@ class TestTinEyeTemplates:
             row = {
                 "status": "ERROR",
                 "summary": "API error",
-                "data": {"matches": [], "buckets": {"oldest": [], "newest": [], "shame_list": []}},
+                "data": {"buckets": {"oldest": [], "newest": [], "shame_list": []}},
                 "context": {"analysis_id": "test-123", "link_target": "_blank"},
             }
             html = render_template("partials/analyzers/tineye.html", row=row)

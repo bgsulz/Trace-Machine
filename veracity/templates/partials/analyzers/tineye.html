@@ -1,4 +1,4 @@
-{% from "partials/macros/tineye.html" import render_tineye_button, render_tineye_matches, render_tineye_buckets %}
+{% from "partials/macros/tineye.html" import render_tineye_button, render_tineye_buckets %}
 
 {% set link_target = row.context.link_target if row.context else None %}
 
@@ -11,12 +11,10 @@
   {% endif %}
 
   {{ render_tineye_button(row.context.analysis_id, is_refresh=false) }}
-  {{ render_tineye_matches(row.data.matches, link_target) }}
 </div>
 
 {% else %}
 <div class="analyzer-detail-block">
-  {{ render_tineye_matches(row.data.matches, link_target) }}
   {{ render_tineye_buckets(row.data.buckets) }}
 </div>
 {% endif %}
