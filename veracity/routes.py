@@ -1,7 +1,6 @@
 from io import BytesIO
 import json
 import math
-from datetime import datetime
 
 from flask import (
     Blueprint,
@@ -35,7 +34,7 @@ from .config_service import (
 )
 from .registry import prepare_analysis_context
 from .voting_service import VOTE_CHOICES, apply_vote, get_voter_id
-from .analyzers.tineye import call_tineye_api, process_tineye_response, get_shame_list_matchers
+from .analyzers.tineye import call_tineye_api, process_tineye_response, get_shame_list_matchers, build_summary
 from .analyzers.manager import get_analyzer_spec, _format_result
 
 bp = Blueprint("main", __name__)
@@ -208,22 +207,12 @@ def run_tineye(analysis_id: str):
     else:
         processed = process_tineye_response(api_result, matchers=get_shame_list_matchers())
 
-        # Build summary for display
-        if processed["filtered_match_count"] == 0:
-            summary = "No matches found."
-        else:
-            parts = [f"{processed['filtered_match_count']} matches found."]
-            if processed["earliest_date"]:
-                try:
-                    dt = datetime.fromisoformat(processed["earliest_date"])
-                    parts.append(f"Earliest: {dt.strftime('%b %Y')}.")
-                except ValueError:
-                    pass
-            if processed["on_shame_list"]:
-                parts.append("⚠️ Found on AI image sites.")
-            else:
-                parts.append("Not on known AI sites.")
-            summary = " ".join(parts)
+        summary = build_summary(
+            processed["total_matches"],
+            processed["filtered_match_count"],
+            processed["earliest_date"],
+            processed["on_shame_list"],
+        )
 
         raw_result = {
             "status": "FOUND" if processed["filtered_match_count"] > 0 else "NOT FOUND",

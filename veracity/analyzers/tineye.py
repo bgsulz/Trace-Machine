@@ -40,7 +40,17 @@ class GlobMatcher:
     pattern: str
 
     def matches(self, url: str) -> bool:
-        return fnmatch.fnmatch(url, self.pattern)
+        # Try the original pattern first
+        if fnmatch.fnmatch(url, self.pattern):
+            return True
+        # Handle apex domains: *://*.example.com/* should also match https://example.com/
+        # The pattern *://*.example.com/* won't match apex domains because * requires
+        # at least one character. Generate an alternative pattern for apex domains.
+        if "*://*." in self.pattern:
+            apex_pattern = self.pattern.replace("*://*.", "*://", 1)
+            if fnmatch.fnmatch(url, apex_pattern):
+                return True
+        return False
 
 
 @dataclass(frozen=True)
@@ -423,7 +433,7 @@ def process_tineye_response(
     }
 
 
-def _build_summary(
+def build_summary(
     total_matches: int,
     filtered_match_count: int,
     earliest_date: str | None,
