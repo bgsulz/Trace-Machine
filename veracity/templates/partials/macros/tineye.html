@@ -1,8 +1,10 @@
 {% macro render_match_card(match, extra_class="") %}
+{% set fallback_url = url_for('static', filename='missing.svg') %}
 {% set proxy_url = "https://wsrv.nl/?url=" ~ (match.url | urlencode) ~ "&w=150&l=1&af=1&default=" ~ (url_for('static', filename='missing.svg', _external=true) | urlencode) %}
 <div class="bucket-match {{ extra_class }}">
   <a href="{{ match.url }}" target="_blank" rel="noopener noreferrer" class="match-link">
-    <img src="{{ proxy_url }}" alt="Match image" class="match-thumbnail" loading="lazy" />
+    <img src="{{ proxy_url }}" alt="Match image" class="match-thumbnail" loading="lazy"
+         onerror="this.onerror=null; this.src='{{ fallback_url }}'; this.classList.add('match-thumbnail-error');" />
   </a>
   <div class="match-info">
     <div class="match-domain">{{ match.domain }}</div>
