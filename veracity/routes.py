@@ -35,7 +35,6 @@ from .config_service import (
 )
 from .registry import prepare_analysis_context
 from .voting_service import VOTE_CHOICES, apply_vote, get_voter_id
-from .analyzers.synthid import execute_synthid_search
 from .analyzers.tineye import call_tineye_api, process_tineye_response, get_shame_list_matchers
 from .analyzers.manager import get_analyzer_spec, _format_result
 
@@ -178,36 +177,6 @@ def analyze_mini():
         vote_slug = None
 
     return handle_remote_analysis(image_url, vote_slug, "result_mini.html")
-
-
-@bp.route("/analysis/<analysis_id>/synthid/run", methods=["POST"])
-def run_synthid(analysis_id: str):
-    # 1. Load context
-    payload = load_analysis_payload(analysis_id)
-    if not payload:
-        return "Analysis expired", 410
-    image_bytes, metadata = payload
-
-    # 2. Rehydrate Context
-    context = prepare_analysis_context(image_bytes)
-
-    # 3. Run Expensive Logic
-    raw_result = execute_synthid_search(analysis_id, context)
-
-    # 4. Format for Template
-    spec = get_analyzer_spec("synthid")
-    formatted_row = _format_result(spec, raw_result)
-
-    # 5. Inject full context (links, matches, etc.)
-    _prepare_row_for_render(
-        formatted_row,
-        metadata,
-        link_target="_blank",
-        analysis_id=analysis_id,
-    )
-
-    # 6. Render just the row
-    return render_template("partials/analyzer_row.html", row=formatted_row)
 
 
 @bp.route("/analysis/<analysis_id>/tineye/run", methods=["POST"])
