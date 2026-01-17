@@ -1,5 +1,3 @@
-import json
-from datetime import datetime, UTC
 from types import SimpleNamespace
 
 from veracity import db
@@ -53,19 +51,14 @@ class TestGetTinEyeStatus:
         assert "Manual check required" in result["summary"]
         assert result["data"]["allow_manual_refresh"] is True
 
-    def test_includes_neighbor_matches(self, app):
+    def test_always_returns_empty_matches(self, app):
+        """TinEye neighbor matching was removed for TOS compliance.
+        get_tineye_status now always returns empty matches."""
         registry_id = _create_registry(app)
 
-        neighbor_tineye = SimpleNamespace(
-            total_matches=5,
-            earliest_date=datetime(2023, 1, 1, tzinfo=UTC),
-            on_shame_list=True,
-            matches_json=json.dumps({"oldest": [], "newest": [], "shame_list": []}),
-        )
         neighbor = SimpleNamespace(
             phash="1122334455667788",
             whash="1122334455667799",
-            tineye_result=neighbor_tineye,
             sources=[],
         )
         context = _make_context(registry_id, neighbors=[neighbor])
@@ -74,8 +67,7 @@ class TestGetTinEyeStatus:
             result = get_tineye_status(context)
 
         assert result["status"] == "WAITING"
-        assert len(result["data"]["matches"]) == 1
-        assert result["data"]["matches"][0]["total_matches"] == 5
+        assert result["data"]["matches"] == []
 
 
 class TestRunTinEyeRoute:

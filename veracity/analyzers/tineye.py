@@ -4,19 +4,19 @@ import json
 import logging
 import os
 import re
+import threading
 import time
 from dataclasses import dataclass
 from datetime import datetime
+from pathlib import Path
 from typing import Protocol, TypedDict
 
 import requests
+from flask import current_app
 
 from .context import AnalysisContext
-from .hash_utils import compute_base_hashes, compute_neighbor_distances, extract_sources
 
 logger = logging.getLogger(__name__)
-
-STALE_THRESHOLD_DAYS = 60
 
 TINEYE_API_URL = "https://api.tineye.com/rest/search/"
 SIMILARITY_THRESHOLD = 70 # Minimum score (0-100) to include in results
@@ -26,6 +26,9 @@ SHAME_LIST_URL = (
     "/main/list_uBlacklist.txt"
 )
 SHAME_LIST_TTL_SECONDS = 3600  # 1 hour
+
+_CACHE_FILENAME = "shame_list_cache.txt"
+_SEED_PATH = Path(__file__).parent.parent / "static" / "shame_list_seed.txt"
 
 
 class Matcher(Protocol):
@@ -50,16 +53,62 @@ class RegexMatcher:
 
 _cached_matchers: list[Matcher] | None = None
 _cached_at: float = 0.0
+_cache_lock = threading.Lock()
+
+
+def _get_cache_path() -> Path | None:
+    """Get the path to the instance cache file, or None if unavailable."""
+    try:
+        instance_path = current_app.instance_path
+        return Path(instance_path) / _CACHE_FILENAME
+    except RuntimeError:
+        # No Flask app context
+        return None
 
 
 def _fetch_shame_list_raw() -> str:
+    """Fetch shame list from URL, with fallback to cached file and bundled seed."""
+    # Try fetching from URL first
     try:
         resp = requests.get(SHAME_LIST_URL, timeout=30)
         resp.raise_for_status()
-        return resp.text
+        raw_text = resp.text
+
+        # On success, write to instance cache
+        cache_path = _get_cache_path()
+        if cache_path:
+            try:
+                cache_path.parent.mkdir(parents=True, exist_ok=True)
+                cache_path.write_text(raw_text, encoding="utf-8")
+                logger.debug("Wrote shame list cache to %s", cache_path)
+            except OSError:
+                logger.warning("Failed to write shame list cache", exc_info=True)
+
+        return raw_text
     except Exception:
-        logger.exception("Failed to fetch shame list from %s", SHAME_LIST_URL)
-        return ""
+        logger.warning("Failed to fetch shame list from %s, trying fallbacks", SHAME_LIST_URL)
+
+    # Fallback 1: try instance cache
+    cache_path = _get_cache_path()
+    if cache_path and cache_path.exists():
+        try:
+            raw_text = cache_path.read_text(encoding="utf-8")
+            logger.info("Loaded shame list from instance cache: %s", cache_path)
+            return raw_text
+        except OSError:
+            logger.warning("Failed to read shame list cache", exc_info=True)
+
+    # Fallback 2: bundled seed file
+    if _SEED_PATH.exists():
+        try:
+            raw_text = _SEED_PATH.read_text(encoding="utf-8")
+            logger.info("Loaded shame list from bundled seed: %s", _SEED_PATH)
+            return raw_text
+        except OSError:
+            logger.warning("Failed to read bundled shame list seed", exc_info=True)
+
+    logger.error("All shame list sources failed")
+    return ""
 
 
 def _parse_shame_list(raw_text: str) -> list[Matcher]:
@@ -106,20 +155,22 @@ def get_shame_list_matchers(*, force_refresh: bool = False) -> list[Matcher]:
     global _cached_matchers, _cached_at
 
     now = time.time()
-    if not force_refresh and _cached_matchers is not None:
-        if (now - _cached_at) < SHAME_LIST_TTL_SECONDS:
-            return _cached_matchers
 
-    raw_text = _fetch_shame_list_raw()
-    if not raw_text:
-        if _cached_matchers is not None:
-            return _cached_matchers
-        return []
+    with _cache_lock:
+        if not force_refresh and _cached_matchers is not None:
+            if (now - _cached_at) < SHAME_LIST_TTL_SECONDS:
+                return _cached_matchers
 
-    _cached_matchers = _parse_shame_list(raw_text)
-    _cached_at = now
-    logger.info("Loaded %d shame list matchers", len(_cached_matchers))
-    return _cached_matchers
+        raw_text = _fetch_shame_list_raw()
+        if not raw_text:
+            if _cached_matchers is not None:
+                return _cached_matchers
+            return []
+
+        _cached_matchers = _parse_shame_list(raw_text)
+        _cached_at = now
+        logger.info("Loaded %d shame list matchers", len(_cached_matchers))
+        return _cached_matchers
 
 
 def url_matches_shame_list(url: str, matchers: list[Matcher] | None = None) -> bool:
@@ -134,8 +185,9 @@ def url_matches_shame_list(url: str, matchers: list[Matcher] | None = None) -> b
 
 def clear_shame_list_cache() -> None:
     global _cached_matchers, _cached_at
-    _cached_matchers = None
-    _cached_at = 0.0
+    with _cache_lock:
+        _cached_matchers = None
+        _cached_at = 0.0
 
 
 class TinEyeMatch(TypedDict):
@@ -400,77 +452,12 @@ def _build_summary(
     return " ".join(parts)
 
 
-def _find_neighbor_matches(context: AnalysisContext) -> list[dict]:
-    matches = []
-    base_phash, base_whash = compute_base_hashes(context.phash, context.whash)
-
-    for neighbor in context.neighbors:
-        neighbor_phash = getattr(neighbor, "phash", None)
-        if not neighbor_phash:
-            continue
-
-        tineye_result = getattr(neighbor, "tineye_result", None)
-        if not tineye_result:
-            continue
-
-        neighbor_whash = getattr(neighbor, "whash", None)
-        (
-            phash_distance,
-            whash_distance,
-            display_hash,
-            display_label,
-            display_distance,
-        ) = compute_neighbor_distances(base_phash, base_whash, neighbor_phash, neighbor_whash)
-
-        sources = extract_sources(neighbor)
-
-        earliest_date = None
-        if tineye_result.earliest_date:
-            earliest_date = tineye_result.earliest_date.isoformat()
-
-        buckets = _load_bucket_payload(tineye_result.matches_json)
-        
-        # Simple count of unique matches across all buckets
-        seen = {
-            _match_identity(match)
-            for match in (
-                list(buckets.get("oldest", []))
-                + list(buckets.get("newest", []))
-                + list(buckets.get("shame_list", []))
-            )
-        }
-        filtered_match_count = len(seen)
-
-        matches.append({
-            "phash": neighbor_phash,
-            "whash": neighbor_whash,
-            "hash_display": f"{display_hash} ({display_label})",
-            "distance": display_distance,
-            "distance_phash": phash_distance,
-            "distance_whash": whash_distance,
-            "total_matches": tineye_result.total_matches,
-            "earliest_date": earliest_date,
-            "on_shame_list": tineye_result.on_shame_list,
-            "summary": _build_summary(
-                tineye_result.total_matches,
-                filtered_match_count,
-                earliest_date,
-                tineye_result.on_shame_list,
-            ),
-            "sources": sources,
-        })
-
-    return matches
-
-
 def get_tineye_status(context: AnalysisContext) -> dict[str, object]:
-    matches = _find_neighbor_matches(context)
-
     return {
         "status": "WAITING",
         "summary": "Manual check required.",
         "data": {
-            "matches": matches,
+            "matches": [],
             "allow_manual_refresh": True,
         },
     }
