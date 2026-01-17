@@ -76,7 +76,7 @@ def execute_synthid_search(
     public_img_url = url_for(
         "main.serve_analysis_image", analysis_id=analysis_id, _external=True
     )
-    logger.info("Public image URL: %s", public_img_url)
+    logger.debug("Public image URL: %s", public_img_url)
 
     mock_mode = _mock_mode_enabled()
     if mock_mode:
@@ -254,7 +254,7 @@ def _get_base_hashes(context: AnalysisContext):
 def _is_local_url(url: str) -> bool:
     if not url:
         return False
-    return "127.0.0.1" in url or "localhost" in url
+    return any(x in url for x in ("127.0.0.1", "localhost", "::1", "[::1]"))
 
 
 def _parse_mock_serp_html() -> tuple[bool | None, str]:

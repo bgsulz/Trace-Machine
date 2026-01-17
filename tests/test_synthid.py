@@ -158,12 +158,16 @@ def test_execute_synthid_search_remote_api_failure_returns_error(
 
 
 class TestRunSynthIDRoute:
-    def test_run_synthid_route_expired_analysis(self, app):
+    """SynthID route is temporarily disabled and returns 404."""
+
+    def test_run_synthid_route_returns_404(self, app):
+        """SynthID route is disabled and returns 404 for all requests."""
         client = app.test_client()
         response = client.post("/analysis/nonexistent-id/synthid/run")
-        assert response.status_code == 410
+        assert response.status_code == 404
 
-    def test_run_synthid_route_success(self, app, monkeypatch):
+    def test_run_synthid_route_disabled_even_with_valid_analysis(self, app, monkeypatch):
+        """SynthID route returns 404 even for valid analysis IDs."""
         from veracity import routes
         from io import BytesIO
         from PIL import Image
@@ -179,15 +183,6 @@ class TestRunSynthIDRoute:
             lambda aid: (image_bytes, {"mime_type": "image/png", "source": "file"}),
         )
 
-        def mock_execute(analysis_id, context):
-            return {
-                "status": "NOT FOUND",
-                "summary": "No SynthID detected.",
-                "data": {"detected": False, "matches": []},
-            }
-
-        monkeypatch.setattr(routes, "execute_synthid_search", mock_execute)
-
         client = app.test_client()
         response = client.post("/analysis/test-id/synthid/run")
-        assert response.status_code == 200
+        assert response.status_code == 404
