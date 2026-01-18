@@ -9,6 +9,7 @@ from .context import AnalysisContext
 from .c2pa import run_c2pa
 from .exif import run_exif_metadata
 from .human import run_human_consensus
+from .synthid import run_synthid
 from .tineye import get_tineye_status
 
 logger = logging.getLogger(__name__)
@@ -48,6 +49,13 @@ ANALYZERS: Sequence[AnalyzerSpec] = (
         func=get_tineye_status,
         template="partials/analyzers/tineye.html",
         tooltip="Searches TinEye for reverse image matches and checks against known AI sites.",
+    ),
+    AnalyzerSpec(
+        name="SynthID (Google)",
+        slug="synthid",
+        func=run_synthid,
+        template="partials/analyzers/synthid.html",
+        tooltip="Instructions for manually checking Google's invisible AI watermark.",
     ),
     AnalyzerSpec(
         name="Human Consensus",

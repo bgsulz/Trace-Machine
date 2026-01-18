@@ -531,7 +531,8 @@ button.vote-btn-edited .tooltip-trigger::after {
 
 .badge.not-found,
 .badge.not-detected,
-.badge.waiting {
+.badge.waiting,
+.badge.manual {
   background-color: var(--veracity-badge-bg);
   color: var(--veracity-badge-fg);
 }
@@ -788,7 +789,7 @@ button.vote-btn-edited .tooltip-trigger::after {
   margin-bottom: 1rem;
   border-radius: var(--pico-border-radius);
   background-color: var(--pico-mark-background-color);
-  color: var(--pico-mark-color);
+  color: #fff;
 }
 
 .flash-warning {
@@ -796,7 +797,7 @@ button.vote-btn-edited .tooltip-trigger::after {
   margin-bottom: 1rem;
   border-radius: var(--pico-border-radius);
   background-color: var(--veracity-warning-dark);
-  color: var(--pico-mark-color);
+  color: #fff;
 }
 
 /* Scrollbars */

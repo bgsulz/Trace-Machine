@@ -65,7 +65,7 @@
   style="display: inline"
 >
   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
-  <button type="submit">
+  <button type="secondary">
     {% if is_refresh %}Refresh TinEye{% else %}Check TinEye{% endif %}
     <span id="tineye-spinner" class="htmx-indicator">...</span>
   </button>
