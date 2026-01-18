@@ -55,7 +55,7 @@ ANALYZERS: Sequence[AnalyzerSpec] = (
         slug="synthid",
         func=run_synthid,
         template="partials/analyzers/synthid.html",
-        tooltip="Instructions for manually checking Google's invisible AI watermark.",
+        tooltip="Uses Google reverse image search to check for an invisible watermark.",
     ),
     AnalyzerSpec(
         name="Human Consensus",
