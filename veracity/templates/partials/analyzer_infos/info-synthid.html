@@ -1,1 +1,26 @@
-<!-- SynthID analyzer info content placeholder -->
+<p>
+  Uses Google to check the image for <strong>SynthID</strong>, an invisible watermark embedded in images generated or edited by Google's AI models. SynthID works by subtly manipulating pixel patterns in ways imperceptible to the human eye but detectable by specialized algorithms. Unlike traditional watermarks that sit in a specific location, SynthID is woven throughout the entire image at generation time, making it resistant to common edits like cropping, resizing, color adjustments, and compression.
+</p>
+<p>
+  When SynthID is detected, it confirms the image was created or modified by a Google AI tool (such as Imagen, Gemini's image generation, or Google's experimental AI studios). The watermark persists even after screenshots, filters, and minor modifications, though extreme transformations or re-generation can degrade or remove it.
+</p>
+<div class="flash-warning" style="margin-bottom: 0.75rem">
+  <strong>Important limitation:</strong> SynthID can only be embedded during image creation by supporting tools—it cannot be added retroactively to existing images. Like EXIF data, determined actors can attempt to remove it through aggressive editing, though it's significantly more robust than metadata-based approaches.
+</div>
+<br/>
+<p>
+  <strong>Learn more:</strong>
+  <ul>
+    <li>
+      <a href="https://deepmind.google/technologies/synthid/" target="_blank" rel="noopener noreferrer">
+        SynthID Overview
+      </a>
+    </li>
+    <li>
+      <a href="https://www.nature.com/articles/s41586-024-08025-4" target="_blank" rel="noopener noreferrer">
+        Technical Deep Dive
+      </a>
+      <span style="font-size: 0.85em; color: var(--text-secondary);">(Note: this is for SynthID-Text, not the image implementation. Techniques are likely shared.)</span>
+    </li>
+  </ul>
+</p>
