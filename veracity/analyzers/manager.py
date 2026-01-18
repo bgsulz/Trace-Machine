@@ -37,14 +37,7 @@ ANALYZERS: Sequence[AnalyzerSpec] = (
         tooltip="Looks for authenticated Content Credentials attached to the file.",
     ),
     AnalyzerSpec(
-        name="AI Metadata (EXIF)",
-        slug="exif",
-        func=run_exif_metadata,
-        template="partials/analyzers/exif.html",
-        tooltip="Scans EXIF blocks for hints that common AI tools left behind.",
-    ),
-    AnalyzerSpec(
-        name="TinEye",
+        name="TinEye Reverse Search",
         slug="tineye",
         func=get_tineye_status,
         template="partials/analyzers/tineye.html",
@@ -56,6 +49,13 @@ ANALYZERS: Sequence[AnalyzerSpec] = (
         func=run_synthid,
         template="partials/analyzers/synthid.html",
         tooltip="Uses Google reverse image search to check for an invisible watermark.",
+    ),
+    AnalyzerSpec(
+        name="AI Metadata (EXIF)",
+        slug="exif",
+        func=run_exif_metadata,
+        template="partials/analyzers/exif.html",
+        tooltip="Scans EXIF blocks for hints that common AI tools left behind.",
     ),
     AnalyzerSpec(
         name="Human Consensus",
