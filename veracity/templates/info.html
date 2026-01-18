@@ -23,17 +23,24 @@
     {% endfor %}
   </ol>
 
-  {% for analyzer in analyzers %}
-  <hr />
-  {% set info_id = "info-" ~ analyzer.slug %}
-  <article id="{{ info_id }}">
-    <h3>{{ analyzer.name }}</h3>
-    {% if analyzer.tooltip %}
-    <p><strong>{{ analyzer.tooltip }}</strong></p>
-    {% endif %}
-    {% set info_template = "partials/analyzer_infos/" ~ info_id ~ ".html" %}
-    {% include info_template %}
-  </article>
-  {% endfor %}
+  <div class="analyzer-list">
+    {% for analyzer in analyzers %}
+    {% set info_id = "info-" ~ analyzer.slug %}
+    <details class="analyzer-item" id="{{ info_id }}" open>
+      <summary class="analyzer-header">
+        <div class="analyzer-header-info">
+          <span class="analyzer-title"><strong>{{ analyzer.name }}</strong></span>
+        </div>
+      </summary>
+      <div class="analyzer-content">
+        {% if analyzer.tooltip %}
+        <p><strong>{{ analyzer.tooltip }}</strong></p>
+        {% endif %}
+        {% set info_template = "partials/analyzer_infos/" ~ info_id ~ ".html" %}
+        {% include info_template %}
+      </div>
+    </details>
+    {% endfor %}
+  </div>
 </section>
 {% endblock %}
