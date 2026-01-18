@@ -15,7 +15,7 @@ class TestAnalyzerRegistration:
 
         spec = get_analyzer_spec("tineye")
         assert spec is not None
-        assert spec.name == "TinEye"
+        assert spec.name == "TinEye Reverse Search"
         assert spec.template == "partials/analyzers/tineye.html"
 
 
