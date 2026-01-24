@@ -358,6 +358,17 @@ nav {
   display: none !important;
 }
 
+.crop-status {
+  margin: 0.5rem 0 0;
+  font-size: 0.85rem;
+  color: var(--veracity-danger);
+  text-align: center;
+}
+
+.crop-status[hidden] {
+  display: none;
+}
+
 .dethumbnail-alert {
   margin-top: 1rem;
   padding: 1rem;

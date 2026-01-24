@@ -80,6 +80,7 @@
               </button>
             </div>
           </div>
+          <p id="crop-status" class="crop-status" hidden></p>
         </form>
       </div>
     </div>
@@ -138,6 +139,19 @@
       setState("idle");
     };
 
+    const cropSubmit = document.getElementById("crop-submit");
+    const cropStatus = document.getElementById("crop-status");
+    const MIN_CROP_PX = 150;
+
+    const validateCrop = () => {
+      if (!cropper || !cropSubmit || !cropStatus) return;
+      const data = cropper.getData(true);
+      const valid = data.width >= MIN_CROP_PX && data.height >= MIN_CROP_PX;
+      cropSubmit.disabled = !valid;
+      cropStatus.hidden = valid;
+      cropStatus.textContent = valid ? "" : `Selection too small (${MIN_CROP_PX}×${MIN_CROP_PX}px minimum)`;
+    };
+
     const ensureCropper = () => {
       if (cropper) {
         return;
@@ -154,7 +168,9 @@
           if (natW && natH) {
             cropper.setData({ x: 0, y: 0, width: natW, height: natH });
           }
+          validateCrop();
         },
+        crop: validateCrop,
       });
       setState("active");
     };
