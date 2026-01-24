@@ -9,7 +9,7 @@ def _transform_reddit(url: str) -> Optional[str]:
     i.redd.it asset.
     """
     match = re.search(
-        r"https?://(?:preview|external-preview)\.redd\.it/([a-zA-Z0-9_\-]+\.(?:jpg|png|gif|webp))",
+        r"https?://(?:preview|external-preview)\.redd\.it/([a-zA-Z0-9_\-]+\.(?:jpe?g|png|gif|webp))",
         url,
     )
     if not match:
