@@ -264,3 +264,99 @@ def test_vote_redirects_back_to_url_analysis_missing_metadata_falls_back(client)
 
     # Additional assertion to check the referrer URL
     assert resp_vote.headers["Location"] == "/"
+
+
+def test_thumbnail_url_upgrades_to_full_res(client, app, monkeypatch):
+    """When given a thumbnail URL, should fetch full-res and flash upgrade message."""
+    import veracity.ingestion as ingestion_module
+
+    dummy_image_bytes = _make_test_image_bytes()
+    fetch_calls = []
+
+    def fake_fetch(url):
+        fetch_calls.append(url)
+        return dummy_image_bytes, "image/png"
+
+    monkeypatch.setattr(ingestion_module, "fetch_image_bytes", fake_fetch)
+
+    # Reddit preview URL should be upgraded to i.redd.it
+    thumbnail_url = "https://preview.redd.it/abc123def456g.jpg"
+    resp = client.get(f"/analyze?url={thumbnail_url}")
+    assert resp.status_code == 200
+
+    # Should have fetched the full-res URL, not the thumbnail
+    assert len(fetch_calls) == 1
+    assert fetch_calls[0].startswith("https://i.redd.it/")
+
+    # Should show upgrade flash message
+    assert b"Upgraded from thumbnail to full resolution" in resp.data
+
+
+def test_thumbnail_url_falls_back_when_full_res_fails(client, app, monkeypatch):
+    """When full-res fetch fails, should fall back to original thumbnail URL."""
+    import veracity.ingestion as ingestion_module
+
+    dummy_image_bytes = _make_test_image_bytes()
+    fetch_calls = []
+
+    def fake_fetch(url):
+        fetch_calls.append(url)
+        if "i.redd.it" in url:
+            raise ingestion_module.IngestionError("Full-res not found")
+        return dummy_image_bytes, "image/png"
+
+    monkeypatch.setattr(ingestion_module, "fetch_image_bytes", fake_fetch)
+
+    thumbnail_url = "https://preview.redd.it/abc123def456g.jpg"
+    resp = client.get(f"/analyze?url={thumbnail_url}")
+    assert resp.status_code == 200
+
+    # Should have tried full-res first, then fallen back to thumbnail
+    assert len(fetch_calls) == 2
+    assert fetch_calls[0].startswith("https://i.redd.it/")
+    assert fetch_calls[1] == thumbnail_url
+
+    # Should NOT show upgrade message (we're using thumbnail)
+    assert b"Upgraded from thumbnail to full resolution" not in resp.data
+
+
+def test_thumbnail_url_shows_error_when_both_fail(client, app, monkeypatch):
+    """When both full-res and thumbnail fail, should redirect with error."""
+    import veracity.ingestion as ingestion_module
+
+    def fake_fetch(url):
+        raise ingestion_module.IngestionError("Failed to download image from URL.")
+
+    monkeypatch.setattr(ingestion_module, "fetch_image_bytes", fake_fetch)
+
+    thumbnail_url = "https://preview.redd.it/abc123def456g.jpg"
+    resp = client.get(f"/analyze?url={thumbnail_url}")
+
+    # Should redirect back to index
+    assert resp.status_code == 302
+    assert "/" in resp.headers["Location"]
+
+
+def test_non_thumbnail_url_not_upgraded(client, app, monkeypatch):
+    """Regular URLs should not be upgraded."""
+    import veracity.ingestion as ingestion_module
+
+    dummy_image_bytes = _make_test_image_bytes()
+    fetch_calls = []
+
+    def fake_fetch(url):
+        fetch_calls.append(url)
+        return dummy_image_bytes, "image/png"
+
+    monkeypatch.setattr(ingestion_module, "fetch_image_bytes", fake_fetch)
+
+    regular_url = "https://example.com/image.png"
+    resp = client.get(f"/analyze?url={regular_url}")
+    assert resp.status_code == 200
+
+    # Should fetch the original URL directly
+    assert len(fetch_calls) == 1
+    assert fetch_calls[0] == regular_url
+
+    # No upgrade message
+    assert b"Upgraded from thumbnail to full resolution" not in resp.data
