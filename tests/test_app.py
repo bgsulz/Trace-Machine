@@ -360,3 +360,39 @@ def test_non_thumbnail_url_not_upgraded(client, app, monkeypatch):
 
     # No upgrade message
     assert b"Upgraded from thumbnail to full resolution" not in resp.data
+
+
+def test_htmx_vote_returns_trigger_header(client, app):
+    """HTMX vote requests should return HX-Trigger header for toast."""
+    import json
+
+    image_bytes = _make_test_image_bytes()
+    data = {
+        "file": (io.BytesIO(image_bytes), "test.png"),
+        "image_url": "",
+    }
+    resp = client.post("/analyze", data=data, content_type="multipart/form-data")
+    assert resp.status_code == 200
+
+    # Extract analysis_id from response
+    body = resp.data.decode("utf-8")
+    match = re.search(r"/analysis/([a-f0-9]+)/analyzers/", body)
+    assert match is not None
+    analysis_id = match.group(1)
+
+    with Image.open(io.BytesIO(image_bytes)) as img:
+        target_hash = imagehash.phash(img)
+    phash = str(target_hash)
+
+    # Simulate HTMX request
+    vote_data = {"phash": phash, "vote": "real", "analysis_id": analysis_id}
+    resp_vote = client.post(
+        "/vote",
+        data=vote_data,
+        headers={"HX-Request": "true"},
+    )
+
+    assert resp_vote.status_code == 200
+    assert "HX-Trigger" in resp_vote.headers
+    trigger = json.loads(resp_vote.headers["HX-Trigger"])
+    assert trigger["showToast"] == "Thanks for your vote."

@@ -8,6 +8,7 @@ from flask import (
     current_app,
     flash,
     jsonify,
+    make_response,
     redirect,
     render_template,
     request,
@@ -264,12 +265,15 @@ def vote():
     if source_type == "url" and analysis_link.startswith("/"):
         redirect_target = analysis_link
     if request.headers.get("HX-Request") and analysis_id:
-        return render_analyzer_fragment_html(
+        html = render_analyzer_fragment_html(
             analysis_id,
             "human",
             link_target=link_target or None,
             refresh=True,
         )
+        response = make_response(html)
+        response.headers["HX-Trigger"] = json.dumps({"showToast": "Thanks for your vote."})
+        return response
     flash("Thanks for your vote.")
     return redirect(redirect_target)
 

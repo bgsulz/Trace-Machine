@@ -73,15 +73,48 @@
         </div>
       </header>
 
-      {% with messages = get_flashed_messages() %} {% if messages %}
-      <section>
-        {% for message in messages %}
-        <p class="flash">{{ message }}</p>
-        {% endfor %}
-      </section>
-      {% endif %} {% endwith %} {% block content %}{% endblock %}
+      {% block content %}{% endblock %}
     </main>
+
+    <!-- Toast container -->
+    <div id="toast-container" aria-live="polite" aria-atomic="true"
+      {% with messages = get_flashed_messages() %}
+      {% if messages %}data-initial='{{ messages | tojson }}'{% endif %}
+      {% endwith %}></div>
+
     <script>
+      (function() {
+        const container = document.getElementById("toast-container");
+
+        function showToast(message) {
+          const toast = document.createElement("div");
+          toast.className = "toast";
+          toast.textContent = message;
+          container.appendChild(toast);
+          // Trigger reflow for animation
+          toast.offsetHeight;
+          toast.classList.add("toast-visible");
+          setTimeout(() => {
+            toast.classList.remove("toast-visible");
+            toast.addEventListener("transitionend", () => toast.remove());
+          }, 3000);
+        }
+
+        // Show any flash messages from page load
+        const initial = container.dataset.initial;
+        if (initial) {
+          JSON.parse(initial).forEach(msg => showToast(msg));
+        }
+
+        // Listen for HTMX-triggered toasts
+        document.body.addEventListener("showToast", (e) => {
+          showToast(e.detail.value);
+        });
+
+        // Expose globally for potential direct use
+        window.showToast = showToast;
+      })();
+
       document.addEventListener("DOMContentLoaded", () => {
         const toggle = document.getElementById("nav-toggle");
         const nav = document.getElementById("primary-nav");

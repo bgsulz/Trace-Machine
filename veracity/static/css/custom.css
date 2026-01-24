@@ -783,21 +783,52 @@ button.vote-btn-edited .tooltip-trigger::after {
   filter: grayscale(80%);
 }
 
-/* Flash messages */
-.flash {
-  padding: 1rem;
-  margin-bottom: 1rem;
-  border-radius: var(--pico-border-radius);
-  background-color: var(--pico-mark-background-color);
-  color: var(--pico-color);
+/* Toast notifications */
+#toast-container {
+  position: fixed;
+  bottom: 1.5rem;
+  right: 1.5rem;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  pointer-events: none;
 }
 
-.flash-warning {
-  padding: 1rem;
-  margin-bottom: 1rem;
+.toast {
+  padding: 0.875rem 1.25rem;
   border-radius: var(--pico-border-radius);
-  background-color: var(--veracity-warning-dark);
+  background-color: var(--pico-card-background-color);
   color: var(--pico-color);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  border: 1px solid var(--pico-muted-border-color);
+  pointer-events: auto;
+  opacity: 0;
+  transform: translateX(100%);
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  max-width: 320px;
+}
+
+.toast-visible {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+@media (max-width: 480px) {
+  #toast-container {
+    left: 1rem;
+    right: 1rem;
+    bottom: 1rem;
+  }
+
+  .toast {
+    max-width: none;
+    transform: translateY(100%);
+  }
+
+  .toast-visible {
+    transform: translateY(0);
+  }
 }
 
 /* Scrollbars */
