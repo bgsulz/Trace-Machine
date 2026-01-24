@@ -76,6 +76,7 @@
         <button
           type="submit"
           class="vote-btn-real{% if current_vote and current_vote != 'real' %} vote-btn-muted{% endif %}"
+          hx-on:click="this.closest('.vote-buttons').querySelectorAll('button').forEach(b => b.classList.add('vote-btn-muted')); this.classList.remove('vote-btn-muted')"
         >
           <span class="tooltip-trigger vote-tooltip" tabindex="0">
             Mark as Real
@@ -105,6 +106,7 @@
         <button
           type="submit"
           class="vote-btn-edited{% if current_vote and current_vote != 'edited' %} vote-btn-muted{% endif %}"
+          hx-on:click="this.closest('.vote-buttons').querySelectorAll('button').forEach(b => b.classList.add('vote-btn-muted')); this.classList.remove('vote-btn-muted')"
         >
           <span class="tooltip-trigger vote-tooltip" tabindex="0">
             Mark as AI-Edited
@@ -136,6 +138,7 @@
         <button
           type="submit"
           class="vote-btn-ai{% if current_vote and current_vote != 'ai' %} vote-btn-muted{% endif %}"
+          hx-on:click="this.closest('.vote-buttons').querySelectorAll('button').forEach(b => b.classList.add('vote-btn-muted')); this.classList.remove('vote-btn-muted')"
         >
           <span class="tooltip-trigger vote-tooltip" tabindex="0">
             Mark as AI-Gen
