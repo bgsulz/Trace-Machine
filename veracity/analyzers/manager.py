@@ -37,18 +37,18 @@ ANALYZERS: Sequence[AnalyzerSpec] = (
         tooltip="Looks for authenticated Content Credentials attached to the file.",
     ),
     AnalyzerSpec(
-        name="TinEye Reverse Search",
-        slug="tineye",
-        func=get_tineye_status,
-        template="partials/analyzers/tineye.html",
-        tooltip="Searches TinEye for reverse image matches and checks against known AI sites.",
-    ),
-    AnalyzerSpec(
         name="SynthID (Google)",
         slug="synthid",
         func=run_synthid,
         template="partials/analyzers/synthid.html",
         tooltip="Uses Google reverse image search to check for an invisible watermark.",
+    ),
+    AnalyzerSpec(
+        name="TinEye Reverse Search",
+        slug="tineye",
+        func=get_tineye_status,
+        template="partials/analyzers/tineye.html",
+        tooltip="Searches TinEye for reverse image matches and checks against known AI sites.",
     ),
     AnalyzerSpec(
         name="AI Metadata (EXIF)",
