@@ -1,7 +1,7 @@
 <div class="upload-card">
-  <hgroup style="margin-bottom: 3rem">
+  <hgroup>
     <h2>Analyze an image</h2>
-    <p>Upload a file or paste a URL to trace its provenance.</p>
+    <p>Trace an image's provenance and check for AI generation.</p>
   </hgroup>
   <form
     action="{{ url_for('main.analyze') }}"
@@ -10,101 +10,125 @@
     id="analyze-form"
   >
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+    <input type="file" id="file" name="file" accept="image/*" class="sr-only" />
 
-    <div class="grid upload-grid">
-      <div>
-        <label for="file"><strong>Upload File</strong></label>
-        <div
-          id="drop-zone"
-          class="drop-zone"
-          aria-label="Drag an image here"
-          style="margin-bottom: 0.5rem"
-        >
-          <input
-            class="sr-only"
-            type="file"
-            id="file"
-            name="file"
-            accept="image/*"
-          />
-          <p class="drop-zone__text">Drag &amp; drop an image here</p>
-          <button type="button" id="file-trigger">Choose image</button>
-          <p id="file-name" class="drop-zone__status">No file selected</p>
-        </div>
-        <small>Supports JPG, PNG, WEBP</small>
-      </div>
+    <div class="upload-inputs">
+      <button type="button" id="file-trigger" class="contrast">
+        Choose file from computer
+      </button>
 
-      <div class="upload-grid__divider" aria-hidden="true">OR</div>
-
-      <div>
-        <label for="image_url"><strong>Paste URL</strong></label>
+      <div class="url-input-wrapper">
         <input
           type="url"
           id="image_url"
           name="image_url"
-          placeholder="https://example.com/image.jpg"
+          placeholder="Or paste an image URL"
         />
+        <button type="submit" class="url-submit" aria-label="Analyze URL">
+          &rarr;
+        </button>
       </div>
     </div>
 
-    <footer style="margin-top: 2rem; text-align: center">
-      <button type="submit" class="contrast">Analyze</button>
-    </footer>
+    <p class="upload-hint">Drop or paste an image anywhere on this page.</p>
   </form>
+</div>
+
+<!-- Full-page drop overlay -->
+<div id="drop-overlay" class="drop-overlay" hidden>
+  <div class="drop-overlay__content">
+    <p>Drop image to analyze</p>
+  </div>
 </div>
 
 <script>
   document.addEventListener("DOMContentLoaded", () => {
-    const dropZone = document.getElementById("drop-zone");
+    const form = document.getElementById("analyze-form");
     const fileInput = document.getElementById("file");
     const fileTrigger = document.getElementById("file-trigger");
-    const fileName = document.getElementById("file-name");
+    const urlInput = document.getElementById("image_url");
+    const dropOverlay = document.getElementById("drop-overlay");
 
-    if (!dropZone || !fileInput) return;
+    if (!form || !fileInput || !urlInput || !dropOverlay) return;
 
-    const setFile = (file) => {
+    // Set file and auto-submit
+    const handleFile = (file) => {
+      if (!file || !file.type.startsWith("image/")) return;
       const dt = new DataTransfer();
       dt.items.add(file);
       fileInput.files = dt.files;
-      fileName.textContent = file.name;
+      urlInput.value = ""; // Clear URL field
+      form.submit();
     };
 
-    const handleFiles = (files) => {
-      if (!files || !files.length) return;
-      const [file] = files;
-      if (!file.type.startsWith("image/")) {
-        fileName.textContent = "Please drop an image file.";
-        return;
+    // File picker button
+    fileTrigger?.addEventListener("click", () => fileInput.click());
+    fileInput.addEventListener("change", (e) => {
+      if (e.target.files?.[0]) handleFile(e.target.files[0]);
+    });
+
+    // Full-page drag and drop
+    let dragCounter = 0;
+
+    const showOverlay = () => {
+      dropOverlay.hidden = false;
+    };
+
+    const hideOverlay = () => {
+      dropOverlay.hidden = true;
+    };
+
+    document.addEventListener("dragenter", (e) => {
+      e.preventDefault();
+      dragCounter++;
+      if (dragCounter === 1) showOverlay();
+    });
+
+    document.addEventListener("dragleave", (e) => {
+      e.preventDefault();
+      dragCounter--;
+      if (dragCounter === 0) hideOverlay();
+    });
+
+    document.addEventListener("dragover", (e) => {
+      e.preventDefault();
+    });
+
+    document.addEventListener("drop", (e) => {
+      e.preventDefault();
+      dragCounter = 0;
+      hideOverlay();
+      const file = e.dataTransfer?.files?.[0];
+      if (file) handleFile(file);
+    });
+
+    // Paste support (images and URLs)
+    document.addEventListener("paste", (e) => {
+      const items = e.clipboardData?.items;
+      if (!items) return;
+
+      // Check for image data first (screenshots, copied images)
+      for (const item of items) {
+        if (item.type.startsWith("image/")) {
+          const file = item.getAsFile();
+          if (file) {
+            e.preventDefault();
+            handleFile(file);
+            return;
+          }
+        }
       }
-      setFile(file);
-    };
 
-    ["dragenter", "dragover"].forEach((eventName) => {
-      dropZone.addEventListener(eventName, (event) => {
-        event.preventDefault();
-        event.stopPropagation();
-        dropZone.classList.add("drop-zone--active");
-      });
+      // If pasting into URL field, let it happen naturally
+      if (document.activeElement === urlInput) return;
+
+      // Otherwise, check if pasted text looks like a URL
+      const text = (e.clipboardData.getData("text") || "").trim();
+      if (text && /^https?:\/\/.+/i.test(text)) {
+        e.preventDefault();
+        urlInput.value = text;
+        urlInput.focus();
+      }
     });
-
-    ["dragleave", "drop"].forEach((eventName) => {
-      dropZone.addEventListener(eventName, (event) => {
-        event.preventDefault();
-        event.stopPropagation();
-        dropZone.classList.remove("drop-zone--active");
-      });
-    });
-
-    dropZone.addEventListener("drop", (event) => {
-      handleFiles(event.dataTransfer.files);
-    });
-
-    fileInput.addEventListener("change", (event) => {
-      handleFiles(event.target.files);
-    });
-
-    if (fileTrigger) {
-      fileTrigger.addEventListener("click", () => fileInput.click());
-    }
   });
 </script>

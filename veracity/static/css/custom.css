@@ -167,24 +167,46 @@ body > header {
   }
 }
 
-.upload-grid {
+.upload-inputs {
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
+  gap: 1rem;
+  align-items: center;
+  margin-top: 1.5rem;
 }
 
-@media (min-width: 768px) {
-  .upload-grid {
-    gap: 2rem;
-  }
+.upload-inputs > button {
+  width: 100%;
+  max-width: 280px;
 }
 
-.upload-grid__divider {
+.url-input-wrapper {
+  display: flex;
+  width: 100%;
+  max-width: 400px;
+  gap: 0;
+}
+
+.url-input-wrapper input {
+  margin: 0;
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+  border-right: none;
+}
+
+.url-input-wrapper .url-submit {
+  margin: 0;
+  padding: 0.5rem 1rem;
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+  white-space: nowrap;
+}
+
+.upload-hint {
+  margin-top: 1.5rem;
   text-align: center;
-  font-weight: 700;
+  font-size: 0.85rem;
   color: var(--pico-muted-color);
-  letter-spacing: 0.05em;
-  align-self: center;
 }
 
 .donation-meter {
@@ -223,37 +245,35 @@ body > header {
   justify-content: flex-start;
 }
 
-.drop-zone {
-  border: 2px dashed var(--pico-muted-border-color);
+/* Full-page drop overlay */
+.drop-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: rgba(0, 0, 0, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.drop-overlay[hidden] {
+  display: none;
+}
+
+.drop-overlay__content {
+  border: 3px dashed var(--pico-primary);
   border-radius: var(--pico-border-radius);
-  padding: 1.5rem;
+  padding: 3rem 4rem;
   text-align: center;
-  background: var(--pico-card-section-background-color);
-  transition: border-color 120ms ease, background-color 120ms ease;
+  background: var(--pico-card-background-color);
 }
 
-.drop-zone__text {
-  margin: 0.25rem 0 0.75rem;
-  color: var(--pico-muted-color);
-}
-
-.drop-zone__status {
-  margin: 0.5rem 0 0;
-  font-size: 0.9rem;
-  color: var(--pico-muted-color);
-}
-
-.drop-zone button {
-  margin-top: 0.25rem;
-}
-
-.drop-zone--active {
-  border-color: var(--pico-primary);
-  background: color-mix(
-    in srgb,
-    var(--pico-primary) 10%,
-    var(--pico-card-section-background-color)
-  );
+.drop-overlay__content p {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--pico-primary);
 }
 
 nav {
