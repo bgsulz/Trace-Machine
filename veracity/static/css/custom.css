@@ -789,7 +789,7 @@ button.vote-btn-edited .tooltip-trigger::after {
   margin-bottom: 1rem;
   border-radius: var(--pico-border-radius);
   background-color: var(--pico-mark-background-color);
-  color: #fff;
+  color: var(--pico-color);
 }
 
 .flash-warning {
@@ -797,7 +797,7 @@ button.vote-btn-edited .tooltip-trigger::after {
   margin-bottom: 1rem;
   border-radius: var(--pico-border-radius);
   background-color: var(--veracity-warning-dark);
-  color: #fff;
+  color: var(--pico-color);
 }
 
 /* Scrollbars */
