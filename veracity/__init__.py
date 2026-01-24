@@ -53,6 +53,7 @@ def create_app(test_config=None):
         MAX_CONTENT_LENGTH=20 * 1024 * 1024,
         ALLOWED_EXTENSIONS={"png", "jpg", "jpeg", "webp", "gif"},
         KOFI_TOKEN=kofi_token,
+        RATELIMIT_ENABLED=secret_key != "dev",
     )
 
     if test_config is not None:
