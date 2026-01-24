@@ -41,6 +41,30 @@ from .analyzers.manager import get_analyzer_spec, _format_result
 bp = Blueprint("main", __name__)
 
 EXPIRED_MESSAGE = "Analysis expired. Please submit the image again."
+RATE_LIMIT_MESSAGE = "Rate limit reached (5 per hour). Please wait before trying again."
+
+
+@bp.errorhandler(429)
+def handle_rate_limit(e):
+    """Handle rate limit exceeded errors."""
+    if request.headers.get("HX-Request"):
+        # For HTMX requests, return an error fragment
+        spec = get_analyzer_spec("tineye")
+        row = {
+            "name": spec.name,
+            "slug": spec.slug,
+            "status": "ERROR",
+            "summary": RATE_LIMIT_MESSAGE,
+            "data": {},
+            "template": spec.template,
+            "tooltip": spec.tooltip,
+            "info_id": f"info-{spec.slug}",
+            "context": {"analysis_id": None},
+        }
+        return render_template("partials/analyzer_row.html", row=row), 429
+    # For regular requests, flash and redirect
+    flash(RATE_LIMIT_MESSAGE)
+    return redirect(url_for("main.index"))
 
 
 def _expired_analysis_response():
@@ -217,12 +241,23 @@ def run_tineye(analysis_id: str):
     api_result = call_tineye_api(image_url=image_url)
 
     if not api_result["success"]:
-        # Log the actual error for debugging, but show a generic message to users
-        if api_result["error"]:
-            current_app.logger.warning("TinEye API error: %s", api_result["error"])
+        # Log the actual error for debugging, but show a clearer message to users
+        error_msg = api_result.get("error", "")
+        if error_msg:
+            current_app.logger.warning("TinEye API error: %s", error_msg)
+
+        # Check if it looks like a rate limit error
+        error_lower = error_msg.lower()
+        if "429" in error_msg or "rate" in error_lower or "too many" in error_lower:
+            summary = "TinEye rate limit reached. Please wait a few minutes before trying again."
+        elif "key" in error_lower or "auth" in error_lower:
+            summary = "TinEye API configuration error. Please contact the site administrator."
+        else:
+            summary = "Unable to complete TinEye search. Please try again later."
+
         raw_result = {
             "status": "ERROR",
-            "summary": "Unable to complete TinEye search. Please try again later.",
+            "summary": summary,
             "data": {
                 "allow_manual_refresh": False,
             },
