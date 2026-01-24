@@ -50,7 +50,7 @@ def create_app(test_config=None):
         SECRET_KEY=secret_key,
         SQLALCHEMY_DATABASE_URI=db_url,
         SQLALCHEMY_TRACK_MODIFICATIONS=False,
-        MAX_CONTENT_LENGTH=10 * 1024 * 1024,
+        MAX_CONTENT_LENGTH=20 * 1024 * 1024,
         ALLOWED_EXTENSIONS={"png", "jpg", "jpeg", "webp", "gif"},
         KOFI_TOKEN=kofi_token,
     )
