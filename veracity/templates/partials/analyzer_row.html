@@ -30,6 +30,31 @@
     {% if row.summary %}
     <p class="analyzer-summary">{{ row.summary }}</p>
     {% endif %}
+    {% if row.status == "ERROR" %}
+    <div class="analyzer-retry">
+      {% if row.slug == "tineye" %}
+      <form
+        method="post"
+        action="{{ url_for('main.run_tineye', analysis_id=row.context.analysis_id) }}"
+        hx-post="{{ url_for('main.run_tineye', analysis_id=row.context.analysis_id) }}"
+        hx-target="#analyzer-row-{{ row.slug }}"
+        hx-swap="outerHTML"
+      >
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+        <button type="submit" class="secondary">Retry</button>
+      </form>
+      {% else %}
+      <button
+        type="button"
+        class="secondary"
+        hx-get="{{ url_for('main.analyzer_fragment', analysis_id=row.context.analysis_id, slug=row.slug, refresh=1) }}"
+        hx-target="#analyzer-row-{{ row.slug }}"
+        hx-swap="outerHTML"
+      >Retry</button>
+      {% endif %}
+    </div>
+    {% else %}
     {% include details_template %}
+    {% endif %}
   </div>
 </details>

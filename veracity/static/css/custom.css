@@ -649,6 +649,14 @@ button.vote-btn-edited .tooltip-trigger::after {
   font-size: 0.9rem;
 }
 
+.analyzer-retry {
+  margin-top: 0.5rem;
+}
+
+.analyzer-retry button {
+  margin: 0;
+}
+
 .analyzer-content .analyzer-summary {
   margin: 0 0 0.5rem;
 }

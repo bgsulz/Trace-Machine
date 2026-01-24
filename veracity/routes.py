@@ -68,10 +68,12 @@ def analyzer_info():
 @bp.route("/analysis/<analysis_id>/analyzers/<slug>")
 def analyzer_fragment(analysis_id: str, slug: str):
     link_target = "_blank" if request.args.get("mini") == "1" else None
+    refresh = request.args.get("refresh") == "1"
     return render_analyzer_fragment_html(
         analysis_id,
         slug,
         link_target=link_target,
+        refresh=refresh,
     )
 
 
