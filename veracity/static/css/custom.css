@@ -327,22 +327,18 @@ nav {
   .result-layout {
     display: grid;
     grid-template-columns: minmax(280px, 35%) 1fr;
-    grid-template-areas:
-      "primary secondary"
-      "analyzer secondary";
     align-items: start;
   }
 
-  .result-primary {
-    grid-area: primary;
+  .result-left {
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
   }
 
-  .result-secondary {
-    grid-area: secondary;
-  }
-
+  .result-primary,
   .result-analyzer {
-    grid-area: analyzer;
+    order: unset;
   }
 
   .result-image-container {
