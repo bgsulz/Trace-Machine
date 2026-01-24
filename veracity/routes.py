@@ -40,6 +40,24 @@ from .analyzers.manager import get_analyzer_spec, _format_result
 
 bp = Blueprint("main", __name__)
 
+EXPIRED_MESSAGE = "Analysis expired. Please submit the image again."
+
+
+def _expired_analysis_response():
+    """Return a consistent response for expired analysis across all routes."""
+    if request.headers.get("HX-Request"):
+        # HTMX request: redirect via header
+        flash(EXPIRED_MESSAGE)
+        response = make_response("", 200)
+        response.headers["HX-Redirect"] = url_for("main.index")
+        return response
+    # Regular request: flash + redirect with 410
+    flash(EXPIRED_MESSAGE)
+    response = redirect(url_for("main.index"))
+    response.status_code = 410
+    return response
+
+
 MIN_CROP_PIXELS = 150
 MIN_CROP_ENTROPY = 1.0
 MIN_CROP_ENTROPY_LOOSE = 0.5
@@ -67,6 +85,9 @@ def analyzer_info():
 
 @bp.route("/analysis/<analysis_id>/analyzers/<slug>")
 def analyzer_fragment(analysis_id: str, slug: str):
+    payload = load_analysis_payload(analysis_id)
+    if payload is None:
+        return _expired_analysis_response()
     link_target = "_blank" if request.args.get("mini") == "1" else None
     refresh = request.args.get("refresh") == "1"
     return render_analyzer_fragment_html(
@@ -97,10 +118,7 @@ def serve_analysis_image(analysis_id: str):
 def crop_analysis(analysis_id: str):
     payload = load_analysis_payload(analysis_id)
     if payload is None:
-        flash("Original image expired. Please re-upload to crop.")
-        response = redirect(url_for("main.index"))
-        response.status_code = 410
-        return response
+        return _expired_analysis_response()
 
     crop_box = _parse_normalized_box(request.form)
     if crop_box is None:
@@ -187,7 +205,7 @@ def analyze_mini():
 def run_tineye(analysis_id: str):
     payload = load_analysis_payload(analysis_id)
     if not payload:
-        return "Analysis expired", 410
+        return _expired_analysis_response()
     image_bytes, metadata = payload
 
     # Generate external URL for the image
@@ -267,6 +285,9 @@ def vote():
     if source_type == "url" and analysis_link.startswith("/"):
         redirect_target = analysis_link
     if request.headers.get("HX-Request") and analysis_id:
+        payload = load_analysis_payload(analysis_id)
+        if payload is None:
+            return _expired_analysis_response()
         html = render_analyzer_fragment_html(
             analysis_id,
             "human",
