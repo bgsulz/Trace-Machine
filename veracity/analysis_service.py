@@ -34,17 +34,34 @@ def handle_remote_analysis(image_url: str, vote_slug: str | None, template_name:
         flash("Please provide an image URL to analyze.")
         return redirect(url_for("main.index"))
 
-    try:
-        image_bytes, mime_type = ingestion.fetch_image_bytes(image_url)
-    except ingestion.IngestionError as exc:
-        flash(str(exc))
-        return redirect(url_for("main.index"))
+    # Try to upgrade thumbnails to full resolution
+    full_res_url = dethumbnail.get_full_res_url(image_url)
+    fetch_url = image_url
+    upgraded = False
+
+    if full_res_url:
+        try:
+            image_bytes, mime_type = ingestion.fetch_image_bytes(full_res_url)
+            fetch_url = full_res_url
+            upgraded = True
+        except ingestion.IngestionError:
+            pass  # Fall back to original URL below
+
+    if not upgraded:
+        try:
+            image_bytes, mime_type = ingestion.fetch_image_bytes(image_url)
+        except ingestion.IngestionError as exc:
+            flash(str(exc))
+            return redirect(url_for("main.index"))
+
+    if upgraded:
+        flash("Upgraded from thumbnail to full resolution.")
 
     return perform_analysis(
         image_bytes,
         mime_type,
         "url",
-        image_url=image_url,
+        image_url=fetch_url,
         auto_vote=vote_slug,
         template_name=template_name,
     )
