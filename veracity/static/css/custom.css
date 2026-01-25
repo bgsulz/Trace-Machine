@@ -942,10 +942,6 @@ details[open] > summary {
 }
 
 /* TinEye Bucket Display */
-.tineye-buckets {
-  margin-top: 2rem;
-}
-
 .bucket-section {
   margin-bottom: 1.5rem;
 }
@@ -1195,4 +1191,28 @@ a.header-action[role="button"] {
 
 form.header-action {
   display: inline;
+}
+
+/* Loading state when HTMX request is in progress */
+form.header-action.htmx-request button {
+  pointer-events: none;
+  opacity: 0.5;
+}
+
+.analyzer-header:has(form.header-action.htmx-request) .badge {
+  position: relative;
+  overflow: hidden;
+}
+
+.analyzer-header:has(form.header-action.htmx-request) .badge::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    120deg,
+    transparent,
+    rgba(255, 255, 255, 0.4),
+    transparent
+  );
+  animation: badge-sheen 1.2s linear infinite;
 }
