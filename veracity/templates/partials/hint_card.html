@@ -1,0 +1,12 @@
+{% macro hint_card(show_dismiss=False) %}
+<div class="hint-card" data-hint-card hidden>
+  <div class="hint-card__content">
+    {{ caller() }}
+  </div>
+  {% if show_dismiss %}
+  <div class="hint-card__actions">
+    <button type="button" class="secondary" data-hint-dismiss>Got it</button>
+  </div>
+  {% endif %}
+</div>
+{% endmacro %}

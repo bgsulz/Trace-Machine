@@ -1,4 +1,6 @@
 {% extends "base.html" %}
+{% from "partials/hint_card.html" import hint_card %}
+
 {% block head_extra %}
 <link
   rel="stylesheet"
@@ -92,6 +94,18 @@
     </div><!-- .result-left -->
 
     <div class="result-secondary">
+      {% call hint_card(show_dismiss=True) %}
+      <h4>Reading Your Results</h4>
+      <dl class="hint-definitions">
+        <dt><span class="badge found">FOUND</span> / <span class="badge detected">DETECTED</span></dt>
+        <dd>There's a trace! The analyzer found some evidence. Read the analysis details to understand more.</dd>
+        <dt><span class="badge similar">SIMILAR</span></dt>
+        <dd>A previously analyzed image very similar to this one has some evidence.</dd>
+        <dt><span class="badge not-found">NOT FOUND</span></dt>
+        <dd>No evidence detected. This doesn't prove the image is real.</dd>
+      </dl>
+      {% endcall %}
+
       <h3>Provenance Report</h3>
       <div>
         {% include "partials/analysis_table.html" %}

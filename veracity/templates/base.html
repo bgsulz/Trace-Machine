@@ -26,6 +26,7 @@
       crossorigin="anonymous"
     ></script>
     <script src="{{ url_for('static', filename='js/theme.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/hints.js') }}"></script>
     {% block head_extra %}{% endblock %}
   </head>
   <body>
@@ -41,6 +42,7 @@
           <nav class="site-nav" id="primary-nav" aria-label="Primary">
             <a href="{{ url_for('main.index') }}">Analyze</a>
             <a href="{{ url_for('main.analyzer_info') }}">Info</a>
+            <a href="#" id="show-tips-link" hidden>Show tips</a>
           </nav>
           <div class="theme-toggle">
             <button

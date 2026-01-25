@@ -1,9 +1,24 @@
-{% extends "base.html" %} {% block content %} {% set raised_cents =
-donation_total_cents or 0 %} {% set goal_cents = donation_goal_cents or 0 %} {%
-set raised_dollars = raised_cents / 100 %} {% set goal_dollars = goal_cents /
-100 if goal_cents else 0 %}
+{% extends "base.html" %}
+{% from "partials/hint_card.html" import hint_card %}
+
+{% block content %}
+{% set raised_cents = donation_total_cents or 0 %}
+{% set goal_cents = donation_goal_cents or 0 %}
+{% set raised_dollars = raised_cents / 100 %}
+{% set goal_dollars = goal_cents / 100 if goal_cents else 0 %}
+
 <section class="home-section">
   {% include "partials/analyzer_form.html" %}
+
+  {% call hint_card(show_dismiss=True) %}
+  <h4>What Is This?</h4>
+  <p>Upload an image or paste a link. Trace Machine will search for:</p>
+  <ul>
+    <li><strong>Origin indicators:</strong> C2PA signatures, EXIF metadata, and reverse image matches.</li>
+    <li><strong>AI markers:</strong> Digital watermarks and known AI-generator sites.</li>
+    <li><strong>Community consensus:</strong> How other users have classified this image.</li>
+  </ul>
+  {% endcall %}
 
   <!-- {% include "partials/donation_meter.html" %} -->
 </section>

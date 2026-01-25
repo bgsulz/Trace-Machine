@@ -34,7 +34,7 @@ ANALYZERS: Sequence[AnalyzerSpec] = (
         slug="c2pa",
         func=run_c2pa,
         template="partials/analyzers/c2pa.html",
-        tooltip="Looks for authenticated Content Credentials attached to the file.",
+        tooltip="Looks for authenticated Content Credentials.",
     ),
     AnalyzerSpec(
         name="SynthID (Google)",

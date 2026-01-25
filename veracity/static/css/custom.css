@@ -1,7 +1,7 @@
 :root {
-  --pico-font-size: 100%;
+  --pico-font-size: 95%;
   --pico-header-height: 4rem;
-  --pico-font-family: monospace;
+  --pico-font-family: "Quando", serif;
 
   /* Custom color tokens */
   --veracity-success: #00804f;
@@ -171,14 +171,14 @@ body > header {
 .upload-inputs {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: 0;
   align-items: center;
   margin-top: 1.5rem;
 }
 
 .upload-inputs > button {
   width: 100%;
-  max-width: 280px;
+  max-width: 400px;
 }
 
 .url-input-wrapper {
@@ -196,6 +196,7 @@ body > header {
 }
 
 .url-input-wrapper .url-submit {
+  width: auto;
   margin: 0;
   padding: 0.5rem 1rem;
   border-top-left-radius: 0;
@@ -473,12 +474,12 @@ nav {
 .tooltip-trigger::after {
   content: "?";
   display: inline-flex;
-  width: 1.15em;
-  height: 1.15em;
-  border-radius: 50%;
+  width: 1.75em;
+  height: 1.75em;
+  border-radius: 9999px;
   border: 1px solid var(--pico-muted-border-color);
-  font-size: 0.7em;
-  align-items: center;
+  font-size: 0.8em;
+  align-items: flex-end;
   justify-content: center;
   color: var(--pico-muted-color);
 }
@@ -510,7 +511,9 @@ button.vote-btn-edited .tooltip-trigger::after {
   line-height: 1.4;
   opacity: 0;
   transform: translateY(4px);
-  transition: opacity 120ms ease, transform 120ms ease;
+  transition:
+    opacity 120ms ease,
+    transform 120ms ease;
   pointer-events: none;
   z-index: 10;
 }
@@ -543,7 +546,8 @@ button.vote-btn-edited .tooltip-trigger::after {
 /* Status Badges */
 .badge {
   display: inline-block;
-  padding: 0.25em 0.5em;
+  padding: 0.75em;
+  padding-bottom: 0.6em;
   font-size: 0.75em;
   font-weight: 700;
   line-height: 1;
@@ -661,9 +665,11 @@ button.vote-btn-edited .tooltip-trigger::after {
   margin: 0 0 0.5rem;
 }
 
-
-
 /* Analyzer Details */
+details[open] > summary {
+  margin-bottom: 0;
+}
+
 .analyzer-detail-block {
   background-color: var(--pico-card-section-background-color);
   padding: 0.75rem;
@@ -824,6 +830,21 @@ button.vote-btn-edited .tooltip-trigger::after {
   filter: grayscale(80%);
 }
 
+/* Flash warnings */
+.flash-warning {
+    padding: 1rem;
+    margin-bottom: 1rem;
+    border-radius: var(--pico-border-radius);
+    background-color: var(--veracity-warning-dark);
+    color: var(--pico-color);
+}
+
+@media (prefers-color-scheme: dark) {
+    .flash-warning {
+        background-color: var(--veracity-warning);
+    }
+}
+
 /* Toast notifications */
 #toast-container {
   position: fixed;
@@ -846,7 +867,9 @@ button.vote-btn-edited .tooltip-trigger::after {
   pointer-events: auto;
   opacity: 0;
   transform: translateX(100%);
-  transition: opacity 0.2s ease, transform 0.2s ease;
+  transition:
+    opacity 0.2s ease,
+    transform 0.2s ease;
   max-width: 320px;
 }
 
@@ -933,7 +956,9 @@ button.vote-btn-edited .tooltip-trigger::after {
   border-radius: var(--pico-border-radius);
   background: var(--pico-card-background-color);
   overflow: hidden;
-  transition: border-color 120ms ease, box-shadow 120ms ease;
+  transition:
+    border-color 120ms ease,
+    box-shadow 120ms ease;
 }
 
 .bucket-match:hover {
@@ -1045,5 +1070,89 @@ body:has(.quick-actions) {
   .quick-actions a[role="button"] {
     font-size: 0.8rem;
     padding: 0.4rem 0.75rem;
+  }
+}
+
+/* Hint Cards */
+.hint-card {
+  padding: 1rem 1.25rem;
+  border: 1px dashed var(--pico-primary-border);
+  border-radius: var(--pico-border-radius);
+  background: var(--pico-card-background-color);
+  margin-bottom: 1.5rem;
+  font-size: 0.9rem;
+}
+
+.hint-card[hidden] {
+  display: none;
+}
+
+.hint-card h4 {
+  margin: 0 0 1rem;
+  font-size: 1rem;
+  color: var(--pico-primary);
+}
+
+.hint-card p,
+.hint-card ul,
+.hint-card dl {
+  margin: 0 0 0.75rem;
+}
+
+.hint-card p:last-child,
+.hint-card ul:last-child,
+.hint-card dl:last-child {
+  margin-bottom: 0;
+}
+
+.hint-card ul {
+  padding-left: 1.25rem;
+}
+
+.hint-card li {
+  margin-bottom: 0.35rem;
+}
+
+.hint-card__actions {
+  margin-top: 1rem;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.hint-card__actions button {
+  margin: 0;
+  font-size: 0.85rem;
+}
+
+.hint-definitions {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.5rem 1rem;
+  align-items: baseline;
+}
+
+.hint-definitions dt {
+  font-weight: 600;
+}
+
+.hint-definitions dd {
+  margin: 0;
+}
+
+@media (max-width: 480px) {
+  .hint-definitions {
+    grid-template-columns: 1fr;
+  }
+
+  .hint-definitions dt {
+    margin-top: 0.5rem;
+  }
+
+  .hint-definitions dt:first-child {
+    margin-top: 0;
+  }
+
+  .hint-definitions dd {
+    margin-left: 0;
   }
 }
