@@ -4,6 +4,21 @@
 {% set is_notable = status_class not in ['not-found', 'not-detected', 'manual'] %}
 {% set expand_by_default = row.slug == 'human' or is_notable %}
 
+{% macro tineye_action(label, button_class, analysis_id, form_class=None, onclick=None) -%}
+<form
+  {% if form_class %}class="{{ form_class }}"{% endif %}
+  method="post"
+  action="{{ url_for('main.run_tineye', analysis_id=analysis_id) }}"
+  hx-post="{{ url_for('main.run_tineye', analysis_id=analysis_id) }}"
+  hx-target="#analyzer-row-tineye"
+  hx-swap="outerHTML"
+  {% if onclick %}onclick="{{ onclick }}"{% endif %}
+>
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+  <button type="submit" class="{{ button_class }}">{{ label }}</button>
+</form>
+{%- endmacro %}
+
 <details class="analyzer-item" id="analyzer-row-{{ row.slug }}" {{ 'open' if expand_by_default else '' }}>
   <summary class="analyzer-header">
     <div class="analyzer-header-info">
@@ -27,18 +42,7 @@
     {% if row.data.header_action %}
     {% set action = row.data.header_action %}
     {% if action.type == "htmx" and row.slug == "tineye" %}
-    <form
-      class="header-action"
-      method="post"
-      action="{{ url_for('main.run_tineye', analysis_id=row.context.analysis_id) }}"
-      hx-post="{{ url_for('main.run_tineye', analysis_id=row.context.analysis_id) }}"
-      hx-target="#analyzer-row-{{ row.slug }}"
-      hx-swap="outerHTML"
-      onclick="event.stopPropagation()"
-    >
-      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
-      <button type="submit" class="outline">{{ action.label }}</button>
-    </form>
+    {{ tineye_action(action.label, "outline", row.context.analysis_id, form_class="header-action", onclick="event.stopPropagation()") }}
     {% elif action.type == "link" and row.slug == "synthid" %}
     {% set lens_link = row.context.lens_link if row.context else "https://images.google.com/" %}
     <a
@@ -60,16 +64,7 @@
     {% if row.status == "ERROR" %}
     <div class="analyzer-retry">
       {% if row.slug == "tineye" %}
-      <form
-        method="post"
-        action="{{ url_for('main.run_tineye', analysis_id=row.context.analysis_id) }}"
-        hx-post="{{ url_for('main.run_tineye', analysis_id=row.context.analysis_id) }}"
-        hx-target="#analyzer-row-{{ row.slug }}"
-        hx-swap="outerHTML"
-      >
-        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
-        <button type="submit" class="secondary">Retry</button>
-      </form>
+      {{ tineye_action("Retry", "secondary", row.context.analysis_id) }}
       {% else %}
       <button
         type="button"
