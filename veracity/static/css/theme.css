@@ -1,6 +1,8 @@
 :root {
-  --trace-machine-primary-light: #4912ff;
-  --trace-machine-primary-dark: #8077ff;
+  /* --trace-machine-primary-light: #4912ff;
+  --trace-machine-primary-dark: #8077ff; */
+  --trace-machine-primary-light: #2ca0a0;
+  --trace-machine-primary-dark: #2ca0a0;
 }
 
 :root:not([data-theme="dark"]),

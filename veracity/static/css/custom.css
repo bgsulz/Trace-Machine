@@ -58,6 +58,7 @@ body > header {
 }
 
 .nav-toggle {
+  --pico-color: revert;
   display: none;
   border: 1px solid var(--pico-muted-border-color);
   background: var(--pico-card-background-color);
@@ -67,6 +68,12 @@ body > header {
   font-size: 1.1rem;
   cursor: pointer;
   margin: 0;
+}
+
+.nav-toggle:hover,
+.nav-toggle:focus,
+.nav-toggle:active {
+  --pico-color: revert;
 }
 
 .site-nav {
