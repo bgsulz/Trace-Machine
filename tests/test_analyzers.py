@@ -551,7 +551,7 @@ def test_run_c2pa_sets_similar_when_neighbors_have_facts(monkeypatch):
     result = c2pa_analyzer.run_c2pa(context)
 
     assert result["status"] == "SIMILAR"
-    assert "visually similar images" in result["summary"]
+    assert "visually similar image" in result["summary"]  # singular for 1 match
     matches = result["data"]["matches"]
     assert len(matches) == 1
     assert matches[0]["fact_data"] == "Signed by Example Corp"

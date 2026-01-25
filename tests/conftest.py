@@ -24,10 +24,18 @@ def app_csrf(tmp_path_factory):
     instance_path = tmp_path_factory.mktemp("instance-csrf")
     yield _create_testing_app(enable_csrf=True, instance_path=str(instance_path))
 
-def _create_testing_app(*, enable_csrf=False, instance_path):
+
+@pytest.fixture
+def app_ratelimited(tmp_path_factory):
+    instance_path = tmp_path_factory.mktemp("instance-ratelimited")
+    yield _create_testing_app(enable_ratelimit=True, instance_path=str(instance_path))
+
+
+def _create_testing_app(*, enable_csrf=False, enable_ratelimit=False, instance_path):
     test_config = {
         "TESTING": True,
         "WTF_CSRF_ENABLED": enable_csrf,
+        "RATELIMIT_ENABLED": enable_ratelimit,
         "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:",
         "INSTANCE_PATH": instance_path,
         "KOFI_TOKEN": "test-token",

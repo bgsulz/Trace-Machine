@@ -48,7 +48,8 @@ RATE_LIMIT_MESSAGE = "Rate limit reached (5 per hour). Please wait before trying
 def handle_rate_limit(e):
     """Handle rate limit exceeded errors."""
     if request.headers.get("HX-Request"):
-        # For HTMX requests, return an error fragment
+        # Extract analysis_id from request path for retry button
+        analysis_id = request.view_args.get("analysis_id") if request.view_args else None
         spec = get_analyzer_spec("tineye")
         row = {
             "name": spec.name,
@@ -59,7 +60,7 @@ def handle_rate_limit(e):
             "template": spec.template,
             "tooltip": spec.tooltip,
             "info_id": f"info-{spec.slug}",
-            "context": {"analysis_id": None},
+            "context": {"analysis_id": analysis_id},
         }
         return render_template("partials/analyzer_row.html", row=row), 429
     # For regular requests, flash and redirect

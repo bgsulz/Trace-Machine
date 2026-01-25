@@ -48,7 +48,7 @@ class TestGetTinEyeStatus:
             result = get_tineye_status(context)
 
         assert result["status"] == "MANUAL"
-        assert "Manual check required" in result["summary"]
+        assert "Search for this image" in result["summary"]
         assert result["data"]["allow_manual_refresh"] is True
 
     def test_ignores_neighbors(self, app):
@@ -122,10 +122,12 @@ class TestRunTinEyeRoute:
         response = client.post("/analysis/test-id/tineye/run")
         assert response.status_code == 200
 
-    def test_run_tineye_route_rate_limited(self, app, monkeypatch):
+    def test_run_tineye_route_rate_limited(self, app_ratelimited, monkeypatch):
         from veracity import routes
         from io import BytesIO
         from PIL import Image
+
+        app = app_ratelimited
 
         img = Image.new("RGB", (100, 100), color=(255, 0, 0))
         buf = BytesIO()
@@ -165,12 +167,13 @@ class TestRunTinEyeRoute:
         monkeypatch.setattr(routes, "get_shame_list_matchers", mock_get_matchers)
 
         client = app.test_client()
+        headers = {"HX-Request": "true"}  # Simulate HTMX request
 
         for i in range(5):
-            response = client.post("/analysis/test-id/tineye/run")
+            response = client.post("/analysis/test-id/tineye/run", headers=headers)
             assert response.status_code == 200, f"Request {i+1} failed unexpectedly"
 
-        response = client.post("/analysis/test-id/tineye/run")
+        response = client.post("/analysis/test-id/tineye/run", headers=headers)
         assert response.status_code == 429
 
 
@@ -181,13 +184,14 @@ class TestTinEyeTemplates:
         with app.test_request_context():
             row = {
                 "status": "MANUAL",
-                "summary": "Manual check required",
+                "summary": "Search for this image across the web.",
                 "data": {},
                 "context": {"analysis_id": "test-123", "link_target": "_blank"},
             }
             html = render_template("partials/analyzers/tineye.html", row=row)
+            # Template shows instructions to click header button
             assert "Check TinEye" in html
-            assert "tineye/run" in html
+            assert "search for this image" in html
 
     def test_tineye_template_renders_found_state(self, app):
         from flask import render_template
@@ -213,8 +217,9 @@ class TestTinEyeTemplates:
                 "context": {"analysis_id": "test-123", "link_target": "_blank"},
             }
             html = render_template("partials/analyzers/tineye.html", row=row)
-            assert "Something went wrong" in html
-            assert "Check TinEye" in html
+            # ERROR state renders buckets (empty in this case), not MANUAL instructions
+            assert "Check TinEye" not in html
+            assert "analyzer-detail-block" in html
 
 
 class TestShameListParsing:
