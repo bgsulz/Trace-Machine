@@ -444,7 +444,7 @@ def build_summary(
 
 def get_tineye_status(context: AnalysisContext) -> dict[str, object]:
     return {
-        "status": "WAITING",
+        "status": "MANUAL",
         "summary": "Manual check required.",
         "data": {
             "allow_manual_refresh": True,

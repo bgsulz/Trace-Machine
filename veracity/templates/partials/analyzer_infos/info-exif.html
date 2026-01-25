@@ -1,15 +1,18 @@
 <p>
-  Scans embedded EXIF metadata and surfaces any tags or software identifiers that commonly appear in AI image generators or heavy post-processing workflows. EXIF (Exchangeable Image File Format) is a standard for storing technical information inside image files—originally designed for cameras to record settings like shutter speed and lens type, but now widely used by software to embed their own markers and parameters.
+  EXIF stands for Exchangeable Image File Format. It's a standard for bundling image data alongside a file. It's the reason you can use your photos app to see when photos were taken, what camera settings were used, and other technical details.
 </p>
 <p>
-  AI image generators like Stable Diffusion (through interfaces like Automatic1111 and ComfyUI) often write detailed generation parameters into EXIF fields, including the prompt used, model version, sampling steps, and seed values. Photo editing software may also leave telltale signatures. When present, these markers can provide strong clues about an image's synthetic or heavily edited origins.
+  AI image generation enthusiasts sometimes use programs like Automatic1111 (a little dated at the time of writing) and ComfyUI to set up complex image generation prompts and workflows. Note -- these aren't AI image models, but interfaces that let users control and automate the image generation process. These programs often write their parameters into EXIF metadata.
 </p>
 <div class="flash-warning">
-  <strong>Important limitation:</strong> EXIF data can be freely edited or completely stripped using basic tools, so its presence is informative but its absence proves nothing. A sophisticated actor can easily remove or falsify these markers.
+  <strong>Important limitation:</strong> It's really easy to remove EXIF data. You can do it in Photoshop, GIMP, or any number of online tools. So the absence of EXIF data doesn't prove anything.
 </div>
 <br/>
 <section>
   <h3>EXIF demo image: Automatic1111</h3>
+  <p>
+    Try analyzing this demo image to see what it looks like when Trace Machine detects EXIF data.
+  </p>
   <figure>
     <img
       src="{{ url_for('static', filename='info_images/astronaut.png') }}"
@@ -28,6 +31,9 @@
 <br/>
 <section>
   <h3>EXIF demo image: ComfyUI</h3>
+  <p>
+    Try analyzing this demo image to see what it looks like when Trace Machine detects EXIF data.
+  </p>
   <figure>
     <img
       src="{{ url_for('static', filename='info_images/bottle.png') }}"

@@ -2,7 +2,7 @@
 
 {% set link_target = row.context.link_target if row.context else None %}
 
-{% if row.status == "WAITING" %}
+{% if row.status == "MANUAL" %}
 <div class="analyzer-interactive">
   <p>TinEye reverse image search requires an external API call.</p>
   {{ render_tineye_button(row.context.analysis_id, is_refresh=false) }}

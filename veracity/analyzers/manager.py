@@ -48,14 +48,14 @@ ANALYZERS: Sequence[AnalyzerSpec] = (
         slug="tineye",
         func=get_tineye_status,
         template="partials/analyzers/tineye.html",
-        tooltip="Searches TinEye for reverse image matches and checks against known AI sites.",
+        tooltip="Uses TinEye to find where the image exists on the internet and when it first appeared.",
     ),
     AnalyzerSpec(
         name="AI Metadata (EXIF)",
         slug="exif",
         func=run_exif_metadata,
         template="partials/analyzers/exif.html",
-        tooltip="Scans EXIF blocks for hints that common AI tools left behind.",
+        tooltip="Scans metadata for hints that common AI tools leave behind.",
     ),
     AnalyzerSpec(
         name="Human Consensus",

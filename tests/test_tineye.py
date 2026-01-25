@@ -40,19 +40,19 @@ def _create_registry(app):
 
 
 class TestGetTinEyeStatus:
-    def test_returns_waiting_when_no_result(self, app):
+    def test_returns_manual_when_no_result(self, app):
         registry_id = _create_registry(app)
         context = _make_context(registry_id)
 
         with app.app_context():
             result = get_tineye_status(context)
 
-        assert result["status"] == "WAITING"
+        assert result["status"] == "MANUAL"
         assert "Manual check required" in result["summary"]
         assert result["data"]["allow_manual_refresh"] is True
 
     def test_ignores_neighbors(self, app):
-        """TinEye status ignores neighbors - it always returns WAITING
+        """TinEye status ignores neighbors - it always returns MANUAL
         since the actual lookup requires user action."""
         registry_id = _create_registry(app)
 
@@ -66,7 +66,7 @@ class TestGetTinEyeStatus:
         with app.app_context():
             result = get_tineye_status(context)
 
-        assert result["status"] == "WAITING"
+        assert result["status"] == "MANUAL"
         assert result["data"]["allow_manual_refresh"] is True
 
 
@@ -175,12 +175,12 @@ class TestRunTinEyeRoute:
 
 
 class TestTinEyeTemplates:
-    def test_tineye_template_renders_waiting_state(self, app):
+    def test_tineye_template_renders_manual_state(self, app):
         from flask import render_template
 
         with app.test_request_context():
             row = {
-                "status": "WAITING",
+                "status": "MANUAL",
                 "summary": "Manual check required",
                 "data": {},
                 "context": {"analysis_id": "test-123", "link_target": "_blank"},

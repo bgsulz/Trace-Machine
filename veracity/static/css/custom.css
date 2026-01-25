@@ -365,6 +365,10 @@ nav {
   margin-top: 1rem;
 }
 
+.cropper-line, .cropper-point {
+  background-color: var(--trace-machine-primary) !important;
+}
+
 .crop-action-bar {
   display: flex;
   justify-content: center;
@@ -390,6 +394,10 @@ nav {
 
 .crop-status[hidden] {
   display: none;
+}
+
+.cropper-drag-box {
+  background: none !important;
 }
 
 .dethumbnail-alert {
@@ -479,7 +487,7 @@ nav {
   border-radius: 9999px;
   border: 1px solid var(--pico-muted-border-color);
   font-size: 0.8em;
-  align-items: flex-end;
+  align-items: center;
   justify-content: center;
   color: var(--pico-muted-color);
 }
@@ -568,7 +576,6 @@ button.vote-btn-edited .tooltip-trigger::after {
 
 .badge.not-found,
 .badge.not-detected,
-.badge.waiting,
 .badge.manual {
   background-color: var(--veracity-badge-bg);
   color: var(--veracity-badge-fg);
@@ -832,17 +839,17 @@ details[open] > summary {
 
 /* Flash warnings */
 .flash-warning {
-    padding: 1rem;
-    margin-bottom: 1rem;
-    border-radius: var(--pico-border-radius);
-    background-color: var(--veracity-warning-dark);
-    color: var(--pico-color);
+  padding: 1rem;
+  margin-bottom: 1rem;
+  border-radius: var(--pico-border-radius);
+  background-color: var(--veracity-warning-dark);
+  color: var(--pico-color);
 }
 
 @media (prefers-color-scheme: dark) {
-    .flash-warning {
-        background-color: var(--veracity-warning);
-    }
+  .flash-warning {
+    background-color: var(--veracity-warning);
+  }
 }
 
 /* Toast notifications */

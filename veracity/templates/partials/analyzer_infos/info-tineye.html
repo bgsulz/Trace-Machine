@@ -1,19 +1,19 @@
 <p>
-  Uses <strong>TinEye</strong> reverse image search to find where this image has appeared online. TinEye crawls billions of web pages and indexes images, allowing detection of copies, modifications, and earlier appearances of the same image.
+  <strong>TinEye</strong> is a reverse image search engine. It finds where a given image exists across the entire internet. It has a strong perceptual matching algorithm that can detect crops and edits of the same image -- though it's not perfect, so manually verify by looking at the results.
 </p>
 <p>
-  Results are filtered to matches with similarity above 70% and checked against a <a href="https://github.com/laylavish/uBlockOrigin-HUGE-AI-Blocklist" target="_blank" rel="noopener noreferrer">community-maintained list</a> of known AI image generation sites (Civitai, Hugging Face galleries, etc.).
+  Trace Machine checks results against a <a href="https://github.com/laylavish/uBlockOrigin-HUGE-AI-Blocklist" target="_blank" rel="noopener noreferrer">huge community-maintained list</a> of known AI image generation sites; if an image is found on one of these sites, it's more likely to be AI-generated. On the other hand, if TinEye turns up that the image has been on the internet since before 2021 or 2022, it's strong evidence that the image is not AI-generated.
 </p>
 <div class="flash-warning">
-  <strong>Important limitation:</strong> TinEye only indexes publicly accessible web pages. Images shared privately, on social media with restricted access, or recently uploaded may not appear in results. The absence of matches does not prove an image is original.
+  <strong>Important limitation:</strong> TinEye can only search public web sites -- which is for the best! The absence of results doesn't necessarily mean the image is original.
 </div>
 <br/>
 <p>
   <strong>What the results mean:</strong>
   <ul>
-    <li><strong>Earliest date:</strong> The oldest crawl date found, suggesting when the image first appeared online.</li>
+    <li><strong>Earliest date:</strong> The oldest appearance of this image on the interet -- probably about when the image first appeared online.</li>
     <li><strong>Found on AI sites:</strong> At least one match was found on a known AI image generation or hosting site.</li>
-    <li><strong>Not on known AI sites:</strong> No matches were found on sites in the AI blocklist.</li>
+    <li><strong>Not on known AI sites:</strong> No matches were found on sites in the AI site list.</li>
   </ul>
 </p>
 <br />

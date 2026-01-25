@@ -1,11 +1,11 @@
 <p>
-  Uses Google to check the image for <strong>SynthID</strong>, an invisible watermark embedded in images generated or edited by Google's AI models. SynthID works by subtly manipulating pixel patterns in ways imperceptible to the human eye but detectable by specialized algorithms. Unlike traditional watermarks that sit in a specific location, SynthID is woven throughout the entire image at generation time, making it resistant to common edits like cropping, resizing, color adjustments, and compression.
+  Uses Google reverse image search to check the image for <strong>SynthID</strong>. This is an invisible watermark embedded in anything generated or edited by Google's AI models. It's not metadata, unlike C2PA/EXIF data -- it's basically an invisible pattern in the image's actual pixels.
 </p>
 <p>
-  When SynthID is detected, it confirms the image was created or modified by a Google AI tool (such as Imagen, Gemini's image generation, or Google's experimental AI studios). The watermark persists even after screenshots, filters, and minor modifications, though extreme transformations or re-generation can degrade or remove it.
+  SynthID is impossible to add after the fact -- it gets embedded into the image as it's being generated -- and it's very hard to remove. When SynthID is detected, it's very, very strong evidence that the image was generated or edited by one of Google's AI models.
 </p>
 <div class="flash-warning">
-  <strong>Important limitation:</strong> SynthID can only be embedded during image creation by supporting tools—it cannot be added retroactively to existing images. Like EXIF data, determined actors can attempt to remove it through aggressive editing, though it's significantly more robust than metadata-based approaches.
+  <strong>Important limitation:</strong> SynthID can be removed through very aggressive editing, and sometimes fails to register if the image is too small or compressed. Also, there's no automated way to check for a SynthID watermark -- the easiest way is to use Google reverse image search.
 </div>
 <br/>
 <p>

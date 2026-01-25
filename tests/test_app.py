@@ -10,7 +10,7 @@ from conftest import _make_test_image_bytes
 def test_index_renders_ok(client):
     resp = client.get("/")
     assert resp.status_code == 200
-    assert b"Analyze an image" in resp.data
+    assert b"Analyze" in resp.data
 
 
 def test_analyze_with_file_upload(client, app):

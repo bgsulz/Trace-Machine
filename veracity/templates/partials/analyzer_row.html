@@ -1,7 +1,7 @@
 {% set status_class = row.status|lower|replace(' ', '-') %}
 {% set details_template = row.template or "partials/analyzers/default.html" %}
 {% set link_target = row.context.link_target if row.context else None %}
-{% set is_notable = status_class not in ['not-found', 'not-detected', 'waiting', 'manual'] %}
+{% set is_notable = status_class not in ['not-found', 'not-detected', 'manual'] %}
 {% set expand_by_default = row.slug == 'human' or is_notable %}
 
 <details class="analyzer-item" id="analyzer-row-{{ row.slug }}" {{ 'open' if expand_by_default else '' }}>
