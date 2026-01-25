@@ -214,7 +214,7 @@ def run_c2pa(context: AnalysisContext) -> dict[str, object]:
     if status == "NOT FOUND" and matches:
         result["status"] = "SIMILAR"
         result["summary"] = (
-            f"Found {len(matches)} visually similar images with C2PA metadata."
+            f"Found {len(matches)} visually similar image{'s' if len(matches) != 1 else ''} with C2PA metadata."
         )
 
     # Attach matches for the UI layer; always include the key for consistency.

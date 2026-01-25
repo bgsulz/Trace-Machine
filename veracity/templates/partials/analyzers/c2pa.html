@@ -12,7 +12,7 @@
   </div>
   {% endif %} {% if row.data.matches %}
   <hr />
-  <p><strong>Similar images with C2PA data:</strong></p>
+  <p><strong>Similar image{{ "s" if len(row.data.matches) != 1 else "" }} with C2PA data:</strong></p>
 
   <table style="font-size: 0.85rem; margin-bottom: 1rem">
     <thead>

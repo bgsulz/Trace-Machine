@@ -124,14 +124,14 @@ def run_human_consensus(context: AnalysisContext) -> dict[str, object]:
     total_votes = totals["total_votes"]
 
     if has_matches:
-        matches_summary = "Similar images with votes:"
+        matches_summary = "Similar image with votes:" if len(matches) == 1 else "Similar images with votes:"
     else:
         matches_summary = ""
 
     no_votes_message = "No votes yet."
 
     if matches:
-        summary = f"{len(matches)} similar images with {total_votes} votes total."
+        summary = f"{len(matches)} similar image{'s' if len(matches) != 1 else ''} with {total_votes} votes total."
         status = "FOUND"
     else:
         summary = "No community consensus yet."
