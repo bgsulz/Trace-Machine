@@ -3,6 +3,7 @@ Flask-WTF
 Flask-SQLAlchemy
 Flask-Migrate
 Flask-Limiter
+Flask-Compress
 Pillow
 requests
 python-dotenv

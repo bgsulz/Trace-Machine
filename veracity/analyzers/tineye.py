@@ -24,7 +24,7 @@ SHAME_LIST_URL = (
     "https://raw.githubusercontent.com/laylavish/uBlockOrigin-HUGE-AI-Blocklist"
     "/main/list_uBlacklist.txt"
 )
-SHAME_LIST_TTL_SECONDS = 3600  # 1 hour
+SHAME_LIST_TTL_SECONDS = 86400  # 24 hours
 
 _CACHE_FILENAME = "shame_list_cache.txt"
 _SEED_PATH = Path(__file__).parent.parent / "static" / "shame_list_seed.txt"
