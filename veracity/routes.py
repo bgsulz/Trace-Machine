@@ -473,3 +473,11 @@ def _rerender_original(payload):
         image_url=image_url,
         crop_box=crop_box,
     )
+
+
+@bp.route("/dev/mini-test")
+def dev_mini_test():
+    """Dev-only page to test the analyze-mini iframe view."""
+    if not current_app.debug:
+        abort(404)
+    return render_template("dev_mini_test.html")
