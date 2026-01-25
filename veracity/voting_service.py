@@ -2,6 +2,7 @@ import hashlib
 
 from flask import current_app, request
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import joinedload
 
 from . import db
 from .models import ImageConsensus, ImageRegistry, ImageSource, VoteHistory
@@ -14,8 +15,19 @@ def apply_vote(phash: str, vote_kind: str, voter_id: str) -> tuple[bool, str | N
     if vote_kind not in VOTE_CHOICES:
         return False, None
 
-    registry_row = get_or_create_registry(phash)
-    record = get_or_create_consensus(registry_row)
+    # Single query: fetch registry + consensus via eager loading
+    registry_row = ImageRegistry.query.options(
+        joinedload(ImageRegistry.consensus)
+    ).filter_by(phash=phash).first()
+
+    if registry_row is None:
+        # Image must exist before voting (created during analysis)
+        return False, None
+
+    record = registry_row.consensus
+    if record is None:
+        record = ImageConsensus(image_id=registry_row.id)
+        db.session.add(record)
 
     history_row = VoteHistory.query.filter_by(
         image_id=registry_row.id,
@@ -53,7 +65,10 @@ def persist_source_url(phash: str | None, image_url: str | None) -> None:
     if not (image_url and phash):
         return
 
-    registry_row = get_or_create_registry(phash)
+    registry_row = ImageRegistry.query.filter_by(phash=phash).first()
+    if registry_row is None:
+        return  # Image must exist (created during analysis)
+
     record = ImageSource(image_id=registry_row.id, url=image_url)
     db.session.add(record)
     try:
@@ -77,23 +92,6 @@ def build_voter_id(ip_address: str) -> str:
     secret = current_app.config.get("SECRET_KEY", "")
     payload = f"{ip_address}:{secret}".encode("utf-8")
     return hashlib.sha256(payload).hexdigest()
-
-
-def get_or_create_registry(phash: str) -> ImageRegistry:
-    registry_row = ImageRegistry.query.filter_by(phash=phash).first()
-    if registry_row is None:
-        registry_row = ImageRegistry(phash=phash)
-        db.session.add(registry_row)
-        db.session.flush()
-    return registry_row
-
-
-def get_or_create_consensus(registry_row: ImageRegistry) -> ImageConsensus:
-    record = ImageConsensus.query.filter_by(image_id=registry_row.id).first()
-    if record is None:
-        record = ImageConsensus(image_id=registry_row.id)
-        db.session.add(record)
-    return record
 
 
 def _increment_vote_counts(record: ImageConsensus, vote_kind: str) -> None:
