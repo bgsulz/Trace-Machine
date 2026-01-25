@@ -22,7 +22,7 @@
   </div>
   <div class="mini-card-detail">{{ row.data.matches|length }} similar image{{ 's' if row.data.matches|length != 1 else '' }} with C2PA</div>
 
-  {% elif row.status == "NOT FOUND" or row.status == "NOT_FOUND" %}
+  {% elif row.status == "NOT FOUND" %}
   <div class="mini-card-status not-found">Not found</div>
 
   {% elif row.status == "NOT AVAILABLE" %}
