@@ -15,6 +15,10 @@
   --veracity-badge-danger: var(--veracity-danger);
 }
 
+a:not(.site-header a) {
+  text-decoration: underline dotted;
+}
+
 a:not(.site-header a)::after {
   content: " ⮺";
   font-size: 0.6em;
@@ -120,6 +124,10 @@ body > header {
   margin-bottom: 0.25rem;
   font-weight: 800;
   color: var(--pico-primary);
+}
+
+.brand-title a {
+  text-decoration: none;
 }
 
 .brand-subtitle {
@@ -679,7 +687,7 @@ details[open] > summary {
 
 .analyzer-detail-block {
   background-color: var(--pico-card-section-background-color);
-  padding: 0.75rem;
+  padding: 0.75rem 0;
   border-radius: 4px;
   margin-top: 0.5rem;
   font-size: 0.9rem;
@@ -1162,4 +1170,23 @@ body:has(.quick-actions) {
   .hint-definitions dd {
     margin-left: 0;
   }
+}
+
+/* Header Actions (TinEye, SynthID) */
+.header-action {
+  display: inline-flex;
+  align-items: center;
+  margin: 0;
+}
+
+.header-action button,
+a.header-action[role="button"] {
+  margin: 0;
+  padding: 0.35rem 0.75rem;
+  font-size: 0.75rem;
+  white-space: nowrap;
+}
+
+form.header-action {
+  display: inline;
 }

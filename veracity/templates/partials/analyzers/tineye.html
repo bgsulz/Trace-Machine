@@ -1,11 +1,11 @@
-{% from "partials/macros/tineye.html" import render_tineye_button, render_tineye_buckets %}
-
-{% set link_target = row.context.link_target if row.context else None %}
+{% from "partials/macros/tineye.html" import render_tineye_buckets %}
 
 {% if row.status == "MANUAL" %}
-<div class="analyzer-interactive">
-  <p>TinEye reverse image search requires an external API call.</p>
-  {{ render_tineye_button(row.context.analysis_id, is_refresh=false) }}
+<div class="analyzer-detail-block">
+  <p style="font-size: 0.85rem; color: var(--pico-muted-color);">
+    Click <strong>"Check TinEye"</strong> above to search for this image across the web.
+    This will check where the image has appeared online and when it was first indexed.
+  </p>
 </div>
 {% else %}
 <div class="analyzer-detail-block">

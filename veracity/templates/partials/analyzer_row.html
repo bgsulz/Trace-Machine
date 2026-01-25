@@ -24,6 +24,33 @@
       </div>
       {% endif %}
     </div>
+    {% if row.data.header_action %}
+    {% set action = row.data.header_action %}
+    {% if action.type == "htmx" and row.slug == "tineye" %}
+    <form
+      class="header-action"
+      method="post"
+      action="{{ url_for('main.run_tineye', analysis_id=row.context.analysis_id) }}"
+      hx-post="{{ url_for('main.run_tineye', analysis_id=row.context.analysis_id) }}"
+      hx-target="#analyzer-row-{{ row.slug }}"
+      hx-swap="outerHTML"
+      onclick="event.stopPropagation()"
+    >
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+      <button type="submit" class="outline">{{ action.label }}</button>
+    </form>
+    {% elif action.type == "link" and row.slug == "synthid" %}
+    {% set lens_link = row.context.lens_link if row.context else "https://images.google.com/" %}
+    <a
+      class="header-action"
+      href="{{ lens_link }}"
+      target="_blank"
+      rel="noopener noreferrer"
+      role="button"
+      onclick="event.stopPropagation(); this.closest('details').open = true;"
+    >{{ action.label }}</a>
+    {% endif %}
+    {% endif %}
     <span class="badge {{ status_class }}">{{ row.status }}</span>
   </summary>
   <div class="analyzer-content">

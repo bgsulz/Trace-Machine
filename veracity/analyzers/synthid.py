@@ -14,6 +14,11 @@ def run_synthid(context: AnalysisContext) -> dict[str, object]:
     """Return a MANUAL status with instructions for checking SynthID."""
     return {
         "status": "MANUAL",
-        "summary": "SynthID detection requires manual verification via Google.",
-        "data": {},
+        "summary": "Check for Google's invisible AI watermark.",
+        "data": {
+            "header_action": {
+                "type": "link",
+                "label": "Check Google",
+            },
+        },
     }

@@ -445,9 +445,13 @@ def build_summary(
 def get_tineye_status(context: AnalysisContext) -> dict[str, object]:
     return {
         "status": "MANUAL",
-        "summary": "Manual check required.",
+        "summary": "Search for this image across the web.",
         "data": {
             "allow_manual_refresh": True,
+            "header_action": {
+                "type": "htmx",
+                "label": "Check TinEye",
+            },
         },
     }
 
