@@ -1,0 +1,62 @@
+{% from "partials/vote_bar.html" import render_vote_bar %}
+
+{# Out-of-band swap to update header vote bar when voting #}
+<div class="mini-vote-summary" id="mini-vote-summary" hx-swap-oob="true">
+  <div class="vote-bar-wrap">
+    {{ render_vote_bar(row.data.overall_breakdown, compact=True) }}
+  </div>
+</div>
+
+<div class="mini-card-content" data-status="{{ row.status }}">
+  <div class="mini-card-title">Community</div>
+
+  {% set totals = row.data.totals or {} %}
+  {% set total_votes = totals.total_votes|default(0) %}
+  {% set current_vote = row.data.current_vote %}
+
+  {% if total_votes > 0 %}
+  <div class="mini-vote-counts">
+    <span class="vote-count real">{{ totals.vote_real|default(0) }} real</span>
+    <span class="vote-count edited">{{ totals.vote_edited|default(0) }} edited</span>
+    <span class="vote-count ai">{{ totals.vote_ai|default(0) }} AI</span>
+  </div>
+  {% else %}
+  <div class="mini-card-detail">No votes yet</div>
+  {% endif %}
+
+  <div class="mini-vote-buttons">
+    <form action="{{ url_for('main.vote') }}" method="post"
+          hx-post="{{ url_for('main.vote') }}"
+          hx-target="#mini-card-human"
+          hx-swap="innerHTML">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+      <input type="hidden" name="mini" value="1" />
+      <input type="hidden" name="phash" value="{{ row.data.phash }}" />
+      <input type="hidden" name="analysis_id" value="{{ row.context.analysis_id }}" />
+      <input type="hidden" name="vote" value="real" />
+      <button type="submit" class="mini-vote-btn real{% if current_vote == 'real' %} active{% endif %}">Real</button>
+    </form>
+    <form action="{{ url_for('main.vote') }}" method="post"
+          hx-post="{{ url_for('main.vote') }}"
+          hx-target="#mini-card-human"
+          hx-swap="innerHTML">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+      <input type="hidden" name="mini" value="1" />
+      <input type="hidden" name="phash" value="{{ row.data.phash }}" />
+      <input type="hidden" name="analysis_id" value="{{ row.context.analysis_id }}" />
+      <input type="hidden" name="vote" value="edited" />
+      <button type="submit" class="mini-vote-btn edited{% if current_vote == 'edited' %} active{% endif %}">Edited</button>
+    </form>
+    <form action="{{ url_for('main.vote') }}" method="post"
+          hx-post="{{ url_for('main.vote') }}"
+          hx-target="#mini-card-human"
+          hx-swap="innerHTML">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+      <input type="hidden" name="mini" value="1" />
+      <input type="hidden" name="phash" value="{{ row.data.phash }}" />
+      <input type="hidden" name="analysis_id" value="{{ row.context.analysis_id }}" />
+      <input type="hidden" name="vote" value="ai" />
+      <button type="submit" class="mini-vote-btn ai{% if current_vote == 'ai' %} active{% endif %}">AI</button>
+    </form>
+  </div>
+</div>

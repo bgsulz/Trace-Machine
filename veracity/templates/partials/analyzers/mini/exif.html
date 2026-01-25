@@ -1,0 +1,16 @@
+<div class="mini-card-content" data-status="{{ row.status }}">
+  <div class="mini-card-title">EXIF</div>
+  {% if row.status == "FOUND" and row.data.findings %}
+  <div class="mini-card-status found">
+    <span class="mini-icon">&#9888;</span> AI metadata
+  </div>
+  {% set first_finding = row.data.findings[0] %}
+  <div class="mini-card-detail">{{ first_finding.tool }}</div>
+  {% elif row.status == "NOT FOUND" or (row.status == "FOUND" and not row.data.findings) %}
+  <div class="mini-card-status not-found">No AI metadata found</div>
+  {% elif row.status == "ERROR" %}
+  <div class="mini-card-status error">Error</div>
+  {% else %}
+  <div class="mini-card-status unknown">{{ row.status }}</div>
+  {% endif %}
+</div>

@@ -1,0 +1,53 @@
+<div class="mini-card-content" data-status="{{ row.status }}">
+  <div class="mini-card-title">C2PA Signature</div>
+
+  {% if row.status == "FOUND" %}
+  <div class="mini-card-status found">
+    {% if row.data.signature_status == "valid" %}
+    <span class="mini-icon">&#10003;</span> Signed
+    {% elif row.data.signature_status == "invalid" %}
+    <span class="mini-icon">&#9888;</span> Invalid
+    {% else %}
+    <span class="mini-icon">&#10003;</span> Present
+    {% endif %}
+  </div>
+  <div class="mini-card-detail">{{ row.summary }}</div>
+  {% if row.data.tool %}
+  <div class="mini-card-detail mini-card-tool">{{ row.data.tool }}</div>
+  {% endif %}
+
+  {% elif row.status == "SIMILAR" %}
+  <div class="mini-card-status similar">
+    <span class="mini-icon">&#128269;</span> Similar found
+  </div>
+  <div class="mini-card-detail">{{ row.data.matches|length }} similar image{{ 's' if row.data.matches|length != 1 else '' }} with C2PA</div>
+
+  {% elif row.status == "NOT FOUND" or row.status == "NOT_FOUND" %}
+  <div class="mini-card-status not-found">Not found</div>
+
+  {% elif row.status == "NOT AVAILABLE" %}
+  <div class="mini-card-status not-found">Not available</div>
+
+  {% elif row.status == "ERROR" %}
+  <div class="mini-card-status error">Error</div>
+
+  {% else %}
+  <div class="mini-card-status unknown">{{ row.status }}</div>
+  {% endif %}
+
+  {# Show similarity matches if any #}
+  {% if row.data.matches %}
+  <div class="mini-matches">
+    <div class="mini-matches-header">{{ row.data.matches|length }} similar with C2PA:</div>
+    {% for match in row.data.matches[:3] %}
+    <div class="mini-match-row">
+      <span class="mini-match-info">{{ match.fact_data|truncate(30, True) }}</span>
+      <span class="mini-match-distance">d={{ match.distance }}</span>
+    </div>
+    {% endfor %}
+    {% if row.data.matches|length > 3 %}
+    <div class="mini-match-row mini-match-more">+{{ row.data.matches|length - 3 }} more</div>
+    {% endif %}
+  </div>
+  {% endif %}
+</div>

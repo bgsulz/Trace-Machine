@@ -113,13 +113,15 @@ def analyzer_fragment(analysis_id: str, slug: str):
     payload = load_analysis_payload(analysis_id)
     if payload is None:
         return _expired_analysis_response()
-    link_target = "_blank" if request.args.get("mini") == "1" else None
+    mini = request.args.get("mini") == "1"
+    link_target = "_blank" if mini else None
     refresh = request.args.get("refresh") == "1"
     return render_analyzer_fragment_html(
         analysis_id,
         slug,
         link_target=link_target,
         refresh=refresh,
+        mini=mini,
     )
 
 
@@ -306,6 +308,7 @@ def vote():
     analysis_link = (request.form.get("analysis_link") or "").strip()
     analysis_id = (request.form.get("analysis_id") or "").strip()
     link_target = (request.form.get("link_target") or "").strip()
+    mini = request.form.get("mini") == "1"
 
     if not phash or vote_kind not in VOTE_CHOICES:
         flash("Invalid vote request.")
@@ -329,6 +332,7 @@ def vote():
             "human",
             link_target=link_target or None,
             refresh=True,
+            mini=mini,
         )
         response = make_response(html)
         response.headers["HX-Trigger"] = json.dumps({"showToast": "Thanks for your vote."})

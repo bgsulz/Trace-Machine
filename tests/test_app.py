@@ -138,7 +138,11 @@ def test_analyze_mini_renders_compact_report(client, monkeypatch):
 
     resp = client.get("/analyze-mini?url=https://example.com/mini.png")
     assert resp.status_code == 200
-    assert b"Digital Signature (C2PA)" in resp.data
+    # Check for mini grid structure
+    assert b"mini-grid" in resp.data
+    assert b"mini-card-c2pa" in resp.data
+    assert b"mini-card-exif" in resp.data
+    assert b"mini-card-human" in resp.data
     assert b"hx-get" in resp.data
 
 

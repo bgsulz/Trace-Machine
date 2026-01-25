@@ -24,30 +24,6 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/mini.css') }}"></link>
   </head>
   <body>
-    <main class="mini-container">
-      <section class="mini-report">
-        <div class="mini-table-wrapper" data-analysis-id="{{ analysis_id }}">
-          {% with placeholder_prefix="mini-analyzer-placeholder-", mini_mode=True %}
-          {% include "partials/analysis_table.html" %}
-          {% endwith %}
-        </div>
-        {% if tools %}
-        <div class="mini-tools-wrapper">
-          <h3>Analysis Tools</h3>
-          {% include "partials/tools_table.html" %}
-        </div>
-        {% endif %}
-        {% if analysis_link %}
-        <p style="margin: 0.5rem 0 0; text-align: right">
-          <a
-            href="{{ analysis_link }}"
-            target="_blank"
-            rel="noopener noreferrer"
-            >Open full analysis ↗</a
-          >
-        </p>
-        {% endif %}
-      </section>
-    </main>
+    {% include "partials/mini_grid.html" %}
   </body>
 </html>

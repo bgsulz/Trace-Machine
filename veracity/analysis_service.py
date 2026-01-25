@@ -130,12 +130,16 @@ def perform_analysis(
     )
 
 
+_MINI_TEMPLATES = {"c2pa", "exif", "human"}
+
+
 def render_analyzer_fragment_html(
     analysis_id: str,
     slug: str,
     *,
     link_target: str | None,
     refresh: bool = False,
+    mini: bool = False,
 ):
     spec = get_analyzer_spec(slug)
     if spec is None:
@@ -155,6 +159,9 @@ def render_analyzer_fragment_html(
             store_cached_analyzer_row(analysis_id, slug, row)
 
     _prepare_row_for_render(row, metadata, link_target, analysis_id)
+
+    if mini and slug in _MINI_TEMPLATES:
+        return render_template(f"partials/analyzers/mini/{slug}.html", row=row)
     return render_template("partials/analyzer_row.html", row=row)
 
 

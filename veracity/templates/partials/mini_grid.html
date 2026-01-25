@@ -1,0 +1,88 @@
+{# Mini grid layout for browser extension iframe #}
+
+<div class="mini-grid" data-analysis-id="{{ analysis_id }}">
+  {# Top bar: Full analysis link #}
+  <header class="mini-header">
+    <div
+      class="mini-vote-summary"
+      id="mini-vote-summary"
+      hx-get="{{ url_for('main.analyzer_fragment', analysis_id=analysis_id, slug='human', mini=1) }}"
+      hx-trigger="load"
+      hx-select=".vote-bar-wrap"
+      hx-swap="innerHTML"
+    >
+      <div class="vote-bar-wrap">
+        <span class="mini-loading">Loading...</span>
+      </div>
+    </div>
+    {% if analysis_link %}
+    <a
+      href="{{ analysis_link }}"
+      target="_blank"
+      rel="noopener noreferrer"
+      class="mini-full-link"
+    >Full Analysis &rarr;</a>
+    {% endif %}
+  </header>
+
+  {# Main content: 2-column layout #}
+  <div class="mini-columns">
+    {# Left column: C2PA (larger) #}
+    <div
+      class="mini-card mini-card-c2pa"
+      id="mini-card-c2pa"
+      hx-get="{{ url_for('main.analyzer_fragment', analysis_id=analysis_id, slug='c2pa', mini=1) }}"
+      hx-trigger="load"
+      hx-swap="innerHTML"
+    >
+      <div class="mini-card-content">
+        <div class="mini-card-title">C2PA</div>
+        <div class="mini-card-status loading">Loading...</div>
+      </div>
+    </div>
+
+    {# Right column: EXIF + Community stacked #}
+    <div class="mini-right-column">
+      <div
+        class="mini-card"
+        id="mini-card-exif"
+        hx-get="{{ url_for('main.analyzer_fragment', analysis_id=analysis_id, slug='exif', mini=1) }}"
+        hx-trigger="load"
+        hx-swap="innerHTML"
+      >
+        <div class="mini-card-content">
+          <div class="mini-card-title">EXIF</div>
+          <div class="mini-card-status loading">Loading...</div>
+        </div>
+      </div>
+
+      <div
+        class="mini-card"
+        id="mini-card-human"
+        hx-get="{{ url_for('main.analyzer_fragment', analysis_id=analysis_id, slug='human', mini=1) }}"
+        hx-trigger="load"
+        hx-swap="innerHTML"
+      >
+        <div class="mini-card-content">
+          <div class="mini-card-title">Community</div>
+          <div class="mini-card-status loading">Loading...</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {# Bottom bar: reverse search links #}
+  <footer class="mini-footer">
+    <span class="mini-footer-label">Search:</span>
+    {% for tool in tools %}
+    {% for link in tool.links %}
+    <a
+      href="{{ link.url }}"
+      target="_blank"
+      rel="noopener noreferrer"
+      class="mini-search-link"
+    >{{ link.label }}</a>
+    {% endfor %}
+    {% endfor %}
+  </footer>
+</div>

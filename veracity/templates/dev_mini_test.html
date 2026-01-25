@@ -1,11 +1,17 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Mini View Test</title>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css" />
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/theme.css') }}" />
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css"
+    />
+    <link
+      rel="stylesheet"
+      href="{{ url_for('static', filename='css/theme.css') }}"
+    />
     <style>
       body {
         max-width: 600px;
@@ -20,8 +26,8 @@
       input[type="url"] {
         flex: 1;
       }
-      button[type=submit] {
-        width: revert
+      button[type="submit"] {
+        width: revert;
       }
       .iframe-container {
         border: 1px solid var(--pico-muted-border-color);
@@ -52,10 +58,10 @@
       <iframe id="mini-iframe" src="about:blank"></iframe>
     </div>
     <script>
-      const form = document.getElementById('test-form');
-      const iframe = document.getElementById('mini-iframe');
-      const urlInput = document.getElementById('image-url');
-      form.addEventListener('submit', (e) => {
+      const form = document.getElementById("test-form");
+      const iframe = document.getElementById("mini-iframe");
+      const urlInput = document.getElementById("image-url");
+      form.addEventListener("submit", (e) => {
         e.preventDefault();
         const url = urlInput.value.trim();
         if (url) {
@@ -63,7 +69,7 @@
         }
       });
       const params = new URLSearchParams(window.location.search);
-      const preloadUrl = params.get('url');
+      const preloadUrl = params.get("url");
       if (preloadUrl) {
         urlInput.value = preloadUrl;
         iframe.src = `/analyze-mini?url=${encodeURIComponent(preloadUrl)}`;
