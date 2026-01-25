@@ -373,7 +373,8 @@ nav {
   margin-top: 1rem;
 }
 
-.cropper-line, .cropper-point {
+.cropper-line,
+.cropper-point {
   background-color: var(--trace-machine-primary) !important;
 }
 
@@ -687,10 +688,15 @@ details[open] > summary {
 
 .analyzer-detail-block {
   background-color: var(--pico-card-section-background-color);
-  padding: 0.75rem 0;
+  padding: 0;
+  padding-top: 0.75rem;
   border-radius: 4px;
   margin-top: 0.5rem;
   font-size: 0.9rem;
+}
+
+.analyzer-detail-block p:last-child {
+  margin-bottom: 0;
 }
 
 .vote-bar-wrapper {
