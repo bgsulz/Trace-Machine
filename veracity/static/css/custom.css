@@ -577,6 +577,8 @@ button.vote-btn-edited .tooltip-trigger::after {
   line-height: 1;
   border-radius: 4px;
   text-transform: uppercase;
+  background-color: var(--veracity-badge-bg);
+  color: var(--veracity-badge-fg);
 }
 
 .badge.found,
@@ -588,13 +590,6 @@ button.vote-btn-edited .tooltip-trigger::after {
 .badge.similar {
   background-color: var(--veracity-badge-warning);
   color: #000;
-}
-
-.badge.not-found,
-.badge.not-detected,
-.badge.manual {
-  background-color: var(--veracity-badge-bg);
-  color: var(--veracity-badge-fg);
 }
 
 .badge.loading {
