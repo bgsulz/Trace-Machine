@@ -40,6 +40,25 @@ def apply_synthid_report(
         db.session.commit()
     except IntegrityError:
         db.session.rollback()
-        return False, None
+
+        # Likely a concurrent insert/update hit the unique constraint.
+        # Recover by re-querying and returning an appropriate status.
+        report = SynthIDReport.query.filter_by(
+            image_id=registry_row.id,
+            voter_id=voter_id,
+        ).first()
+        if report is None:
+            return False, None
+
+        if report.result == result:
+            return True, "unchanged"
+
+        report.result = result
+        try:
+            db.session.commit()
+        except IntegrityError:
+            db.session.rollback()
+            return False, None
+        return True, "updated"
 
     return True, status
