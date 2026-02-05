@@ -42,7 +42,7 @@ class ImageSource(db.Model):
     __table_args__ = (db.UniqueConstraint("image_id", "url", name="uq_source"),)
     id = db.Column(db.Integer, primary_key=True)
     image_id = db.Column(db.Integer, db.ForeignKey("image_registry.id"), nullable=False)
-    url = db.Column(db.Text, nullable=False)
+    url = db.Column(db.Text, nullable=False, index=True)
 
 
 class ImageContainment(db.Model):

@@ -38,6 +38,7 @@ from .voting_service import VOTE_CHOICES, apply_vote, get_voter_id
 from .synthid_service import SYNTHID_CHOICES, apply_synthid_report
 from .analyzers.tineye import call_tineye_api, process_tineye_response, get_shame_list_matchers, build_summary
 from .analyzers.manager import get_analyzer_spec, _format_result
+from .lookup_service import lookup_urls
 
 bp = Blueprint("main", __name__)
 
@@ -523,6 +524,29 @@ def _rerender_original(payload):
         image_url=image_url,
         crop_box=crop_box,
     )
+
+
+MAX_LOOKUP_URLS = 50
+
+
+@bp.route("/api/lookup", methods=["POST"])
+@csrf.exempt
+@limiter.limit("30/minute")
+@limiter.limit("500/hour", key_func=lambda: "global")
+def api_lookup():
+    data = request.get_json(silent=True)
+    if not data or not isinstance(data.get("urls"), list):
+        return jsonify({"error": "Request body must be JSON with a 'urls' array."}), 400
+
+    urls = data["urls"]
+    if len(urls) > MAX_LOOKUP_URLS:
+        return jsonify({"error": f"Maximum {MAX_LOOKUP_URLS} URLs per request."}), 400
+
+    # Filter to strings only
+    urls = [u for u in urls if isinstance(u, str) and u]
+
+    results = lookup_urls(urls)
+    return jsonify({"results": results})
 
 
 @bp.route("/dev/mini-test")
