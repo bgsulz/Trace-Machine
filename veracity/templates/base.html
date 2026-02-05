@@ -111,7 +111,7 @@
 
         // Listen for HTMX-triggered toasts
         document.body.addEventListener("showToast", (e) => {
-          showToast(e.detail);
+          showToast(e.detail.value);
         });
 
         // Expose globally for potential direct use
