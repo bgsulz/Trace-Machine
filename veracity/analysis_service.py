@@ -22,7 +22,7 @@ from .analyzers.manager import (
 )
 from .containment_service import get_displayable_containments
 from . import dethumbnail
-from .models import VoteHistory
+from .models import SynthIDReport, VoteHistory
 from .registry import prepare_analysis_context
 from .tools import generate_external_tools
 from . import voting_service
@@ -260,7 +260,15 @@ def _prepare_row_for_render(
         "lens_link": lens_link,
     }
 
-    if row.get("slug") != "human":
+    slug = row.get("slug")
+
+    if slug == "synthid":
+        registry_id = metadata.get("registry_id")
+        if registry_id is not None:
+            _attach_synthid_report(row, registry_id)
+        return
+
+    if slug != "human":
         return
 
     registry_id = metadata.get("registry_id")
@@ -282,6 +290,20 @@ def _attach_vote_history(row: dict[str, Any] | None, registry_id: int) -> None:
 
     data = row.get("data") or {}
     data["current_vote"] = history_row.choice if history_row else None
+    row["data"] = data
+
+
+def _attach_synthid_report(row: dict[str, Any], registry_id: int) -> None:
+    if row is None:
+        return
+
+    report = SynthIDReport.query.filter_by(
+        image_id=registry_id,
+        voter_id=voting_service.get_voter_id(),
+    ).first()
+
+    data = row.get("data") or {}
+    data["current_report"] = report.result if report else None
     row["data"] = data
 
 

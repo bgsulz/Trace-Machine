@@ -33,6 +33,12 @@ class FactSnapshot:
 
 
 @dataclass(slots=True)
+class SynthIDSnapshot:
+    detected: int
+    not_detected: int
+
+
+@dataclass(slots=True)
 class NeighborSnapshot:
     id: int | None
     phash: str | None
@@ -41,6 +47,7 @@ class NeighborSnapshot:
     consensus: ConsensusSnapshot | None
     sources: tuple[SourceSnapshot, ...]
     facts: tuple[FactSnapshot, ...]
+    synthid: SynthIDSnapshot | None
 
 
 def prepare_analysis_context(image_bytes: bytes) -> AnalysisContext:
@@ -64,6 +71,7 @@ def prepare_analysis_context(image_bytes: bytes) -> AnalysisContext:
         joinedload(ImageRegistry.consensus),
         joinedload(ImageRegistry.sources),
         joinedload(ImageRegistry.facts),
+        joinedload(ImageRegistry.synthid_reports),
     ).all()
 
     neighbors = []
@@ -127,6 +135,13 @@ def _serialize_neighbor(registry_obj: ImageRegistry) -> NeighborSnapshot:
             continue
         facts_snapshot.append(FactSnapshot(analyzer=analyzer, data=data))
 
+    synthid_snapshot = None
+    synthid_reports = getattr(registry_obj, "synthid_reports", None) or []
+    if synthid_reports:
+        detected = sum(1 for r in synthid_reports if r.result == "detected")
+        not_detected = sum(1 for r in synthid_reports if r.result == "not_detected")
+        synthid_snapshot = SynthIDSnapshot(detected=detected, not_detected=not_detected)
+
     return NeighborSnapshot(
         id=getattr(registry_obj, "id", None),
         phash=getattr(registry_obj, "phash", None),
@@ -135,4 +150,5 @@ def _serialize_neighbor(registry_obj: ImageRegistry) -> NeighborSnapshot:
         consensus=consensus_snapshot,
         sources=tuple(sources_snapshot),
         facts=tuple(facts_snapshot),
+        synthid=synthid_snapshot,
     )

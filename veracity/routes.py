@@ -35,6 +35,7 @@ from .config_service import (
 )
 from .registry import prepare_analysis_context
 from .voting_service import VOTE_CHOICES, apply_vote, get_voter_id
+from .synthid_service import SYNTHID_CHOICES, apply_synthid_report
 from .analyzers.tineye import call_tineye_api, process_tineye_response, get_shame_list_matchers, build_summary
 from .analyzers.manager import get_analyzer_spec, _format_result
 
@@ -339,6 +340,43 @@ def vote():
         return response
     flash("Thanks for your vote.")
     return redirect(redirect_target)
+
+
+@bp.route("/synthid-report", methods=["POST"])
+def synthid_report():
+    phash = (request.form.get("phash") or "").strip()
+    report = (request.form.get("report") or "").strip().lower()
+    analysis_id = (request.form.get("analysis_id") or "").strip()
+
+    if not phash or report not in SYNTHID_CHOICES:
+        flash("Invalid report request.")
+        return redirect(url_for("main.index"))
+
+    voter_id = get_voter_id()
+    success, status = apply_synthid_report(phash, report, voter_id)
+    if not success:
+        flash("Reporting is temporarily unavailable. Please try again.")
+        return redirect(url_for("main.index"))
+
+    if request.headers.get("HX-Request") and analysis_id:
+        payload = load_analysis_payload(analysis_id)
+        if payload is None:
+            return _expired_analysis_response()
+        html = render_analyzer_fragment_html(
+            analysis_id,
+            "synthid",
+            link_target=None,
+            refresh=True,
+        )
+        response = make_response(html)
+        msg = "SynthID report recorded." if status == "recorded" else "SynthID report updated."
+        if status == "unchanged":
+            msg = "You already submitted this report."
+        response.headers["HX-Trigger"] = json.dumps({"showToast": msg})
+        return response
+
+    flash("Thanks for your report.")
+    return redirect(url_for("main.index"))
 
 
 @bp.route("/webhooks/kofi", methods=["POST"])

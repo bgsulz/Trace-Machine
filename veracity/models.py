@@ -14,6 +14,7 @@ class ImageRegistry(db.Model):
     consensus = db.relationship("ImageConsensus", backref="image", uselist=False)
     facts = db.relationship("ProvenanceFact", backref="image")
     sources = db.relationship("ImageSource", backref="image")
+    synthid_reports = db.relationship("SynthIDReport", backref="image")
 
 
 class ImageConsensus(db.Model):
@@ -75,6 +76,16 @@ class VoteHistory(db.Model):
     image_id = db.Column(db.Integer, db.ForeignKey("image_registry.id"), nullable=False)
     voter_id = db.Column(db.String(64), nullable=False)
     choice = db.Column(db.String(16), nullable=False)
+
+
+class SynthIDReport(db.Model):
+    __table_args__ = (
+        db.UniqueConstraint("image_id", "voter_id", name="uq_synthid_report"),
+    )
+    id = db.Column(db.Integer, primary_key=True)
+    image_id = db.Column(db.Integer, db.ForeignKey("image_registry.id"), nullable=False)
+    voter_id = db.Column(db.String(64), nullable=False)
+    result = db.Column(db.String(16), nullable=False)  # "detected" or "not_detected"
 
 
 class GlobalConfig(db.Model):
