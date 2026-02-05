@@ -35,9 +35,6 @@ def create_app(test_config=None):
 
     migrate.init_app(app, db)
 
-    # Trust a single upstream proxy (e.g. Nginx) for X-Forwarded-* headers.
-    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1)  # type: ignore[assignment]
-
     db_url = os.environ.get("DATABASE_URL")
     if not db_url:
         raise RuntimeError(
@@ -48,6 +45,14 @@ def create_app(test_config=None):
 
     secret_key = os.environ.get("SECRET_KEY", "dev")
     kofi_token = os.environ.get("KOFI_TOKEN", "")
+    proxy_fix_enabled = os.environ.get("PROXY_FIX_ENABLED", "").strip().lower() in (
+        "1",
+        "true",
+        "yes",
+        "on",
+    )
+    proxy_fix_x_for = int(os.environ.get("PROXY_FIX_X_FOR", "1"))
+    proxy_fix_x_proto = int(os.environ.get("PROXY_FIX_X_PROTO", "1"))
     app.config.from_mapping(
         SECRET_KEY=secret_key,
         SQLALCHEMY_DATABASE_URI=db_url,
@@ -56,7 +61,18 @@ def create_app(test_config=None):
         ALLOWED_EXTENSIONS={"png", "jpg", "jpeg", "webp", "gif"},
         KOFI_TOKEN=kofi_token,
         RATELIMIT_ENABLED=secret_key != "dev",
+        PROXY_FIX_ENABLED=proxy_fix_enabled,
+        PROXY_FIX_X_FOR=proxy_fix_x_for,
+        PROXY_FIX_X_PROTO=proxy_fix_x_proto,
     )
+
+    # Trust upstream proxy headers only when explicitly enabled.
+    if app.config.get("PROXY_FIX_ENABLED"):
+        app.wsgi_app = ProxyFix(  # type: ignore[assignment]
+            app.wsgi_app,
+            x_for=int(app.config.get("PROXY_FIX_X_FOR") or 1),
+            x_proto=int(app.config.get("PROXY_FIX_X_PROTO") or 1),
+        )
 
     if test_config is not None:
         app.config.update(test_config)

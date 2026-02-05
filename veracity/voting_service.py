@@ -82,9 +82,6 @@ def get_voter_id() -> str:
 
 
 def get_client_ip() -> str:
-    forwarded = request.headers.get("X-Forwarded-For", "").split(",")[0].strip()
-    if forwarded:
-        return forwarded
     return request.remote_addr or "unknown"
 
 
