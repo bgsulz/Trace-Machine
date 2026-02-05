@@ -106,7 +106,6 @@
         hx-swap="outerHTML"
       >
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
-        <input type="hidden" name="phash" value="{{ row.data.phash }}" />
         <input type="hidden" name="analysis_id" value="{{ row.context.analysis_id }}" />
         <input type="hidden" name="report" value="detected" />
         <button
@@ -123,7 +122,6 @@
         hx-swap="outerHTML"
       >
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
-        <input type="hidden" name="phash" value="{{ row.data.phash }}" />
         <input type="hidden" name="analysis_id" value="{{ row.context.analysis_id }}" />
         <input type="hidden" name="report" value="not_detected" />
         <button

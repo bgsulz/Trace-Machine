@@ -344,9 +344,20 @@ def vote():
 
 @bp.route("/synthid-report", methods=["POST"])
 def synthid_report():
-    phash = (request.form.get("phash") or "").strip()
     report = (request.form.get("report") or "").strip().lower()
     analysis_id = (request.form.get("analysis_id") or "").strip()
+
+    if not analysis_id:
+        if request.headers.get("HX-Request"):
+            return _expired_analysis_response()
+        flash("Invalid report request.")
+        return redirect(url_for("main.index"))
+
+    payload = load_analysis_payload(analysis_id)
+    if payload is None:
+        return _expired_analysis_response()
+    _, metadata = payload
+    phash = (metadata.get("phash") or "").strip()
 
     if not phash or report not in SYNTHID_CHOICES:
         flash("Invalid report request.")
@@ -359,9 +370,6 @@ def synthid_report():
         return redirect(url_for("main.index"))
 
     if request.headers.get("HX-Request") and analysis_id:
-        payload = load_analysis_payload(analysis_id)
-        if payload is None:
-            return _expired_analysis_response()
         html = render_analyzer_fragment_html(
             analysis_id,
             "synthid",
