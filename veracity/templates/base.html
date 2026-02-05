@@ -149,6 +149,15 @@
           event.stopPropagation();
         });
       });
+
+      document.body.addEventListener("click", (event) => {
+        const link = event.target.closest?.(
+          '#analyzer-row-synthid .header-action[href*="lens.google"]'
+        );
+        if (!link) return;
+        const voteArea = document.getElementById("synthid-vote-area");
+        if (voteArea) voteArea.style.display = "";
+      });
     </script>
     {% block body_scripts %}{% endblock %}
   </body>

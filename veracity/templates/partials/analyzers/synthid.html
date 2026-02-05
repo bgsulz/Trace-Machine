@@ -133,17 +133,3 @@
   </div>
   {% endif %}
 </div>
-
-<script>
-(function() {
-  // Reveal vote buttons when "Check Google" header link is clicked
-  var row = document.getElementById('analyzer-row-synthid');
-  if (!row) return;
-  var link = row.querySelector('.header-action[href*="lens.google"]');
-  if (!link) return;
-  link.addEventListener('click', function() {
-    var voteArea = document.getElementById('synthid-vote-area');
-    if (voteArea) voteArea.style.display = '';
-  });
-})();
-</script>
