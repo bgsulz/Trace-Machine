@@ -130,7 +130,7 @@ def perform_analysis(
     )
 
 
-_MINI_TEMPLATES = {"c2pa", "exif", "human"}
+_MINI_TEMPLATES = {"c2pa", "exif", "human", "synthid"}
 
 
 def render_analyzer_fragment_html(

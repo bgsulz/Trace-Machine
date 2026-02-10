@@ -1,0 +1,16 @@
+<div class="batch-strip">
+  {% set batch_slugs = ["c2pa", "synthid", "exif", "human"] %}
+  {% for slug in batch_slugs %}
+  <div
+    class="mini-card batch-strip__card"
+    hx-get="{{ url_for('main.analyzer_fragment', analysis_id=item.analysis_id, slug=slug, mini=1) }}"
+    hx-trigger="load"
+    hx-swap="innerHTML"
+  >
+    <div class="mini-card-content">
+      <div class="mini-card-title">{{ slug|upper if slug != 'human' else 'Community' }}</div>
+      <div class="mini-card-status loading">Loading...</div>
+    </div>
+  </div>
+  {% endfor %}
+</div>

@@ -1218,3 +1218,249 @@ form.header-action.htmx-request button {
   );
   animation: badge-sheen 1.2s linear infinite;
 }
+
+/* Batch Analysis */
+.batch-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+
+.batch-card {
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+.batch-card__image {
+  max-height: 180px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--pico-card-section-background-color);
+}
+
+.batch-card__image img {
+  width: 100%;
+  max-height: 180px;
+  object-fit: cover;
+  display: block;
+}
+
+.batch-card__image--error {
+  min-height: 60px;
+}
+
+.batch-card__body {
+  padding: 0.75rem 1rem 1rem;
+}
+
+.batch-card__header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.batch-card__url {
+  font-size: 0.8rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.batch-card__full-link {
+  font-size: 0.8rem;
+  white-space: nowrap;
+  flex-shrink: 0;
+  font-weight: 500;
+}
+
+.batch-card__error {
+  font-size: 0.85rem;
+  color: var(--veracity-danger);
+  margin: 0.5rem 0 0;
+}
+
+/* Analyzer strip: mini cards stacked vertically */
+.batch-strip {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.batch-strip__card {
+  background: var(--pico-card-background-color);
+  border: 1px solid var(--pico-muted-border-color);
+  border-radius: 6px;
+  padding: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* Mini card styles used by batch strip (mirrored from mini.css) */
+.batch-strip .mini-card-content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.batch-strip .mini-card-title {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--pico-muted-color);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.batch-strip .mini-card-status {
+  font-size: 0.85rem;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.batch-strip .mini-card-status.found {
+  color: var(--pico-primary);
+}
+
+.batch-strip .mini-card-status.similar {
+  color: var(--pico-primary);
+}
+
+.batch-strip .mini-card-status.not-found {
+  color: var(--pico-muted-color);
+}
+
+.batch-strip .mini-card-status.error {
+  color: var(--pico-del-color);
+}
+
+.batch-strip .mini-card-status.loading {
+  color: var(--pico-muted-color);
+  font-style: italic;
+}
+
+.batch-strip .mini-card-detail {
+  font-size: 0.85rem;
+  color: var(--pico-muted-color);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.batch-strip .mini-icon {
+  font-size: 0.85rem;
+}
+
+.batch-strip .mini-vote-counts {
+  display: flex;
+  gap: 0.5rem;
+  font-size: 0.7rem;
+  flex-wrap: wrap;
+}
+
+.batch-strip .mini-vote-buttons {
+  display: flex;
+  gap: 0.25rem;
+  margin-top: 0.35rem;
+}
+
+.batch-strip .mini-vote-buttons form {
+  flex: 1;
+  margin: 0;
+}
+
+.batch-strip .mini-vote-btn {
+  width: 100%;
+  padding: 0.25rem 0.35rem;
+  font-size: 0.65rem;
+  font-weight: 600;
+  border: 1px solid var(--pico-muted-border-color);
+  border-radius: 4px;
+  background: var(--pico-card-background-color);
+  color: var(--pico-muted-color);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.batch-strip .mini-vote-btn:hover {
+  border-color: var(--pico-primary);
+}
+
+.batch-strip .mini-vote-btn.real:hover,
+.batch-strip .mini-vote-btn.real.active {
+  background: var(--veracity-success);
+  border-color: var(--veracity-success);
+  color: #fff;
+}
+
+.batch-strip .mini-vote-btn.edited:hover,
+.batch-strip .mini-vote-btn.edited.active {
+  background: var(--veracity-warning);
+  border-color: var(--veracity-warning);
+  color: #000;
+}
+
+.batch-strip .mini-vote-btn.ai:hover,
+.batch-strip .mini-vote-btn.ai.active {
+  background: var(--veracity-danger);
+  border-color: var(--veracity-danger);
+  color: #fff;
+}
+
+.batch-strip .mini-vote-summary {
+  display: none;
+}
+
+.batch-strip .mini-matches {
+  padding-top: 0.35rem;
+  border-top: 1px solid var(--pico-muted-border-color);
+  font-size: 0.7rem;
+  margin-top: 0.25rem;
+}
+
+.batch-strip .mini-matches-header {
+  font-weight: 600;
+  color: var(--pico-muted-color);
+  margin-bottom: 0.15rem;
+}
+
+.batch-strip .mini-match-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.1rem 0;
+}
+
+.batch-strip .mini-match-info {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.batch-strip .mini-match-distance {
+  flex-shrink: 0;
+  color: var(--pico-muted-color);
+  font-family: monospace;
+  font-size: 0.65rem;
+}
+
+.batch-strip .vote-count.real {
+  color: var(--veracity-success);
+}
+
+.batch-strip .vote-count.edited {
+  color: var(--veracity-warning);
+}
+
+.batch-strip .vote-count.ai {
+  color: var(--veracity-danger);
+}

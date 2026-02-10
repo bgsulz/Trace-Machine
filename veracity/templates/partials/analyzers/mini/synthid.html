@@ -1,0 +1,58 @@
+{% set display_state = row.data.display_state or "manual" %}
+{% set totals = row.data.totals or {} %}
+{% set total_detected = totals.detected|default(0) %}
+{% set total_not_detected = totals.not_detected|default(0) %}
+{% set current_report = row.data.current_report %}
+
+<div class="mini-card-content" data-status="{{ row.status }}">
+  <div class="mini-card-title">SynthID</div>
+
+  {% if display_state == "detected" %}
+  <div class="mini-card-status found">
+    <span class="mini-icon">&#9888;</span> Detected
+  </div>
+  <div class="mini-card-detail">{{ total_detected }} report{{ 's' if total_detected != 1 else '' }}</div>
+
+  {% elif display_state == "reported" %}
+  <div class="mini-card-status similar">
+    <span class="mini-icon">&#128269;</span> Reported
+  </div>
+  <div class="mini-card-detail">{{ total_detected }} detected / {{ total_not_detected }} not</div>
+
+  {% elif display_state == "checked" %}
+  <div class="mini-card-status not-found">Not detected</div>
+  <div class="mini-card-detail">Checked by {{ total_detected + total_not_detected }}</div>
+
+  {% elif display_state == "manual" %}
+  <div class="mini-card-status not-found">Not checked</div>
+
+  {% elif row.status == "ERROR" %}
+  <div class="mini-card-status error">Error</div>
+
+  {% else %}
+  <div class="mini-card-status unknown">{{ row.status }}</div>
+  {% endif %}
+
+  {% if row.data.phash %}
+  <div class="mini-vote-buttons">
+    <form action="{{ url_for('main.synthid_report') }}" method="post"
+          hx-post="{{ url_for('main.synthid_report') }}"
+          hx-target="closest .mini-card"
+          hx-swap="innerHTML">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+      <input type="hidden" name="analysis_id" value="{{ row.context.analysis_id }}" />
+      <input type="hidden" name="report" value="detected" />
+      <button type="submit" class="mini-vote-btn ai{% if current_report == 'detected' %} active{% endif %}">Detected</button>
+    </form>
+    <form action="{{ url_for('main.synthid_report') }}" method="post"
+          hx-post="{{ url_for('main.synthid_report') }}"
+          hx-target="closest .mini-card"
+          hx-swap="innerHTML">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+      <input type="hidden" name="analysis_id" value="{{ row.context.analysis_id }}" />
+      <input type="hidden" name="report" value="not_detected" />
+      <button type="submit" class="mini-vote-btn real{% if current_report == 'not_detected' %} active{% endif %}">Not Detected</button>
+    </form>
+  </div>
+  {% endif %}
+</div>

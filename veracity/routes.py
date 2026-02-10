@@ -38,6 +38,7 @@ from .voting_service import VOTE_CHOICES, apply_vote, get_voter_id
 from .synthid_service import SYNTHID_CHOICES, apply_synthid_report
 from .analyzers.tineye import call_tineye_api, process_tineye_response, get_shame_list_matchers, build_summary
 from .analyzers.manager import get_analyzer_spec, _format_result
+from .batch_service import process_batch_urls, MAX_BATCH_URLS
 from .lookup_service import lookup_urls
 
 bp = Blueprint("main", __name__)
@@ -414,6 +415,64 @@ def kofi_webhook():
             "total_cents": config.total_donated_cents,
         }
     )
+
+
+@bp.route("/batch")
+def batch():
+    return render_template("batch.html")
+
+
+@bp.route("/batch", methods=["POST"])
+@limiter.limit("3/minute")
+def batch_submit():
+    raw_text = (request.form.get("urls") or "").strip()
+    if not raw_text:
+        flash("Please paste at least one image URL.")
+        return redirect(url_for("main.batch"))
+
+    urls = [line.strip() for line in raw_text.splitlines() if line.strip()]
+    if not urls:
+        flash("Please paste at least one image URL.")
+        return redirect(url_for("main.batch"))
+
+    if len(urls) > MAX_BATCH_URLS:
+        flash(f"Maximum {MAX_BATCH_URLS} URLs per batch.")
+        return redirect(url_for("main.batch"))
+
+    # Validate each URL format
+    valid_urls = []
+    results = []
+    for url in urls:
+        if not url.startswith(("http://", "https://")):
+            results.append({
+                "url": url,
+                "analysis_id": None,
+                "error": "Invalid URL format",
+                "image_data_url": None,
+                "public_url_display": url[:60],
+            })
+        else:
+            valid_urls.append(url)
+
+    if valid_urls:
+        batch_results = process_batch_urls(valid_urls)
+        # Merge: place batch results in order after validation errors
+        valid_iter = iter(batch_results)
+        merged = []
+        valid_set = set(valid_urls)
+        for url in urls:
+            if url in valid_set:
+                merged.append(next(valid_iter))
+                valid_set.discard(url)
+            else:
+                # Find the matching error result
+                for r in results:
+                    if r["url"] == url:
+                        merged.append(r)
+                        break
+        results = merged
+
+    return render_template("batch_results.html", results=results)
 
 
 def _parse_normalized_box(form) -> tuple[float, float, float, float] | None:

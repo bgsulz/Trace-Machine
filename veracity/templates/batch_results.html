@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section>
+  <nav aria-label="breadcrumb">
+    <ul>
+      <li><a href="{{ url_for('main.index') }}">Home</a></li>
+      <li><a href="{{ url_for('main.batch') }}">Batch</a></li>
+      <li>Results</li>
+    </ul>
+  </nav>
+
+  <h3>Batch Results ({{ results|length }} image{{ 's' if results|length != 1 else '' }})</h3>
+
+  <div class="batch-grid">
+    {% for item in results %}
+    <article class="batch-card {% if item.error %}batch-card--error{% endif %}">
+      {% if item.error %}
+      <div class="batch-card__image batch-card__image--error">
+        <span class="badge not-found">ERROR</span>
+      </div>
+      <div class="batch-card__body">
+        <a href="{{ item.url }}" target="_blank" rel="noopener noreferrer" class="batch-card__url" title="{{ item.url }}">
+          {{ item.public_url_display or item.url }}
+        </a>
+        <p class="batch-card__error">{{ item.error }}</p>
+      </div>
+      {% else %}
+      <div class="batch-card__image">
+        <img src="{{ item.image_data_url }}" alt="Image thumbnail" loading="lazy" />
+      </div>
+      <div class="batch-card__body">
+        <div class="batch-card__header">
+          <a href="{{ item.url }}" target="_blank" rel="noopener noreferrer" class="batch-card__url" title="{{ item.url }}">
+            {{ item.public_url_display or item.url }}
+          </a>
+          <a href="{{ url_for('main.analyze', url=item.url) }}" class="batch-card__full-link">Full Analysis &rarr;</a>
+        </div>
+        {% include "partials/batch_analyzer_strip.html" %}
+      </div>
+      {% endif %}
+    </article>
+    {% endfor %}
+  </div>
+
+  <div class="quick-actions">
+    <a href="{{ url_for('main.batch') }}" role="button" class="secondary">New Batch</a>
+  </div>
+</section>
+{% endblock %}

@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section>
+  <nav aria-label="breadcrumb">
+    <ul>
+      <li><a href="{{ url_for('main.index') }}">Home</a></li>
+      <li>Batch Analysis</li>
+    </ul>
+  </nav>
+
+  <div class="upload-card">
+    <h3>Batch Image Analysis</h3>
+    <p>Paste up to 10 image URLs, one per line.</p>
+    <form method="post" action="{{ url_for('main.batch_submit') }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+      <textarea
+        name="urls"
+        rows="8"
+        placeholder="https://example.com/image1.jpg&#10;https://example.com/image2.png&#10;..."
+        required
+      ></textarea>
+      <button type="submit">Analyze Batch</button>
+    </form>
+    <p class="upload-hint">
+      TinEye reverse search is skipped in batch mode to avoid rate limits.
+    </p>
+  </div>
+</section>
+{% endblock %}
