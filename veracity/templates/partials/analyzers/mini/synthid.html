@@ -3,9 +3,15 @@
 {% set total_detected = totals.detected|default(0) %}
 {% set total_not_detected = totals.not_detected|default(0) %}
 {% set current_report = row.data.current_report %}
+{% set lens_link = row.context.lens_link if row.context else None %}
 
 <div class="mini-card-content" data-status="{{ row.status }}">
-  <div class="mini-card-title">SynthID</div>
+  <div class="mini-card-title">
+    SynthID
+    {% if lens_link %}
+    <a href="{{ lens_link }}" target="_blank" rel="noopener noreferrer" class="mini-check-link">Check Google</a>
+    {% endif %}
+  </div>
 
   {% if display_state == "detected" %}
   <div class="mini-card-status found">

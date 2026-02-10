@@ -1359,6 +1359,20 @@ form.header-action.htmx-request button {
   font-size: 0.85rem;
 }
 
+.batch-strip .mini-card-title {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.batch-strip .mini-check-link {
+  font-size: 0.65rem;
+  font-weight: 500;
+  text-transform: none;
+  letter-spacing: normal;
+}
+
 .batch-strip .mini-vote-counts {
   display: flex;
   gap: 0.5rem;
@@ -1388,6 +1402,7 @@ form.header-action.htmx-request button {
   color: var(--pico-muted-color);
   cursor: pointer;
   transition: all 0.15s ease;
+  margin-bottom: 0;
 }
 
 .batch-strip .mini-vote-btn:hover {
