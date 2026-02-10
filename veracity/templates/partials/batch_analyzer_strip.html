@@ -13,4 +13,15 @@
     </div>
   </div>
   {% endfor %}
+  <div class="mini-card batch-strip__card">
+    <div class="mini-card-content">
+      <div class="mini-card-title">Reverse Search</div>
+      <div class="mini-search-links">
+        {% set encoded_url = item.url | urlencode %}
+        <a href="https://lens.google.com/upload?url={{ encoded_url }}" target="_blank" rel="noopener noreferrer" class="mini-search-link">Google</a>
+        <a href="https://www.bing.com/images/search?view=detailv2&amp;iss=sbi&amp;form=SBIHMP&amp;q=imgurl:{{ encoded_url }}" target="_blank" rel="noopener noreferrer" class="mini-search-link">Bing</a>
+        <a href="https://tineye.com/search?url={{ encoded_url }}" target="_blank" rel="noopener noreferrer" class="mini-search-link">TinEye</a>
+      </div>
+    </div>
+  </div>
 </div>
