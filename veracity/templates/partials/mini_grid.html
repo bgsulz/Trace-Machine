@@ -72,17 +72,21 @@
   </div>
 
   {# Bottom bar: reverse search links #}
-  <footer class="mini-footer">
-    <span class="mini-footer-label">Search:</span>
-    {% for tool in tools %}
-    {% for link in tool.links %}
-    <a
-      href="{{ link.url }}"
-      target="_blank"
-      rel="noopener noreferrer"
-      class="mini-search-link"
-    >{{ link.label }}</a>
-    {% endfor %}
-    {% endfor %}
-  </footer>
+  <div class="mini-card mini-card-search">
+    <div class="mini-card-content">
+      <div class="mini-card-title">Reverse Search</div>
+      <div class="mini-search-links">
+        {% for tool in tools %}
+        {% for link in tool.links %}
+        <a
+          href="{{ link.url }}"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="mini-search-link"
+        >{{ link.label }}</a>
+        {% endfor %}
+        {% endfor %}
+      </div>
+    </div>
+  </div>
 </div>

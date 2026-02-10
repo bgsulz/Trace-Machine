@@ -283,31 +283,28 @@ body {
   color: #fff;
 }
 
-/* Footer: reverse search links */
-.mini-footer {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
+/* Reverse search card */
+.mini-card-search {
   flex-shrink: 0;
-  flex-wrap: wrap;
 }
 
-.mini-footer-label {
-  font-size: 0.75rem;
-  color: var(--pico-muted-color);
-  font-weight: 500;
+.mini-search-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
 }
 
 .mini-search-link {
   font-size: 0.75rem;
   padding: 0.2rem 0.5rem;
-  background: var(--pico-card-background-color);
+  background: var(--pico-background-color);
+  border: 1px solid var(--pico-muted-border-color);
   border-radius: 4px;
   text-decoration: none;
 }
 
 .mini-search-link:hover {
-  background: var(--pico-background-color);
+  border-color: var(--pico-primary);
 }
 
 /* Loading state */
