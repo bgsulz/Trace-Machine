@@ -390,6 +390,47 @@ def test_human_consensus_reports_threshold_and_overall_breakdown():
     assert breakdown["total"] == totals["total_votes"]
 
 
+def test_human_consensus_exposes_local_match_evidence():
+    neighbor = SimpleNamespace(
+        phash="0011ffaa0011ffaa",
+        whash="0011ffaa0011ffbb",
+        consensus=SimpleNamespace(vote_real=2, vote_edited=0, vote_ai=1),
+        created_at=None,
+        sources=[],
+        match_method="local",
+        local_match=SimpleNamespace(
+            extractor="akaze",
+            good_matches=30,
+            inliers=22,
+            inlier_ratio=0.73,
+            homography_found=True,
+            crop_box=(0.1, 0.2, 0.5, 0.4),
+        ),
+    )
+
+    context = AnalysisContext(
+        image_bytes=b"payload",
+        phash="f0f0f0f0f0f0f0f0",
+        whash="0f0f0f0f0f0f0f0f",
+        registry_id=1,
+        neighbors=[neighbor],
+        width=12,
+        height=12,
+    )
+
+    result = run_human_consensus(context)
+    data = result["data"]
+    assert data["local_match_count"] == 1
+    assert len(data["matches"]) == 1
+
+    match = data["matches"][0]
+    assert match["match_method"] == "local"
+    assert match["distance"] is None
+    assert match["local"]["extractor"] == "akaze"
+    assert match["local"]["inliers"] == 22
+    assert match["local"]["crop_box"] == (0.1, 0.2, 0.5, 0.4)
+
+
 def _make_png_with_text(chunks: dict[str, str]) -> bytes:
     img = Image.new("RGB", (12, 12), color=(0, 128, 255))
     pnginfo = PngImagePlugin.PngInfo()

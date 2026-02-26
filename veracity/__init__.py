@@ -53,6 +53,18 @@ def create_app(test_config=None):
     )
     proxy_fix_x_for = int(os.environ.get("PROXY_FIX_X_FOR", "1"))
     proxy_fix_x_proto = int(os.environ.get("PROXY_FIX_X_PROTO", "1"))
+    local_matching_enabled = os.environ.get("LOCAL_MATCHING_ENABLED", "1").strip().lower() in (
+        "1",
+        "true",
+        "yes",
+        "on",
+    )
+    try:
+        local_match_max_candidates = int(
+            os.environ.get("LOCAL_MATCH_MAX_CANDIDATES", "200")
+        )
+    except ValueError:
+        local_match_max_candidates = 200
     tineye_persistence_mode = os.environ.get("TINEYE_PERSISTENCE_MODE", "none").strip().lower()
     if tineye_persistence_mode not in {"none", "derived"}:
         app.logger.warning(
@@ -71,6 +83,8 @@ def create_app(test_config=None):
         PROXY_FIX_ENABLED=proxy_fix_enabled,
         PROXY_FIX_X_FOR=proxy_fix_x_for,
         PROXY_FIX_X_PROTO=proxy_fix_x_proto,
+        LOCAL_MATCHING_ENABLED=local_matching_enabled,
+        LOCAL_MATCH_MAX_CANDIDATES=local_match_max_candidates,
         TINEYE_PERSISTENCE_MODE=tineye_persistence_mode,
     )
 

@@ -69,6 +69,8 @@ def run_human_consensus(context: AnalysisContext) -> dict[str, object]:
             continue
 
         neighbor_whash_val = getattr(neighbor, "whash", None)
+        match_method = str(getattr(neighbor, "match_method", "hash") or "hash").lower()
+        local_snapshot = getattr(neighbor, "local_match", None)
         (
             phash_distance,
             whash_distance,
@@ -79,6 +81,7 @@ def run_human_consensus(context: AnalysisContext) -> dict[str, object]:
             base_phash, base_whash, neighbor_phash, neighbor_whash_val
         )
         display_hash = display_hash or neighbor_phash
+        distance_display = display_distance if match_method != "local" else None
 
         total_votes = (
             (consensus.vote_real or 0)
@@ -87,6 +90,22 @@ def run_human_consensus(context: AnalysisContext) -> dict[str, object]:
         )
 
         sources = extract_sources(neighbor)
+        local = None
+        if local_snapshot is not None:
+            local = {
+                "extractor": getattr(local_snapshot, "extractor", "orb"),
+                "good_matches": int(getattr(local_snapshot, "good_matches", 0) or 0),
+                "inliers": int(getattr(local_snapshot, "inliers", 0) or 0),
+                "inlier_ratio": float(getattr(local_snapshot, "inlier_ratio", 0.0) or 0.0),
+                "homography_found": bool(getattr(local_snapshot, "homography_found", False)),
+                "crop_box": getattr(local_snapshot, "crop_box", None),
+            }
+
+        match_method_label = "Hash"
+        if match_method == "local":
+            match_method_label = "Local geometric"
+        elif match_method == "hybrid":
+            match_method_label = "Hybrid (hash + local)"
 
         # Prefer the hash type that matched neighbor inclusion; fall back to phash.
         matches.append(
@@ -94,12 +113,15 @@ def run_human_consensus(context: AnalysisContext) -> dict[str, object]:
                 "phash": neighbor_phash,
                 "whash": neighbor_whash_val,
                 "hash_display": f"{display_hash} ({display_label})",
-                "distance": display_distance,
+                "distance": distance_display,
                 "distance_phash": phash_distance,
                 "distance_whash": whash_distance,
                 "vote_real": consensus.vote_real,
                 "vote_edited": consensus.vote_edited,
                 "vote_ai": consensus.vote_ai,
+                "match_method": match_method,
+                "match_method_label": match_method_label,
+                "local": local,
                 "vote_breakdown": _build_vote_breakdown(
                     real=consensus.vote_real, edited=consensus.vote_edited, ai=consensus.vote_ai
                 ),
@@ -122,6 +144,7 @@ def run_human_consensus(context: AnalysisContext) -> dict[str, object]:
 
     has_matches = bool(matches)
     total_votes = totals["total_votes"]
+    local_match_count = sum(1 for entry in matches if entry.get("local"))
 
     if has_matches:
         matches_summary = "Similar image with votes:" if len(matches) == 1 else "Similar images with votes:"
@@ -150,6 +173,7 @@ def run_human_consensus(context: AnalysisContext) -> dict[str, object]:
             "threshold": _MAX_HAMMING_DISTANCE,
             "has_matches": has_matches,
             "matches_summary": matches_summary,
+            "local_match_count": local_match_count,
             "no_votes_message": no_votes_message,
         },
     }

@@ -15,6 +15,9 @@ class ImageRegistry(db.Model):
     facts = db.relationship("ProvenanceFact", backref="image")
     sources = db.relationship("ImageSource", backref="image")
     synthid_reports = db.relationship("SynthIDReport", backref="image")
+    local_features = db.relationship(
+        "ImageLocalFeatures", backref="image", uselist=False
+    )
 
 
 class ImageConsensus(db.Model):
@@ -65,6 +68,22 @@ class ImageContainment(db.Model):
     )
     child = db.relationship(
         "ImageRegistry", foreign_keys=[child_id], backref="contained_in"
+    )
+
+
+class ImageLocalFeatures(db.Model):
+    __tablename__ = "image_local_features"
+
+    id = db.Column(db.Integer, primary_key=True)
+    image_id = db.Column(
+        db.Integer, db.ForeignKey("image_registry.id"), nullable=False, unique=True
+    )
+    extractor = db.Column(db.String(16), nullable=False, default="orb")
+    feature_version = db.Column(db.Integer, nullable=False, default=1)
+    keypoint_count = db.Column(db.Integer, nullable=False, default=0)
+    payload = db.Column(db.LargeBinary, nullable=False)
+    created_at = db.Column(
+        db.DateTime(timezone=True), default=lambda: datetime.now(UTC)
     )
 
 

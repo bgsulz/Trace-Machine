@@ -346,6 +346,7 @@ def _ensure_human_vote_defaults(row_data: dict[str, Any]) -> None:
     row_data.setdefault("matches", [])
     row_data.setdefault("matches_summary", "")
     row_data.setdefault("has_matches", False)
+    row_data.setdefault("local_match_count", 0)
     row_data.setdefault("no_votes_message", "No votes yet.")
 
 
