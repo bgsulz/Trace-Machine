@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Veracity Provenance Report</title>
+    <style>
+      :root {
+        color-scheme: light;
+      }
+      body {
+        margin: 0;
+        font-family: "Segoe UI", Tahoma, Arial, sans-serif;
+        color: #111;
+        background: #fff;
+      }
+      main {
+        max-width: 960px;
+        margin: 0 auto;
+        padding: 24px;
+      }
+      h1 {
+        margin: 0 0 12px;
+      }
+      h2 {
+        margin: 24px 0 8px;
+        font-size: 1.1rem;
+      }
+      p {
+        margin: 4px 0;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+      th,
+      td {
+        border: 1px solid #ccc;
+        text-align: left;
+        vertical-align: top;
+        padding: 8px;
+      }
+      th {
+        background: #f5f5f5;
+      }
+      pre {
+        margin: 0;
+        white-space: pre-wrap;
+        word-break: break-word;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-size: 0.8rem;
+      }
+      .meta {
+        margin-bottom: 16px;
+      }
+      .actions {
+        display: flex;
+        gap: 8px;
+        margin: 0 0 16px;
+      }
+      .actions button,
+      .actions a {
+        border: 1px solid #444;
+        background: #fff;
+        color: #111;
+        padding: 8px 12px;
+        font: inherit;
+        text-decoration: none;
+        cursor: pointer;
+      }
+      .tools {
+        margin: 0;
+        padding-left: 18px;
+      }
+      @media print {
+        .actions {
+          display: none;
+        }
+        main {
+          max-width: none;
+          padding: 0;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <div class="actions">
+        <button type="button" onclick="window.print()">Print</button>
+        <a href="{{ url_for('main.export_analysis_json', analysis_id=report.analysis.id) }}">Download JSON</a>
+      </div>
+
+      <h1>Veracity Provenance Report</h1>
+      <div class="meta">
+        <p><strong>Report version:</strong> {{ report.report_version }}</p>
+        <p><strong>Generated at:</strong> {{ report.generated_at or "Unknown" }}</p>
+        <p><strong>App version:</strong> {{ report.app_version or "Unknown" }}</p>
+      </div>
+
+      <h2>Analysis</h2>
+      <p><strong>ID:</strong> {{ report.analysis.id }}</p>
+      <p><strong>Created at:</strong> {{ report.analysis.created_at or "Unknown" }}</p>
+      <p><strong>Source:</strong> {{ report.analysis.source or "Unknown" }}</p>
+      <p><strong>MIME:</strong> {{ report.analysis.mime or "Unknown" }}</p>
+      <p>
+        <strong>Dimensions:</strong>
+        {{ report.analysis.dimensions.width or "?" }} x {{ report.analysis.dimensions.height or "?" }}
+      </p>
+      <p><strong>Crop box:</strong> {{ report.analysis.crop_box or "None" }}</p>
+
+      <h2>Hashes</h2>
+      <p><strong>pHash:</strong> {{ report.hashes.phash or "Unknown" }}</p>
+      <p><strong>wHash:</strong> {{ report.hashes.whash or "Unknown" }}</p>
+      <p><strong>Registry ID:</strong> {{ report.hashes.registry_id or "Unknown" }}</p>
+
+      <h2>Analyzers</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Slug</th>
+            <th>Status</th>
+            <th>Summary</th>
+            <th>Data</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for analyzer in report.analyzers %}
+          <tr>
+            <td>{{ analyzer.name }}</td>
+            <td>{{ analyzer.slug }}</td>
+            <td>{{ analyzer.status }}</td>
+            <td>{{ analyzer.summary }}</td>
+            <td><pre>{{ analyzer.data | tojson(indent=2) }}</pre></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+
+      <h2>Tools</h2>
+      {% for tool in report.tools %}
+      <p><strong>{{ tool.name }}</strong></p>
+      <ul class="tools">
+        {% for link in tool.links %}
+        <li>{{ link.label }}: {{ link.url }}</li>
+        {% endfor %}
+      </ul>
+      {% endfor %}
+    </main>
+  </body>
+</html>

@@ -40,6 +40,7 @@ from .analyzers.tineye import call_tineye_api, process_tineye_response, get_sham
 from .analyzers.manager import get_analyzer_spec, _format_result
 from .batch_service import process_batch_urls, MAX_BATCH_URLS
 from .lookup_service import lookup_urls
+from .reporting import build_report_payload
 
 bp = Blueprint("main", __name__)
 
@@ -142,6 +143,29 @@ def serve_analysis_image(analysis_id: str):
     mime_type = metadata.get("mime_type", "application/octet-stream")
 
     return send_file(BytesIO(image_bytes), mimetype=mime_type, max_age=3600)
+
+
+@bp.route("/analysis/<analysis_id>/export.json")
+def export_analysis_json(analysis_id: str):
+    try:
+        report = build_report_payload(analysis_id)
+    except KeyError:
+        return _expired_analysis_response()
+
+    body = json.dumps(report, ensure_ascii=False, indent=2, sort_keys=False)
+    response = make_response(body, 200)
+    response.mimetype = "application/json"
+    return response
+
+
+@bp.route("/analysis/<analysis_id>/export.html")
+def export_analysis_html(analysis_id: str):
+    try:
+        report = build_report_payload(analysis_id)
+    except KeyError:
+        return _expired_analysis_response()
+
+    return render_template("export_report.html", report=report)
 
 
 @bp.route("/analysis/<analysis_id>/crop", methods=["POST"])
