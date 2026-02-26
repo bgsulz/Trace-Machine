@@ -9,69 +9,10 @@
 
   {% if row.data.has_matches %}
   <hr />
-  <p><strong>{{ row.data.matches_summary }}</strong></p>
-  {% if row.data.local_match_count %}
   <p>
-    <small>
-      {{ row.data.local_match_count }} match{{ "es" if row.data.local_match_count != 1 else "" }}
-      passed local geometric verification.
-    </small>
+    <strong>{{ row.data.matches_summary }}</strong>
+    <a href="#direct-distant-traces">View in Direct and Distant</a>
   </p>
-  {% endif %}
-
-  <table style="font-size: 0.85rem; margin-bottom: 1rem">
-    <thead>
-      <tr>
-        <th>Matched Hash</th>
-        <th>Distance</th>
-        <th>Consensus</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for match in row.data.matches %}
-      <tr>
-        <td>
-          <code>{{ match.hash_display or match.phash }}</code>
-          <br />
-          <small><strong>{{ match.match_method_label }}</strong></small>
-          {% if match.local %}
-          <br />
-          <small>
-            {{ match.local.extractor|upper }}: {{ match.local.inliers }} inliers /
-            {{ match.local.good_matches }} good
-            ({{ "%.1f"|format(match.local.inlier_ratio * 100) }}%).
-          </small>
-          {% if match.local.crop_box %}
-          <br />
-          <small>
-            Region: [{{ "%.3f"|format(match.local.crop_box[0]) }},
-            {{ "%.3f"|format(match.local.crop_box[1]) }},
-            {{ "%.3f"|format(match.local.crop_box[2]) }},
-            {{ "%.3f"|format(match.local.crop_box[3]) }}]
-          </small>
-          {% endif %}
-          {% endif %}
-          {% if match.sources %}
-          <br />
-          <small>
-            {% for src in match.sources %}
-            <a
-              href="{{ url_for('main.analyze', url=src.url) }}"
-              {% if link_target %}target="{{ link_target }}" rel="noopener noreferrer"{% endif %}
-              >Source {{ loop.index }}</a
-            >{% if not loop.last %}, {% endif %} {% endfor %}
-          </small>
-          {% endif %}
-        </td>
-        <td>{% if match.distance is not none %}{{ match.distance }}{% else %}-{% endif %}</td>
-        <td style="min-width: 180px">
-          {{ render_vote_bar(match.vote_breakdown, label="Match votes", compact=True) }}
-          <small>{{ match.vote_real }} / {{ match.vote_edited }} / {{ match.vote_ai }}</small>
-        </td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
   {% else %}
   <p><em>{{ row.data.no_votes_message }}</em></p>
   {% endif %}

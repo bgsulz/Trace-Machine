@@ -137,6 +137,72 @@
         </tbody>
       </table>
 
+      {% if report.direct_traces %}
+      <h2>Direct Traces</h2>
+      <ul class="tools">
+        {% for trace in report.direct_traces %}
+        <li>
+          <strong>{{ trace.title }}:</strong> {{ trace.summary }}
+          {% if trace.details %}
+          <br />
+          <small>{{ trace.details|join("; ") }}</small>
+          {% endif %}
+        </li>
+        {% endfor %}
+      </ul>
+      {% endif %}
+
+      {% if report.distant_matches %}
+      <h2>Distant Matches</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Match</th>
+            <th>Evidence</th>
+            <th>Carried Traces</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for match in report.distant_matches %}
+          <tr>
+            <td><code>{{ match.hash_display or match.phash }}</code></td>
+            <td>
+              <strong>{{ match.match_method_label }}</strong>
+              {% if match.distance is not none %}<br /><small>Distance: {{ match.distance }}</small>{% endif %}
+              {% if match.local %}
+              <br />
+              <small>
+                {{ match.local.extractor|upper }}: {{ match.local.inliers }} inliers /
+                {{ match.local.good_matches }} good
+                ({{ "%.1f"|format(match.local.inlier_ratio * 100) }}%).
+              </small>
+              {% endif %}
+            </td>
+            <td>
+              {% if match.c2pa_facts %}
+              <div><strong>C2PA:</strong> {{ match.c2pa_facts|join("; ") }}</div>
+              {% endif %}
+              {% if match.votes %}
+              <div>
+                <strong>Consensus:</strong>
+                {{ match.votes.total_votes }} votes
+                ({{ match.votes.vote_real }} / {{ match.votes.vote_edited }} / {{ match.votes.vote_ai }})
+              </div>
+              {% endif %}
+              {% if match.synthid %}
+              <div>
+                <strong>SynthID:</strong>
+                {{ match.synthid.detected }} detected /
+                {{ match.synthid.not_detected }} not detected
+              </div>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% endif %}
+
       <h2>Tools</h2>
       {% for tool in report.tools %}
       <p><strong>{{ tool.name }}</strong></p>

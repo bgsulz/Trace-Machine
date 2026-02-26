@@ -7,9 +7,11 @@ from flask import current_app
 
 from .analysis_cache import load_analysis_payload, load_cached_analyzer_row
 from .analyzers.manager import ANALYZERS
+from .registry import prepare_analysis_context
+from .trace_service import build_direct_and_distant_traces
 from .tools import generate_external_tools
 
-REPORT_VERSION = "1.0"
+REPORT_VERSION = "1.1"
 
 
 def build_report_payload(analysis_id: str) -> dict[str, Any]:
@@ -17,11 +19,18 @@ def build_report_payload(analysis_id: str) -> dict[str, Any]:
     if payload is None:
         raise KeyError(f"Unknown analysis id: {analysis_id}")
 
-    _, metadata = payload
+    image_bytes, metadata = payload
     source = metadata.get("source")
     mime_type = metadata.get("mime_type")
     created_at = _iso_utc(metadata.get("created_at"))
     public_url = metadata.get("public_url")
+    analyzer_rows = _build_analyzer_rows(analysis_id)
+
+    context = prepare_analysis_context(image_bytes)
+    trace_summary = build_direct_and_distant_traces(
+        context,
+        analyzer_rows=analyzer_rows,
+    )
 
     report: dict[str, Any] = {
         "report_version": REPORT_VERSION,
@@ -43,7 +52,9 @@ def build_report_payload(analysis_id: str) -> dict[str, Any]:
             "whash": metadata.get("whash"),
             "registry_id": metadata.get("registry_id"),
         },
-        "analyzers": _build_analyzer_rows(analysis_id),
+        "analyzers": analyzer_rows,
+        "direct_traces": trace_summary["direct_items"],
+        "distant_matches": trace_summary["distant_matches"],
         "tools": generate_external_tools(public_url, analysis_id=analysis_id),
     }
     return report

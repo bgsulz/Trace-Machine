@@ -53,42 +53,13 @@
   </p>
   {% endif %}
 
-  {# Similar image table #}
+  {# Similar image traces are now centralized under Direct and Distant #}
   {% if similar_images %}
-  <details style="margin-top: 0.5rem;">
-    <summary style="font-size: 0.85rem; cursor: pointer;"><strong>Reports from similar images</strong></summary>
-    <table style="font-size: 0.85rem; margin-top: 0.5rem; margin-bottom: 1rem">
-      <thead>
-        <tr>
-          <th>Matched Hash</th>
-          <th>Distance</th>
-          <th>Reports</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for sim in similar_images %}
-        <tr>
-          <td>
-            <code>{{ sim.hash_display or sim.phash }}</code>
-            {% if sim.sources %}
-            <br />
-            <small>
-              {% for src in sim.sources %}
-              <a
-                href="{{ url_for('main.analyze', url=src.url) }}"
-                {% if link_target %}target="{{ link_target }}" rel="noopener noreferrer"{% endif %}
-              >Source {{ loop.index }}</a>{% if not loop.last %}, {% endif %}
-              {% endfor %}
-            </small>
-            {% endif %}
-          </td>
-          <td>{{ sim.distance }}</td>
-          <td>Detected: {{ sim.detected }} / Not detected: {{ sim.not_detected }}</td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </details>
+  <p style="font-size: 0.85rem; margin-top: 0.5rem;">
+    {{ similar_images|length }} distant match{{ "es" if similar_images|length != 1 else "" }}
+    carry SynthID reports.
+    <a href="#direct-distant-traces">View in Direct and Distant</a>
+  </p>
   {% endif %}
   {% endif %}
 

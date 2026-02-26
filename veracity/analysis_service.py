@@ -24,6 +24,7 @@ from .containment_service import get_displayable_containments
 from . import dethumbnail
 from .models import SynthIDReport, VoteHistory
 from .registry import prepare_analysis_context
+from .trace_service import build_direct_and_distant_traces
 from .tools import generate_external_tools
 from . import voting_service
 from .analyzers.human import _build_vote_breakdown
@@ -109,7 +110,11 @@ def perform_analysis(
     }
     analysis_id = store_analysis_payload(None, image_bytes, metadata)
     tool_results = generate_external_tools(public_url, analysis_id=analysis_id)
-    _prime_analyzer_rows(analysis_id, context)
+    analyzer_rows = _prime_analyzer_rows(analysis_id, context)
+    direct_distant = build_direct_and_distant_traces(
+        context,
+        analyzer_rows=analyzer_rows,
+    )
     containments = get_displayable_containments(context.registry_id)
     return render_template(
         template_name,
@@ -121,6 +126,7 @@ def perform_analysis(
         analysis_id=analysis_id,
         registry_id=context.registry_id,
         containments=containments,
+        direct_distant=direct_distant,
         crop_box=crop_box,
         full_res_url=full_res_url,
         public_url=public_url,
@@ -174,7 +180,7 @@ def render_analyzer_fragment_html(
     return render_template("partials/analyzer_row.html", row=row)
 
 
-def _prime_analyzer_rows(analysis_id: str, context) -> None:
+def _prime_analyzer_rows(analysis_id: str, context) -> list[dict[str, Any]]:
     rows = run_all_analyzers(context)
     for row in rows:
         slug = row.get("slug")
@@ -183,6 +189,7 @@ def _prime_analyzer_rows(analysis_id: str, context) -> None:
         if not _should_persist_analyzer_row(str(slug)):
             continue
         store_cached_analyzer_row(analysis_id, slug, row)
+    return rows
 
 
 def _build_image_data_url(image_bytes: bytes, mime_type: str) -> str:

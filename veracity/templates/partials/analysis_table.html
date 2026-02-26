@@ -2,6 +2,105 @@
 {% set mini_mode = mini_mode|default(False) %}
 
 <div class="analyzer-list">
+  {% if direct_distant and direct_distant.has_any %}
+  <details class="analyzer-item" id="direct-distant-traces" open>
+    <summary class="analyzer-header">
+      <div class="analyzer-header-info">
+        <span class="analyzer-title"><strong>Direct and Distant</strong></span>
+      </div>
+      <span class="badge found">FOUND</span>
+    </summary>
+    <div class="analyzer-content">
+      {% if direct_distant.direct_items %}
+      <p><strong>Direct traces on this image:</strong></p>
+      <ul style="margin-top: 0.5rem">
+        {% for item in direct_distant.direct_items %}
+        <li>
+          <strong>{{ item.title }}:</strong> {{ item.summary }}
+          {% if item.details %}
+          <br />
+          <small>{{ item.details|join("; ") }}</small>
+          {% endif %}
+        </li>
+        {% endfor %}
+      </ul>
+      {% endif %}
+
+      {% if direct_distant.distant_matches %}
+      <p><strong>Distant traces carried by matched images:</strong></p>
+      <table style="font-size: 0.85rem; margin-bottom: 1rem">
+        <thead>
+          <tr>
+            <th>Matched Image</th>
+            <th>Match Evidence</th>
+            <th>Carried Traces</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for match in direct_distant.distant_matches %}
+          <tr>
+            <td>
+              <code>{{ match.hash_display or match.phash }}</code>
+              {% if match.sources %}
+              <br />
+              <small>
+                {% for src in match.sources %}
+                <a href="{{ url_for('main.analyze', url=src.url) }}">Source {{ loop.index }}</a>{% if not loop.last %}, {% endif %}
+                {% endfor %}
+              </small>
+              {% endif %}
+            </td>
+            <td>
+              <strong>{{ match.match_method_label }}</strong>
+              {% if match.distance is not none %}
+              <br />
+              <small>Distance: {{ match.distance }}</small>
+              {% endif %}
+              {% if match.local %}
+              <br />
+              <small>
+                {{ match.local.extractor|upper }}: {{ match.local.inliers }} inliers /
+                {{ match.local.good_matches }} good
+                ({{ "%.1f"|format(match.local.inlier_ratio * 100) }}%).
+              </small>
+              {% if match.local.crop_box %}
+              <br />
+              <small>
+                Region: [{{ "%.3f"|format(match.local.crop_box[0]) }},
+                {{ "%.3f"|format(match.local.crop_box[1]) }},
+                {{ "%.3f"|format(match.local.crop_box[2]) }},
+                {{ "%.3f"|format(match.local.crop_box[3]) }}]
+              </small>
+              {% endif %}
+              {% endif %}
+            </td>
+            <td>
+              {% if match.c2pa_facts %}
+              <div><strong>C2PA:</strong> {{ match.c2pa_facts|join("; ") }}</div>
+              {% endif %}
+              {% if match.votes %}
+              <div>
+                <strong>Consensus:</strong>
+                {{ match.votes.total_votes }} votes
+                ({{ match.votes.vote_real }} / {{ match.votes.vote_edited }} / {{ match.votes.vote_ai }})
+              </div>
+              {% endif %}
+              {% if match.synthid %}
+              <div>
+                <strong>SynthID reports:</strong>
+                {{ match.synthid.detected }} detected / {{ match.synthid.not_detected }} not detected
+              </div>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% endif %}
+    </div>
+  </details>
+  {% endif %}
+
   {% if containments %}
   <details class="analyzer-item" open>
     <summary class="analyzer-header">

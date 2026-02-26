@@ -111,6 +111,12 @@ def test_export_json_has_expected_shape_and_types(client, app):
     assert isinstance(tools[0].get("name"), str)
     assert isinstance(tools[0].get("links"), list)
 
+    direct_traces = payload.get("direct_traces")
+    assert isinstance(direct_traces, list)
+
+    distant_matches = payload.get("distant_matches")
+    assert isinstance(distant_matches, list)
+
 
 def test_export_html_renders_printable_report(client, app):
     analysis_id = _seed_analysis_with_rows(app)

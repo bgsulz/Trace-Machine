@@ -14,52 +14,11 @@
   <hr />
   <p>
     <strong>
-      Similar image{% if row.data.matches|length != 1 %}s{% endif %} with C2PA
-      data:
+      {{ row.data.matches|length }} distant match{{ "es" if row.data.matches|length != 1 else "" }}
+      carry C2PA traces.
     </strong>
+    <a href="#direct-distant-traces">View in Direct and Distant</a>
   </p>
-
-  <table style="font-size: 0.85rem; margin-bottom: 1rem">
-    <thead>
-      <tr>
-        <th>Matched Hash</th>
-        <th>Distance</th>
-        <th>C2PA Details</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for match in row.data.matches %}
-      <tr>
-        <td>
-          <code>{{ match.hash_display or match.phash }}</code>
-          {% if match.sources %}
-          <br />
-          <small>
-            {% for src in match.sources %}
-            <a
-              href="{{ url_for('main.analyze', url=src.url) }}"
-              {%
-              if
-              link_target
-              %}target="{{ link_target }}"
-              rel="noopener noreferrer"
-              {%
-              endif
-              %}
-              >Source {{ loop.index }}</a
-            >{% if not loop.last %}, {% endif %} {% endfor %}
-          </small>
-          {% endif %}
-        </td>
-        <td>
-          {% if match.distance is not none %}{{ match.distance }}{% else %}-{%
-          endif %}
-        </td>
-        <td>{{ match.fact_data }}</td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
   {% endif %}
 </div>
 {% endif %}
