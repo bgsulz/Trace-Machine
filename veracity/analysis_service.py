@@ -4,7 +4,7 @@ import base64
 from typing import Any
 from urllib.parse import urlparse, quote_plus
 
-from flask import abort, flash, redirect, render_template, url_for
+from flask import abort, current_app, flash, redirect, render_template, url_for
 
 from . import ingestion
 from .analysis_cache import (
@@ -133,6 +133,13 @@ def perform_analysis(
 _MINI_TEMPLATES = {"c2pa", "exif", "human", "synthid"}
 
 
+def _should_persist_analyzer_row(slug: str) -> bool:
+    if slug != "tineye":
+        return True
+    # TinEye compliance mode: strict mode avoids all analyzer-row persistence.
+    return current_app.config.get("TINEYE_PERSISTENCE_MODE", "none") == "derived"
+
+
 def render_analyzer_fragment_html(
     analysis_id: str,
     slug: str,
@@ -152,11 +159,13 @@ def render_analyzer_fragment_html(
         row = _build_analyzer_error_row(spec, "Analysis expired. Please re-run.")
     else:
         image_bytes, metadata = payload
-        row = None if refresh else load_cached_analyzer_row(analysis_id, slug)
+        should_persist = _should_persist_analyzer_row(slug)
+        row = None if refresh or not should_persist else load_cached_analyzer_row(analysis_id, slug)
         if row is None:
             context = prepare_analysis_context(image_bytes)
             row = run_single_analyzer(context, slug)
-            store_cached_analyzer_row(analysis_id, slug, row)
+            if should_persist:
+                store_cached_analyzer_row(analysis_id, slug, row)
 
     _prepare_row_for_render(row, metadata, link_target, analysis_id)
 
@@ -170,6 +179,8 @@ def _prime_analyzer_rows(analysis_id: str, context) -> None:
     for row in rows:
         slug = row.get("slug")
         if not slug:
+            continue
+        if not _should_persist_analyzer_row(str(slug)):
             continue
         store_cached_analyzer_row(analysis_id, slug, row)
 

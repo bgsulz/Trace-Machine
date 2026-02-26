@@ -5,10 +5,12 @@ import os
 import re
 import threading
 import time
+from collections import Counter
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import Protocol, TypedDict
+from urllib.parse import urlparse
 
 import requests
 from flask import current_app
@@ -227,6 +229,7 @@ class ProcessedTinEyeResult(TypedDict):
     earliest_date: str | None  # ISO format
     on_shame_list: bool
     buckets: BucketedMatches
+    intelligence: dict[str, object]
 
 
 def call_tineye_api(image_url: str | None = None) -> TinEyeAPIResult:
@@ -383,6 +386,143 @@ def bucket_matches(
     }
 
 
+def _extract_domain(match: TinEyeMatch) -> str:
+    domain = (match.get("domain") or "").strip().lower()
+    if domain:
+        return domain.removeprefix("www.")
+
+    url = (match.get("url") or "").strip()
+    if not url:
+        return ""
+
+    try:
+        parsed = urlparse(url)
+    except Exception:
+        return ""
+
+    host = (parsed.netloc or "").strip().lower()
+    if host:
+        return host.removeprefix("www.")
+    return ""
+
+
+def _classify_domain(domain: str) -> str:
+    if not domain:
+        return "other"
+
+    domain = domain.lower()
+
+    ai_hosts = (
+        "civitai.com",
+        "lexica.art",
+        "openart.ai",
+        "mage.space",
+        "tensor.art",
+        "playgroundai.com",
+        "prompthero.com",
+        "midjourney.com",
+        "huggingface.co",
+        "replicate.com",
+    )
+    social = (
+        "x.com",
+        "twitter.com",
+        "facebook.com",
+        "instagram.com",
+        "tiktok.com",
+        "reddit.com",
+        "pinterest.com",
+        "tumblr.com",
+    )
+    stock = (
+        "shutterstock.com",
+        "gettyimages.com",
+        "istockphoto.com",
+        "dreamstime.com",
+        "alamy.com",
+        "depositphotos.com",
+        "123rf.com",
+        "adobe.com",
+    )
+
+    if any(domain == item or domain.endswith(f".{item}") for item in ai_hosts):
+        return "ai-hosting"
+    if any(domain == item or domain.endswith(f".{item}") for item in social):
+        return "social"
+    if any(domain == item or domain.endswith(f".{item}") for item in stock):
+        return "stock-media"
+    if "news" in domain:
+        return "news"
+    return "other"
+
+
+def _extract_year(crawl_date: str) -> int | None:
+    if not crawl_date:
+        return None
+
+    prefix = crawl_date[:4]
+    if len(prefix) == 4 and prefix.isdigit():
+        return int(prefix)
+
+    try:
+        return datetime.fromisoformat(crawl_date.replace("Z", "+00:00")).year
+    except ValueError:
+        return None
+
+
+def build_tineye_intelligence(
+    matches: list[TinEyeMatch],
+    *,
+    top_n_domains: int = 5,
+) -> dict[str, object]:
+    domain_counter: Counter[str] = Counter()
+    category_counter: Counter[str] = Counter()
+    timeline_counter = {
+        "pre-2020": 0,
+        "2020-2022": 0,
+        "2023+": 0,
+    }
+
+    for match in matches:
+        domain = _extract_domain(match)
+        if domain:
+            domain_counter[domain] += 1
+            category_counter[_classify_domain(domain)] += 1
+
+        year = _extract_year(match.get("crawl_date", ""))
+        if year is None:
+            continue
+        if year < 2020:
+            timeline_counter["pre-2020"] += 1
+        elif year <= 2022:
+            timeline_counter["2020-2022"] += 1
+        else:
+            timeline_counter["2023+"] += 1
+
+    top_domains = [
+        {"domain": domain, "count": count}
+        for domain, count in sorted(
+            domain_counter.items(), key=lambda item: (-item[1], item[0])
+        )[:top_n_domains]
+    ]
+    category_mix = [
+        {"category": category, "count": count}
+        for category, count in sorted(
+            category_counter.items(), key=lambda item: (-item[1], item[0])
+        )
+    ]
+    timeline_bins = [
+        {"label": label, "count": count}
+        for label, count in timeline_counter.items()
+    ]
+
+    return {
+        "top_domains": top_domains,
+        "category_mix": category_mix,
+        "timeline_bins": timeline_bins,
+    }
+
+
 def process_tineye_response(
     api_result: TinEyeAPIResult,
     matchers: list[Matcher] | None = None,
@@ -396,11 +536,21 @@ def process_tineye_response(
             "earliest_date": None,
             "on_shame_list": False,
             "buckets": {"oldest": [], "newest": [], "shame_list": []},
+            "intelligence": {
+                "top_domains": [],
+                "category_mix": [],
+                "timeline_bins": [
+                    {"label": "pre-2020", "count": 0},
+                    {"label": "2020-2022", "count": 0},
+                    {"label": "2023+", "count": 0},
+                ],
+            },
         }
 
     filtered = filter_matches_by_similarity(api_result["matches"])
     earliest = extract_earliest_date(filtered)
     buckets = bucket_matches(filtered, matchers)
+    intelligence = build_tineye_intelligence(filtered)
 
     return {
         "success": True,
@@ -410,6 +560,7 @@ def process_tineye_response(
         "earliest_date": earliest,
         "on_shame_list": len(buckets["shame_list"]) > 0,
         "buckets": buckets,
+        "intelligence": intelligence,
     }
 
 

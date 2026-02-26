@@ -14,6 +14,59 @@
 </div>
 {% endmacro %}
 
+{% macro render_tineye_intelligence(data) %}
+{% set intelligence = data.intelligence|default({}, true) %}
+{% set top_domains = intelligence.top_domains|default([], true) %}
+{% set category_mix = intelligence.category_mix|default([], true) %}
+{% set timeline_bins = intelligence.timeline_bins|default([], true) %}
+
+<div class="tineye-intel-grid">
+  <section class="tineye-intel-card">
+    <h4>Earliest Seen</h4>
+    <p>{{ data.earliest_date[:10] if data.earliest_date else "Unknown" }}</p>
+  </section>
+
+  <section class="tineye-intel-card">
+    <h4>Top Domains</h4>
+    {% if top_domains %}
+    <ul class="tineye-intel-list">
+      {% for item in top_domains %}
+      <li><code>{{ item.domain }}</code> ({{ item.count }})</li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p>No qualifying domain data.</p>
+    {% endif %}
+  </section>
+
+  <section class="tineye-intel-card">
+    <h4>Category Mix</h4>
+    {% if category_mix %}
+    <ul class="tineye-intel-list">
+      {% for item in category_mix %}
+      <li>{{ item.category }} ({{ item.count }})</li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p>No category signals available.</p>
+    {% endif %}
+  </section>
+
+  <section class="tineye-intel-card">
+    <h4>Timeline Hints</h4>
+    {% if timeline_bins %}
+    <ul class="tineye-intel-list">
+      {% for bucket in timeline_bins %}
+      <li>{{ bucket.label }}: {{ bucket.count }}</li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p>No crawl-date hints available.</p>
+    {% endif %}
+  </section>
+</div>
+{% endmacro %}
+
 {% macro render_tineye_buckets(buckets) %}
 {% if buckets.oldest or buckets.newest or buckets.shame_list %}
 <div class="tineye-buckets">

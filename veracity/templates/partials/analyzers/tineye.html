@@ -1,4 +1,4 @@
-{% from "partials/macros/tineye.html" import render_tineye_buckets %}
+{% from "partials/macros/tineye.html" import render_tineye_buckets, render_tineye_intelligence %}
 
 {% if row.status == "MANUAL" %}
 <div class="analyzer-detail-block">
@@ -6,9 +6,27 @@
     Click <strong>"Check TinEye"</strong> above to search for this image across the web.
     This will check where the image has appeared online and when it was first indexed.
   </p>
+  <p class="tineye-compliance-note">
+    TinEye results are fetched on demand and are not retained by Trace Machine.
+  </p>
 </div>
 {% else %}
 <div class="analyzer-detail-block">
+  {{ render_tineye_intelligence(row.data|default({}, true)) }}
+
+  <div class="tineye-interpretation">
+    <h4>Interpretation Guidance</h4>
+    <ul>
+      <li>Older first-seen dates usually indicate the image existed before recent AI generators.</li>
+      <li>AI-hosting domains increase AI-origin suspicion, but still require manual verification.</li>
+      <li>Social/news/stock clusters can help trace publication context and recirculation.</li>
+    </ul>
+  </div>
+
+  <p class="tineye-compliance-note">
+    TinEye results are fetched on demand and are not retained by Trace Machine.
+  </p>
+
   {{ render_tineye_buckets(row.data.buckets) }}
 </div>
 {% endif %}

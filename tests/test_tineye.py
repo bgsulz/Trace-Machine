@@ -1,8 +1,13 @@
 from types import SimpleNamespace
 
 from veracity import db
+from veracity.analysis_cache import analysis_row_path, store_analysis_payload
 from veracity.analyzers.context import AnalysisContext
-from veracity.analyzers.tineye import get_tineye_status
+from veracity.analyzers.tineye import (
+    build_tineye_intelligence,
+    get_tineye_status,
+    process_tineye_response,
+)
 from veracity.models import ImageRegistry
 
 
@@ -68,6 +73,77 @@ class TestGetTinEyeStatus:
 
         assert result["status"] == "MANUAL"
         assert result["data"]["allow_manual_refresh"] is True
+
+
+class TestTinEyeEnrichment:
+    def test_build_tineye_intelligence_counts_domains_categories_and_timeline(self):
+        matches = [
+            {
+                "url": "https://x.com/example/status/1",
+                "domain": "x.com",
+                "crawl_date": "2019-04-01T00:00:00",
+                "similarity": 0.95,
+            },
+            {
+                "url": "https://example-news.com/story",
+                "domain": "example-news.com",
+                "crawl_date": "2021-05-01T00:00:00",
+                "similarity": 0.88,
+            },
+            {
+                "url": "https://civitai.com/images/1",
+                "domain": "civitai.com",
+                "crawl_date": "2024-01-01T00:00:00",
+                "similarity": 0.93,
+            },
+            {
+                "url": "https://civitai.com/images/2",
+                "domain": "civitai.com",
+                "crawl_date": "2024-06-01T00:00:00",
+                "similarity": 0.91,
+            },
+        ]
+
+        result = build_tineye_intelligence(matches)
+
+        assert result["top_domains"][0] == {"domain": "civitai.com", "count": 2}
+        assert {"category": "ai-hosting", "count": 2} in result["category_mix"]
+        assert {"category": "social", "count": 1} in result["category_mix"]
+        assert {"category": "news", "count": 1} in result["category_mix"]
+        assert result["timeline_bins"] == [
+            {"label": "pre-2020", "count": 1},
+            {"label": "2020-2022", "count": 1},
+            {"label": "2023+", "count": 2},
+        ]
+
+    def test_process_response_includes_intelligence(self):
+        api_result = {
+            "success": True,
+            "error": None,
+            "total_matches": 2,
+            "matches": [
+                {
+                    "url": "https://example.com/a",
+                    "domain": "example.com",
+                    "crawl_date": "2022-01-01T00:00:00",
+                    "similarity": 0.80,
+                },
+                {
+                    "url": "https://example.com/b",
+                    "domain": "example.com",
+                    "crawl_date": "2024-01-01T00:00:00",
+                    "similarity": 0.92,
+                },
+            ],
+        }
+
+        processed = process_tineye_response(api_result, matchers=[])
+
+        assert "intelligence" in processed
+        assert processed["intelligence"]["top_domains"][0] == {
+            "domain": "example.com",
+            "count": 2,
+        }
 
 
 class TestRunTinEyeRoute:
@@ -175,6 +251,111 @@ class TestRunTinEyeRoute:
 
         response = client.post("/analysis/test-id/tineye/run", headers=headers)
         assert response.status_code == 429
+
+    def test_run_tineye_route_none_mode_has_no_cache_side_effect(self, app, monkeypatch):
+        from veracity import routes
+        from io import BytesIO
+        from PIL import Image
+
+        app.config["TINEYE_PERSISTENCE_MODE"] = "none"
+
+        img = Image.new("RGB", (100, 100), color=(255, 0, 0))
+        buf = BytesIO()
+        img.save(buf, format="PNG")
+        image_bytes = buf.getvalue()
+
+        monkeypatch.setattr(
+            routes,
+            "load_analysis_payload",
+            lambda aid: (image_bytes, {"mime_type": "image/png", "source": "file"}),
+        )
+        monkeypatch.setattr(
+            routes,
+            "call_tineye_api",
+            lambda **kwargs: {"success": True, "error": None, "total_matches": 0, "matches": []},
+        )
+        monkeypatch.setattr(
+            routes,
+            "process_tineye_response",
+            lambda api_result, **kwargs: {
+                "success": True,
+                "error": None,
+                "total_matches": 0,
+                "filtered_match_count": 0,
+                "earliest_date": None,
+                "on_shame_list": False,
+                "buckets": {"oldest": [], "newest": [], "shame_list": []},
+                "intelligence": {
+                    "top_domains": [],
+                    "category_mix": [],
+                    "timeline_bins": [],
+                },
+            },
+        )
+        monkeypatch.setattr(routes, "get_shame_list_matchers", lambda **kwargs: [])
+
+        client = app.test_client()
+        response = client.post("/analysis/test-id/tineye/run")
+        assert response.status_code == 200
+
+        with app.app_context():
+            assert not analysis_row_path("test-id", "tineye").exists()
+
+
+class TestTinEyePersistenceMode:
+    def test_tineye_fragment_skips_row_cache_in_none_mode(self, app):
+        from io import BytesIO
+        from PIL import Image
+
+        app.config["TINEYE_PERSISTENCE_MODE"] = "none"
+
+        img = Image.new("RGB", (100, 100), color=(255, 0, 0))
+        buf = BytesIO()
+        img.save(buf, format="PNG")
+        image_bytes = buf.getvalue()
+
+        with app.app_context():
+            analysis_id = store_analysis_payload(
+                "cache-none-id",
+                image_bytes,
+                {"mime_type": "image/png", "source": "file"},
+            )
+
+        client = app.test_client()
+        tineye_response = client.get(f"/analysis/{analysis_id}/analyzers/tineye")
+        assert tineye_response.status_code == 200
+
+        exif_response = client.get(f"/analysis/{analysis_id}/analyzers/exif")
+        assert exif_response.status_code == 200
+
+        with app.app_context():
+            assert not analysis_row_path(analysis_id, "tineye").exists()
+            assert analysis_row_path(analysis_id, "exif").exists()
+
+    def test_tineye_fragment_caches_row_in_derived_mode(self, app):
+        from io import BytesIO
+        from PIL import Image
+
+        app.config["TINEYE_PERSISTENCE_MODE"] = "derived"
+
+        img = Image.new("RGB", (100, 100), color=(255, 0, 0))
+        buf = BytesIO()
+        img.save(buf, format="PNG")
+        image_bytes = buf.getvalue()
+
+        with app.app_context():
+            analysis_id = store_analysis_payload(
+                "cache-derived-id",
+                image_bytes,
+                {"mime_type": "image/png", "source": "file"},
+            )
+
+        client = app.test_client()
+        tineye_response = client.get(f"/analysis/{analysis_id}/analyzers/tineye")
+        assert tineye_response.status_code == 200
+
+        with app.app_context():
+            assert analysis_row_path(analysis_id, "tineye").exists()
 
 
 class TestTinEyeTemplates:
