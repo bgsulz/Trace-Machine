@@ -243,7 +243,10 @@ def run_tineye(analysis_id: str):
         "main.serve_analysis_image", analysis_id=analysis_id, _external=True
     )
 
-    # Call TinEye API directly without persisting results
+    # TinEye compliance policy:
+    # - Raw TinEye matches/URLs are never persisted in DB/files.
+    # - In strict mode (TINEYE_PERSISTENCE_MODE=none), analyzer-row caching for
+    #   TinEye is also disabled in analysis_service.
     api_result = call_tineye_api(image_url=image_url)
 
     if not api_result["success"]:
@@ -265,6 +268,9 @@ def run_tineye(analysis_id: str):
             "status": "ERROR",
             "summary": summary,
             "data": {
+                "persistence_mode": current_app.config.get(
+                    "TINEYE_PERSISTENCE_MODE", "none"
+                ),
                 "allow_manual_refresh": False,
             },
         }
@@ -286,6 +292,17 @@ def run_tineye(analysis_id: str):
                 "earliest_date": processed["earliest_date"],
                 "on_shame_list": processed["on_shame_list"],
                 "buckets": processed["buckets"],
+                "intelligence": processed.get(
+                    "intelligence",
+                    {
+                        "top_domains": [],
+                        "category_mix": [],
+                        "timeline_bins": [],
+                    },
+                ),
+                "persistence_mode": current_app.config.get(
+                    "TINEYE_PERSISTENCE_MODE", "none"
+                ),
                 "allow_manual_refresh": True,
             },
         }

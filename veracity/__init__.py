@@ -53,6 +53,13 @@ def create_app(test_config=None):
     )
     proxy_fix_x_for = int(os.environ.get("PROXY_FIX_X_FOR", "1"))
     proxy_fix_x_proto = int(os.environ.get("PROXY_FIX_X_PROTO", "1"))
+    tineye_persistence_mode = os.environ.get("TINEYE_PERSISTENCE_MODE", "none").strip().lower()
+    if tineye_persistence_mode not in {"none", "derived"}:
+        app.logger.warning(
+            "Invalid TINEYE_PERSISTENCE_MODE=%r; defaulting to 'none'",
+            tineye_persistence_mode,
+        )
+        tineye_persistence_mode = "none"
     app.config.from_mapping(
         SECRET_KEY=secret_key,
         SQLALCHEMY_DATABASE_URI=db_url,
@@ -64,6 +71,7 @@ def create_app(test_config=None):
         PROXY_FIX_ENABLED=proxy_fix_enabled,
         PROXY_FIX_X_FOR=proxy_fix_x_for,
         PROXY_FIX_X_PROTO=proxy_fix_x_proto,
+        TINEYE_PERSISTENCE_MODE=tineye_persistence_mode,
     )
 
     # Trust upstream proxy headers only when explicitly enabled.
