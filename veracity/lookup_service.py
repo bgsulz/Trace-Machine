@@ -14,21 +14,21 @@ def lookup_urls(urls: list[str]) -> dict[str, dict]:
     in the database.
     """
 
-    # Build mapping: candidate_url -> original_input_url
-    candidate_to_input: dict[str, str] = {}
+    # Build mapping: candidate_url -> original_input_urls
+    candidate_to_inputs: dict[str, set[str]] = {}
     for url in urls:
-        candidate_to_input[url] = url
+        candidate_to_inputs.setdefault(url, set()).add(url)
         full_res = get_full_res_url(url)
-        if full_res and full_res not in candidate_to_input:
-            candidate_to_input[full_res] = url
+        if full_res:
+            candidate_to_inputs.setdefault(full_res, set()).add(url)
 
-    if not candidate_to_input:
+    if not candidate_to_inputs:
         return {}
 
     # Single query: fetch all matching ImageSource rows with eager-loaded relations
     matched_sources = (
         ImageSource.query
-        .filter(ImageSource.url.in_(list(candidate_to_input.keys())))
+        .filter(ImageSource.url.in_(list(candidate_to_inputs.keys())))
         .options(
             joinedload(ImageSource.image)
             .joinedload(ImageRegistry.consensus),
@@ -43,8 +43,8 @@ def lookup_urls(urls: list[str]) -> dict[str, dict]:
     results: dict[str, dict] = {}
 
     for source in matched_sources:
-        input_url = candidate_to_input.get(source.url)
-        if input_url is None or input_url in results:
+        input_urls = candidate_to_inputs.get(source.url)
+        if not input_urls:
             continue
 
         registry: ImageRegistry = source.image
@@ -69,10 +69,10 @@ def lookup_urls(urls: list[str]) -> dict[str, dict]:
             not_detected = sum(1 for r in reports if r.result == "not_detected")
             if detected > not_detected:
                 synthid = True
-            elif not_detected > 0:
+            elif not_detected > detected:
                 synthid = False
 
-        results[input_url] = {
+        payload = {
             "phash": registry.phash,
             "vote_real": vote_real,
             "vote_edited": vote_edited,
@@ -82,5 +82,9 @@ def lookup_urls(urls: list[str]) -> dict[str, dict]:
             "c2pa": has_c2pa,
             "synthid": synthid,
         }
+        for input_url in input_urls:
+            if input_url in results:
+                continue
+            results[input_url] = payload.copy()
 
     return results
