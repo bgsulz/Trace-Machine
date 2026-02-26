@@ -91,6 +91,23 @@ def test_dethumbnail_expansion(client, app):
     assert data["results"][preview_url]["vote_ai"] == 5
 
 
+def test_dethumbnail_collision_preserves_all_inputs(client, app, monkeypatch):
+    """When two inputs map to one candidate URL, both input keys are returned."""
+    full_url = "https://i.redd.it/collision123.jpg"
+    preview_url = "https://preview.redd.it/collision123.jpg?width=640"
+    _seed_image(app, url=full_url, phash="1111222233334444", vote_ai=2)
+
+    monkeypatch.setattr("veracity.lookup_service.get_full_res_url", lambda _: full_url)
+
+    resp = client.post("/api/lookup", json={"urls": [preview_url, full_url]})
+    assert resp.status_code == 200
+    data = resp.get_json()
+    assert preview_url in data["results"]
+    assert full_url in data["results"]
+    assert data["results"][preview_url]["phash"] == "1111222233334444"
+    assert data["results"][full_url]["phash"] == "1111222233334444"
+
+
 def test_max_url_cap(client):
     """More than 50 URLs returns 400."""
     urls = [f"https://example.com/{i}.jpg" for i in range(51)]
@@ -166,6 +183,21 @@ def test_synthid_not_detected_reflected(client, app):
     resp = client.post("/api/lookup", json={"urls": [url]})
     data = resp.get_json()
     assert data["results"][url]["synthid"] is False
+
+
+def test_synthid_tied_reports_returns_null(client, app):
+    """When detected and not_detected are tied, synthid is null."""
+    url = "https://example.com/synthid-tie.jpg"
+    _seed_image(
+        app,
+        url=url,
+        phash="abababababababab",
+        synthid_reports=["detected", "not_detected"],
+    )
+
+    resp = client.post("/api/lookup", json={"urls": [url]})
+    data = resp.get_json()
+    assert data["results"][url]["synthid"] is None
 
 
 def test_no_consensus_verdict_null(client, app):
