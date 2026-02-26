@@ -6,13 +6,13 @@
   <details class="analyzer-item" id="direct-distant-traces" open>
     <summary class="analyzer-header">
       <div class="analyzer-header-info">
-        <span class="analyzer-title"><strong>Direct and Distant</strong></span>
+        <span class="analyzer-title"><strong>Traces</strong></span>
       </div>
       <span class="badge found">FOUND</span>
     </summary>
     <div class="analyzer-content">
       {% if direct_distant.direct_items %}
-      <p><strong>Direct traces on this image:</strong></p>
+      <p><strong>Direct Traces:</strong></p>
       <ul style="margin-top: 0.5rem">
         {% for item in direct_distant.direct_items %}
         <li>
@@ -27,7 +27,7 @@
       {% endif %}
 
       {% if direct_distant.distant_matches %}
-      <p><strong>Distant traces carried by matched images:</strong></p>
+      <p><strong>Distant Traces:</strong></p>
       <table style="font-size: 0.85rem; margin-bottom: 1rem">
         <thead>
           <tr>
