@@ -29,3 +29,4 @@ thumbs.db
 **/static/.local
 CLAUDE.md
 AGENTS.md
+.worktrees/
