@@ -389,7 +389,7 @@ def vote():
 def synthid_report():
     report = (request.form.get("report") or "").strip().lower()
     analysis_id = (request.form.get("analysis_id") or "").strip()
-
+    mini = request.form.get("mini") == "1"
     if not analysis_id:
         if request.headers.get("HX-Request"):
             return _expired_analysis_response()
@@ -416,8 +416,9 @@ def synthid_report():
         html = render_analyzer_fragment_html(
             analysis_id,
             "synthid",
-            link_target=None,
+            link_target="_blank" if mini else None,
             refresh=True,
+            mini=mini,
         )
         response = make_response(html)
         msg = "SynthID report recorded." if status == "recorded" else "SynthID report updated."

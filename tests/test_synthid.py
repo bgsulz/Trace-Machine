@@ -358,3 +358,30 @@ def test_htmx_synthid_report_unchanged(client, app):
     assert resp.status_code == 200
     trigger = json.loads(resp.headers["HX-Trigger"])
     assert "already" in trigger["showToast"].lower()
+
+
+def test_synthid_mini_fragment_includes_mini_flag_in_forms(client):
+    analysis_id, _ = _upload_and_get_ids(client)
+
+    fragment = client.get(f"/analysis/{analysis_id}/analyzers/synthid?mini=1")
+    assert fragment.status_code == 200
+    assert fragment.data.count(b'name="mini" value="1"') == 2
+
+
+def test_htmx_synthid_report_mini_returns_mini_fragment(client, app):
+    analysis_id, phash = _upload_and_get_ids(client)
+    data = {
+        "phash": phash,
+        "report": "detected",
+        "analysis_id": analysis_id,
+        "mini": "1",
+    }
+    resp = client.post(
+        "/synthid-report",
+        data=data,
+        headers={"HX-Request": "true"},
+    )
+
+    assert resp.status_code == 200
+    assert b"mini-card-content" in resp.data
+    assert b"analyzer-row-synthid" not in resp.data

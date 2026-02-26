@@ -27,7 +27,7 @@
   <div class="mini-vote-buttons">
     <form action="{{ url_for('main.vote') }}" method="post"
           hx-post="{{ url_for('main.vote') }}"
-          hx-target="#mini-card-human"
+          hx-target="closest .mini-card"
           hx-swap="innerHTML">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
       <input type="hidden" name="mini" value="1" />
@@ -38,7 +38,7 @@
     </form>
     <form action="{{ url_for('main.vote') }}" method="post"
           hx-post="{{ url_for('main.vote') }}"
-          hx-target="#mini-card-human"
+          hx-target="closest .mini-card"
           hx-swap="innerHTML">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
       <input type="hidden" name="mini" value="1" />
@@ -49,7 +49,7 @@
     </form>
     <form action="{{ url_for('main.vote') }}" method="post"
           hx-post="{{ url_for('main.vote') }}"
-          hx-target="#mini-card-human"
+          hx-target="closest .mini-card"
           hx-swap="innerHTML">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
       <input type="hidden" name="mini" value="1" />

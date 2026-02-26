@@ -400,3 +400,23 @@ def test_htmx_vote_returns_trigger_header(client, app):
     assert "HX-Trigger" in resp_vote.headers
     trigger = json.loads(resp_vote.headers["HX-Trigger"])
     assert trigger["showToast"] == "Thanks for your vote."
+
+
+def test_human_mini_fragment_uses_relative_card_target(client):
+    image_bytes = _make_test_image_bytes()
+    data = {
+        "file": (io.BytesIO(image_bytes), "test.png"),
+        "image_url": "",
+    }
+    resp = client.post("/analyze", data=data, content_type="multipart/form-data")
+    assert resp.status_code == 200
+
+    body = resp.data.decode("utf-8")
+    match = re.search(r"/analysis/([a-f0-9]+)/analyzers/", body)
+    assert match is not None
+    analysis_id = match.group(1)
+
+    fragment = client.get(f"/analysis/{analysis_id}/analyzers/human?mini=1")
+    assert fragment.status_code == 200
+    assert b'hx-target="closest .mini-card"' in fragment.data
+    assert b'hx-target="#mini-card-human"' not in fragment.data

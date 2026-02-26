@@ -47,6 +47,7 @@
           hx-swap="innerHTML">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
       <input type="hidden" name="analysis_id" value="{{ row.context.analysis_id }}" />
+      <input type="hidden" name="mini" value="1" />
       <input type="hidden" name="report" value="detected" />
       <button type="submit" class="mini-vote-btn ai{% if current_report == 'detected' %} active{% endif %}">Detected</button>
     </form>
@@ -56,6 +57,7 @@
           hx-swap="innerHTML">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
       <input type="hidden" name="analysis_id" value="{{ row.context.analysis_id }}" />
+      <input type="hidden" name="mini" value="1" />
       <input type="hidden" name="report" value="not_detected" />
       <button type="submit" class="mini-vote-btn real{% if current_report == 'not_detected' %} active{% endif %}">Not Detected</button>
     </form>
