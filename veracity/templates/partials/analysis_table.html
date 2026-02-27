@@ -49,6 +49,29 @@
                 {% endfor %}
               </small>
               {% endif %}
+              {% if match.local and match.local.crop_box and match.sources %}
+              <br />
+              <small>
+                {% for src in match.sources %}
+                <form
+                  action="{{ url_for('main.analyze_matched_region') }}"
+                  method="post"
+                  class="inline-form"
+                >
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                  <input type="hidden" name="image_url" value="{{ src.url }}" />
+                  <input type="hidden" name="crop_left" value="{{ match.local.crop_box[0] }}" />
+                  <input type="hidden" name="crop_top" value="{{ match.local.crop_box[1] }}" />
+                  <input type="hidden" name="crop_width" value="{{ match.local.crop_box[2] }}" />
+                  <input type="hidden" name="crop_height" value="{{ match.local.crop_box[3] }}" />
+                  <input type="hidden" name="parent_registry_id" value="{{ match.image_id }}" />
+                  <button type="submit" class="secondary">
+                    Analyze region (Source {{ loop.index }})
+                  </button>
+                </form>
+                {% endfor %}
+              </small>
+              {% endif %}
             </td>
             <td>
               <strong>{{ match.match_method_label }}</strong>

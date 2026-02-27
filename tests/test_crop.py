@@ -5,6 +5,8 @@ import re
 import pytest
 
 from conftest import _make_entropy_image_bytes
+from veracity.analysis_cache import load_analysis_payload
+from veracity.services.remote_image_service import RemoteImageFetchResult
 
 
 def _extract_analysis_id(response_text: str) -> str:
@@ -100,3 +102,53 @@ def test_containment_section_shows_for_known_child(client, app):
     body = resp_second.data.decode("utf-8")
     assert "This image contains regions that match previously analyzed images." in body
     assert "contained-regions-table" in body
+
+
+def test_analyze_matched_region_creates_containment(client, app, monkeypatch):
+    initial, _ = _upload_entropy_image(client)
+    analysis_id = _extract_analysis_id(initial.data.decode("utf-8"))
+
+    with app.app_context():
+        payload = load_analysis_payload(analysis_id)
+        assert payload is not None
+        _image_bytes, metadata = payload
+        parent_registry_id = metadata.get("registry_id")
+        assert isinstance(parent_registry_id, int)
+
+    source_bytes = _make_entropy_image_bytes()
+
+    monkeypatch.setattr(
+        "veracity.web.routes.analysis.fetch_remote_image",
+        lambda _url: RemoteImageFetchResult(
+            image_bytes=source_bytes,
+            mime_type="image/png",
+            fetch_url="https://example.com/source-full.png",
+            full_res_url=None,
+            upgraded=False,
+        ),
+    )
+
+    resp = client.post(
+        "/analyze/matched-region",
+        data={
+            "image_url": "https://example.com/source-preview.png",
+            "crop_left": "0.0",
+            "crop_top": "0.0",
+            "crop_width": "0.75",
+            "crop_height": "0.75",
+            "parent_registry_id": str(parent_registry_id),
+        },
+    )
+    assert resp.status_code == 200
+    assert b"Provenance Report" in resp.data
+
+    from veracity.models import ImageContainment
+
+    with app.app_context():
+        links = ImageContainment.query.order_by(ImageContainment.id.desc()).all()
+        assert links
+        link = links[0]
+        assert link.parent_id == parent_registry_id
+        crop_box = json.loads(link.crop_box_json)
+        assert pytest.approx(crop_box[2], rel=1e-2) == 0.75
+        assert pytest.approx(crop_box[3], rel=1e-2) == 0.75

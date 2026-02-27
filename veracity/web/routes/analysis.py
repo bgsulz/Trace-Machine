@@ -24,6 +24,7 @@ from ...analyzers.tineye import (
     process_tineye_response,
 )
 from ...services.containment_service import save_containment_link
+from ...services.remote_image_service import fetch_remote_image
 from ...registry import prepare_analysis_context
 from ...services.reporting import build_report_payload
 from ...services.voting_service import VOTE_CHOICES
@@ -119,6 +120,56 @@ def register_analysis_routes(
             cropped_bytes,
             "image/png",
             "file",
+            context=child_context,
+            crop_box=sanitized_box,
+        )
+
+    @bp.route("/analyze/matched-region", methods=["POST"])
+    def analyze_matched_region():
+        image_url = (request.form.get("image_url") or "").strip()
+        if not image_url:
+            flash("Matched source URL is missing.")
+            return redirect(url_for("main.index"))
+
+        crop_box = _parse_normalized_box(request.form)
+        if crop_box is None:
+            flash("Matched region is unavailable. Please re-open the source image.")
+            return redirect(url_for("main.analyze", url=image_url))
+
+        try:
+            fetched = fetch_remote_image(image_url)
+        except ingestion.IngestionError as exc:
+            flash(str(exc))
+            return redirect(url_for("main.analyze", url=image_url))
+
+        try:
+            cropped_bytes, sanitized_box = _crop_image_bytes(
+                fetched.image_bytes,
+                crop_box,
+            )
+        except ValueError as exc:
+            flash(str(exc))
+            return redirect(url_for("main.analyze", url=image_url))
+
+        child_context = prepare_analysis_context(cropped_bytes)
+        parent_registry_id = _parse_parent_registry_id(
+            request.form.get("parent_registry_id")
+        )
+        if parent_registry_id is not None:
+            try:
+                save_containment_link(
+                    parent_registry_id,
+                    child_context.registry_id,
+                    sanitized_box,
+                )
+            except Exception:
+                current_app.logger.exception("Failed to save matched-region containment link")
+
+        return perform_analysis(
+            cropped_bytes,
+            "image/png",
+            "url",
+            image_url=fetched.fetch_url,
             context=child_context,
             crop_box=sanitized_box,
         )
@@ -260,6 +311,14 @@ def _parse_normalized_box(form) -> tuple[float, float, float, float] | None:
     if left + width > 1.0 or top + height > 1.0:
         return None
     return left, top, width, height
+
+
+def _parse_parent_registry_id(raw_value: str | None) -> int | None:
+    try:
+        value = int(raw_value or "")
+    except (TypeError, ValueError):
+        return None
+    return value if value > 0 else None
 
 
 def _crop_image_bytes(
