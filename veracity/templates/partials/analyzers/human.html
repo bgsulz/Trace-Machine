@@ -22,10 +22,31 @@
 
   <div class="voting-area">
     {% set current_vote = row.data.current_vote %}
+    {% set vote_options = [
+      {
+        "kind": "real",
+        "button_class": "vote-btn-real",
+        "label": "Mark as Real",
+        "tooltip": "This is a fully human-generated image (photo or artwork.)"
+      },
+      {
+        "kind": "edited",
+        "button_class": "vote-btn-edited",
+        "label": "Mark as AI-Edited",
+        "tooltip": "This is a human-created image (photo or artwork) that was edited or modified with AI generation."
+      },
+      {
+        "kind": "ai",
+        "button_class": "vote-btn-ai",
+        "label": "Mark as AI-Gen",
+        "tooltip": "The relevant part of this image is mostly or entirely AI-generated."
+      }
+    ] %}
     <small style="display: block; margin-bottom: 0.5rem"
       ><strong>Cast your vote:</strong></small
     >
     <div class="vote-buttons">
+      {% for option in vote_options %}
       <form
         action="{{ url_for('main.vote') }}"
         method="post"
@@ -43,80 +64,19 @@
         />
         <input type="hidden" name="phash" value="{{ row.data.phash }}" />
         <input type="hidden" name="analysis_id" value="{{ row.context.analysis_id }}" />
-        <input type="hidden" name="vote" value="real" />
+        <input type="hidden" name="vote" value="{{ option.kind }}" />
         <button
           type="submit"
-          class="vote-btn-real{% if current_vote and current_vote != 'real' %} vote-btn-muted{% endif %}"
+          class="{{ option.button_class }}{% if current_vote and current_vote != option.kind %} vote-btn-muted{% endif %}"
           hx-on:click="this.closest('.vote-buttons').querySelectorAll('button').forEach(b => b.classList.add('vote-btn-muted')); this.classList.remove('vote-btn-muted')"
         >
           <span class="tooltip-trigger vote-tooltip" tabindex="0">
-            Mark as Real
-            <span class="tooltip-bubble">This is a fully human-generated image (photo or artwork.)</span>
+            {{ option.label }}
+            <span class="tooltip-bubble">{{ option.tooltip }}</span>
           </span>
         </button>
       </form>
-
-      <form
-        action="{{ url_for('main.vote') }}"
-        method="post"
-        hx-post="{{ url_for('main.vote') }}"
-        hx-target="#analyzer-row-human"
-        hx-swap="outerHTML"
-        hx-include="closest .voting-area"
-      >
-        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
-        <input type="hidden" name="source_type" value="{{ source }}" />
-        <input
-          type="hidden"
-          name="analysis_link"
-          value="{{ analysis_link or '' }}"
-        />
-        <input type="hidden" name="phash" value="{{ row.data.phash }}" />
-        <input type="hidden" name="analysis_id" value="{{ row.context.analysis_id }}" />
-        <input type="hidden" name="vote" value="edited" />
-        <button
-          type="submit"
-          class="vote-btn-edited{% if current_vote and current_vote != 'edited' %} vote-btn-muted{% endif %}"
-          hx-on:click="this.closest('.vote-buttons').querySelectorAll('button').forEach(b => b.classList.add('vote-btn-muted')); this.classList.remove('vote-btn-muted')"
-        >
-          <span class="tooltip-trigger vote-tooltip" tabindex="0">
-            Mark as AI-Edited
-            <span class="tooltip-bubble"
-              >This is a human-created image (photo or artwork) that was edited or modified with AI generation.</span
-            >
-          </span>
-        </button>
-      </form>
-
-      <form
-        action="{{ url_for('main.vote') }}"
-        method="post"
-        hx-post="{{ url_for('main.vote') }}"
-        hx-target="#analyzer-row-human"
-        hx-swap="outerHTML"
-        hx-include="closest .voting-area"
-      >
-        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
-        <input type="hidden" name="source_type" value="{{ source }}" />
-        <input
-          type="hidden"
-          name="analysis_link"
-          value="{{ analysis_link or '' }}"
-        />
-        <input type="hidden" name="phash" value="{{ row.data.phash }}" />
-        <input type="hidden" name="analysis_id" value="{{ row.context.analysis_id }}" />
-        <input type="hidden" name="vote" value="ai" />
-        <button
-          type="submit"
-          class="vote-btn-ai{% if current_vote and current_vote != 'ai' %} vote-btn-muted{% endif %}"
-          hx-on:click="this.closest('.vote-buttons').querySelectorAll('button').forEach(b => b.classList.add('vote-btn-muted')); this.classList.remove('vote-btn-muted')"
-        >
-          <span class="tooltip-trigger vote-tooltip" tabindex="0">
-            Mark as AI-Gen
-            <span class="tooltip-bubble">The relevant part of this image is mostly or entirely AI-generated.</span>
-          </span>
-        </button>
-      </form>
+      {% endfor %}
     </div>
   </div>
 </div>
