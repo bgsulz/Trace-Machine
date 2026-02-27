@@ -12,9 +12,9 @@ from flask import (
 
 from .analyzers.manager import ANALYZERS, get_analyzer_spec
 from .config_service import DONATION_GOAL_CENTS, get_global_config
-from .route_groups.analysis import register_analysis_routes
-from .route_groups.batch_api import register_batch_api_routes
-from .route_groups.community import register_community_routes
+from .web.routes.analysis import register_analysis_routes
+from .web.routes.batch_api import register_batch_api_routes
+from .web.routes.community import register_community_routes
 
 bp = Blueprint("main", __name__)
 
@@ -89,4 +89,3 @@ def dev_mini_test():
     if not current_app.debug:
         abort(404)
     return render_template("dev_mini_test.html")
-
