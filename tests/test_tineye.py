@@ -153,7 +153,7 @@ class TestRunTinEyeRoute:
         assert response.status_code == 410
 
     def test_run_tineye_route_success(self, app, monkeypatch):
-        from veracity import routes
+        from veracity.route_groups import analysis as analysis_routes
         from io import BytesIO
         from PIL import Image
 
@@ -163,7 +163,7 @@ class TestRunTinEyeRoute:
         image_bytes = buf.getvalue()
 
         monkeypatch.setattr(
-            routes,
+            analysis_routes,
             "load_analysis_payload",
             lambda aid: (image_bytes, {"mime_type": "image/png", "source": "file"}),
         )
@@ -190,16 +190,16 @@ class TestRunTinEyeRoute:
         def mock_get_matchers(**kwargs):
             return []
 
-        monkeypatch.setattr(routes, "call_tineye_api", mock_call_api)
-        monkeypatch.setattr(routes, "process_tineye_response", mock_process_response)
-        monkeypatch.setattr(routes, "get_shame_list_matchers", mock_get_matchers)
+        monkeypatch.setattr(analysis_routes, "call_tineye_api", mock_call_api)
+        monkeypatch.setattr(analysis_routes, "process_tineye_response", mock_process_response)
+        monkeypatch.setattr(analysis_routes, "get_shame_list_matchers", mock_get_matchers)
 
         client = app.test_client()
         response = client.post("/analysis/test-id/tineye/run")
         assert response.status_code == 200
 
     def test_run_tineye_route_rate_limited(self, app_ratelimited, monkeypatch):
-        from veracity import routes
+        from veracity.route_groups import analysis as analysis_routes
         from io import BytesIO
         from PIL import Image
 
@@ -211,7 +211,7 @@ class TestRunTinEyeRoute:
         image_bytes = buf.getvalue()
 
         monkeypatch.setattr(
-            routes,
+            analysis_routes,
             "load_analysis_payload",
             lambda aid: (image_bytes, {"mime_type": "image/png", "source": "file"}),
         )
@@ -238,9 +238,9 @@ class TestRunTinEyeRoute:
         def mock_get_matchers(**kwargs):
             return []
 
-        monkeypatch.setattr(routes, "call_tineye_api", mock_call_api)
-        monkeypatch.setattr(routes, "process_tineye_response", mock_process_response)
-        monkeypatch.setattr(routes, "get_shame_list_matchers", mock_get_matchers)
+        monkeypatch.setattr(analysis_routes, "call_tineye_api", mock_call_api)
+        monkeypatch.setattr(analysis_routes, "process_tineye_response", mock_process_response)
+        monkeypatch.setattr(analysis_routes, "get_shame_list_matchers", mock_get_matchers)
 
         client = app.test_client()
         headers = {"HX-Request": "true"}  # Simulate HTMX request
@@ -253,7 +253,7 @@ class TestRunTinEyeRoute:
         assert response.status_code == 429
 
     def test_run_tineye_route_none_mode_has_no_cache_side_effect(self, app, monkeypatch):
-        from veracity import routes
+        from veracity.route_groups import analysis as analysis_routes
         from io import BytesIO
         from PIL import Image
 
@@ -265,17 +265,17 @@ class TestRunTinEyeRoute:
         image_bytes = buf.getvalue()
 
         monkeypatch.setattr(
-            routes,
+            analysis_routes,
             "load_analysis_payload",
             lambda aid: (image_bytes, {"mime_type": "image/png", "source": "file"}),
         )
         monkeypatch.setattr(
-            routes,
+            analysis_routes,
             "call_tineye_api",
             lambda **kwargs: {"success": True, "error": None, "total_matches": 0, "matches": []},
         )
         monkeypatch.setattr(
-            routes,
+            analysis_routes,
             "process_tineye_response",
             lambda api_result, **kwargs: {
                 "success": True,
@@ -292,7 +292,7 @@ class TestRunTinEyeRoute:
                 },
             },
         )
-        monkeypatch.setattr(routes, "get_shame_list_matchers", lambda **kwargs: [])
+        monkeypatch.setattr(analysis_routes, "get_shame_list_matchers", lambda **kwargs: [])
 
         client = app.test_client()
         response = client.post("/analysis/test-id/tineye/run")
