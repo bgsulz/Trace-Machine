@@ -11,7 +11,7 @@ from flask import (
 )
 
 from .analyzers.manager import ANALYZERS, get_analyzer_spec
-from .config_service import DONATION_GOAL_CENTS, get_global_config
+from .services.config_service import DONATION_GOAL_CENTS, get_global_config
 from .web.routes.analysis import register_analysis_routes
 from .web.routes.batch_api import register_batch_api_routes
 from .web.routes.community import register_community_routes

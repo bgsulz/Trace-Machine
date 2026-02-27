@@ -4,7 +4,7 @@ import pytest
 
 from conftest import _make_test_image_bytes
 from veracity.ingestion import IngestionError
-from veracity.remote_image_service import RemoteImageFetchResult
+from veracity.services.remote_image_service import RemoteImageFetchResult
 
 
 @pytest.fixture
@@ -48,7 +48,7 @@ class TestBatchPage:
         assert resp.status_code == 200
         assert b"Invalid URL format" in resp.data
 
-    @patch("veracity.batch_service.fetch_remote_image", side_effect=_fake_remote_fetch)
+    @patch("veracity.services.batch_service.fetch_remote_image", side_effect=_fake_remote_fetch)
     def test_valid_single_url(self, mock_fetch, client):
         resp = client.post(
             "/batch",
@@ -58,7 +58,7 @@ class TestBatchPage:
         assert b"Batch Results" in resp.data
         assert b"Full Analysis" in resp.data
 
-    @patch("veracity.batch_service.fetch_remote_image", side_effect=_fake_remote_fetch)
+    @patch("veracity.services.batch_service.fetch_remote_image", side_effect=_fake_remote_fetch)
     def test_duplicate_urls_deduplicated(self, mock_fetch, client):
         urls = "https://example.com/a.jpg\nhttps://example.com/a.jpg"
         resp = client.post("/batch", data={"urls": urls})
@@ -66,7 +66,7 @@ class TestBatchPage:
         # Should only have one result card (deduplicated)
         assert resp.data.count(b"batch-card") >= 1
 
-    @patch("veracity.batch_service.fetch_remote_image", side_effect=_fake_remote_fetch)
+    @patch("veracity.services.batch_service.fetch_remote_image", side_effect=_fake_remote_fetch)
     def test_mixed_valid_and_invalid(self, mock_fetch, client):
         urls = "https://example.com/good.jpg\nnot-a-url"
         resp = client.post("/batch", data={"urls": urls})
@@ -75,7 +75,7 @@ class TestBatchPage:
         assert b"Invalid URL format" in resp.data
 
     @patch(
-        "veracity.batch_service.fetch_remote_image",
+        "veracity.services.batch_service.fetch_remote_image",
         side_effect=IngestionError("Failed to download image from URL."),
     )
     def test_fetch_error_shows_error_card(self, mock_fetch, client):

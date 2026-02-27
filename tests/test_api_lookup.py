@@ -120,7 +120,7 @@ def test_dethumbnail_collision_preserves_all_inputs(client, app, monkeypatch):
     preview_url = "https://preview.redd.it/collision123.jpg?width=640"
     _seed_image(app, url=full_url, phash="1111222233334444", vote_ai=2)
 
-    monkeypatch.setattr("veracity.lookup_service.get_full_res_url", lambda _: full_url)
+    monkeypatch.setattr("veracity.services.lookup_service.get_full_res_url", lambda _: full_url)
     results = _lookup(client, [preview_url, full_url])
 
     preview_match = _single_match(results, preview_url)
