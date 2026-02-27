@@ -153,7 +153,7 @@ class TestRunTinEyeRoute:
         assert response.status_code == 410
 
     def test_run_tineye_route_success(self, app, monkeypatch):
-        from veracity.route_groups import analysis as analysis_routes
+        from veracity.web.routes import analysis as analysis_routes
         from io import BytesIO
         from PIL import Image
 
@@ -199,7 +199,7 @@ class TestRunTinEyeRoute:
         assert response.status_code == 200
 
     def test_run_tineye_route_rate_limited(self, app_ratelimited, monkeypatch):
-        from veracity.route_groups import analysis as analysis_routes
+        from veracity.web.routes import analysis as analysis_routes
         from io import BytesIO
         from PIL import Image
 
@@ -253,7 +253,7 @@ class TestRunTinEyeRoute:
         assert response.status_code == 429
 
     def test_run_tineye_route_none_mode_has_no_cache_side_effect(self, app, monkeypatch):
-        from veracity.route_groups import analysis as analysis_routes
+        from veracity.web.routes import analysis as analysis_routes
         from io import BytesIO
         from PIL import Image
 
