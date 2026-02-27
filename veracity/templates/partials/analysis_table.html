@@ -2,32 +2,15 @@
 {% set mini_mode = mini_mode|default(False) %}
 
 <div class="analyzer-list">
-  {% if direct_distant and direct_distant.has_any %}
+  {% if direct_distant and direct_distant.distant_matches %}
   <details class="analyzer-item" id="direct-distant-traces" open>
     <summary class="analyzer-header">
       <div class="analyzer-header-info">
-        <span class="analyzer-title"><strong>Traces</strong></span>
+        <span class="analyzer-title"><strong>Distant Traces</strong></span>
       </div>
       <span class="badge found">FOUND</span>
     </summary>
     <div class="analyzer-content">
-      {% if direct_distant.direct_items %}
-      <p><strong>Direct Traces:</strong></p>
-      <ul style="margin-top: 0.5rem">
-        {% for item in direct_distant.direct_items %}
-        <li>
-          <strong>{{ item.title }}:</strong> {{ item.summary }}
-          {% if item.details %}
-          <br />
-          <small>{{ item.details|join("; ") }}</small>
-          {% endif %}
-        </li>
-        {% endfor %}
-      </ul>
-      {% endif %}
-
-      {% if direct_distant.distant_matches %}
-      <p><strong>Distant Traces:</strong></p>
       <table style="font-size: 0.85rem; margin-bottom: 1rem">
         <thead>
           <tr>
@@ -119,7 +102,6 @@
           {% endfor %}
         </tbody>
       </table>
-      {% endif %}
     </div>
   </details>
   {% endif %}
