@@ -1,6 +1,5 @@
-"""Service namespace package.
+"""Primary service implementations.
 
-Modules here currently re-export legacy service modules to keep compatibility
-while new code migrates imports to `veracity.services.*`.
+Legacy `veracity.<service_module>` imports remain as compatibility shims that
+re-export modules from this namespace.
 """
-
