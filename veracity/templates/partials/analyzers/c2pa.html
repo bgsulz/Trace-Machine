@@ -1,3 +1,4 @@
+{% from "partials/macros/common.html" import distant_match_callout %}
 {% if row.data %}
 <div class="analyzer-detail-block">
   {% if row.data.tool %}
@@ -12,16 +13,7 @@
   </div>
   {% endif %} {% if row.data.matches %}
   <hr />
-  <p>
-    <strong>
-      {{ row.data.matches|length }} distant match{{ "es" if row.data.matches|length != 1 else "" }}
-      carry C2PA traces.
-    </strong>
-    <a
-      href="#direct-distant-traces"
-      onclick="const panel=document.getElementById('direct-distant-traces'); if (panel) panel.open = true;"
-    >View in Distant Traces</a>
-  </p>
+  {{ distant_match_callout(row.data.matches|length, "C2PA traces") }}
   {% endif %}
 </div>
 {% endif %}

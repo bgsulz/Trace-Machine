@@ -742,12 +742,32 @@ details[open] > summary {
   font-size: 0.8rem;
 }
 
-.tineye-compliance-note {
-  margin: 0.25rem 0 0.75rem;
+/* EXIF Analyzer */
+.exif-finding { margin-bottom: 0.75rem; }
+.exif-finding-body { margin-top: 0.5rem; }
+.exif-pre { white-space: pre-wrap; }
+.exif-metadata-list { font-size: 0.9rem; }
+.exif-raw-body { font-size: 0.85rem; margin-top: 0.5rem; }
+.exif-raw-table td:first-child { width: 30%; }
+.exif-raw-table td:last-child { word-break: break-all; }
+.exif-finding-key { font-weight: normal; }
+
+/* SynthID Analyzer */
+.analyzer-note {
+  font-size: 0.85rem;
   color: var(--pico-muted-color);
-  font-size: 0.8rem;
-  font-style: italic;
+  margin-top: 0.75rem;
 }
+.synthid-counts { font-size: 0.85rem; }
+.synthid-contested { font-size: 0.85rem; color: var(--pico-del-color); }
+.synthid-match-note { font-size: 0.85rem; margin-top: 0.5rem; }
+.synthid-steps { margin-top: 0.5rem; padding-left: 1.25rem; }
+.synthid-voting-area { margin-top: 1rem; }
+.synthid-voting-area[hidden] { display: none; }
+
+/* Shared Analyzer Patterns */
+.analyzer-match-callout { margin: 0.5rem 0; }
+.vote-prompt { display: block; margin-bottom: 0.5rem; }
 
 .vote-bar-wrapper {
   margin: 0.35rem 0 0.85rem;

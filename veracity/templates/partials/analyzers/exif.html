@@ -7,22 +7,22 @@
     information as a clue, not definitive proof about how the image was created.
   </div>
   {% for finding in findings %}
-  <details style="margin-bottom: 0.75rem">
+  <details class="exif-finding">
     <summary>
       <strong>{{ finding.tool }}</strong>
-      <span style="font-weight: normal">({{ finding.key }})</span>
+      <span class="exif-finding-key">({{ finding.key }})</span>
       <br />
       <small>{{ finding.preview }}</small>
     </summary>
-    <div style="margin-top: 0.5rem">
-      <pre style="white-space: pre-wrap">{{ finding.full_text }}</pre>
+    <div class="exif-finding-body">
+      <pre class="exif-pre">{{ finding.full_text }}</pre>
       {% if finding.metadata %}
-      <ul style="font-size: 0.9rem">
+      <ul class="exif-metadata-list">
         {% for meta_key, meta_value in finding.metadata.items() %}
         <li>
           <strong>{{ meta_key }}:</strong>
           {% if meta_value is mapping %}
-          <pre style="white-space: pre-wrap">
+          <pre class="exif-pre">
 {{ meta_value | tojson(indent=2) }}</pre
           >
           {% else %} {{ meta_value }} {% endif %}
@@ -36,13 +36,13 @@
   <hr />
   <details>
     <summary><strong>Raw Metadata / EXIF</strong></summary>
-    <div style="font-size: 0.85rem; margin-top: 0.5rem">
-      <table>
+    <div class="exif-raw-body">
+      <table class="exif-raw-table">
         <tbody>
           {% for key, value in row.data.chunks.items() %}
           <tr>
-            <td style="width: 30%"><strong>{{ key }}</strong></td>
-            <td style="word-break: break-all">{{ value }}</td>
+            <td><strong>{{ key }}</strong></td>
+            <td>{{ value }}</td>
           </tr>
           {% endfor %}
         </tbody>

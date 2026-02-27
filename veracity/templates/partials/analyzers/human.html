@@ -9,7 +9,7 @@
 
   {% if row.data.has_matches %}
   <hr />
-  <p>
+  <p class="analyzer-match-callout">
     <strong>{{ row.data.matches_summary }}</strong>
     <a
       href="#direct-distant-traces"
@@ -42,7 +42,7 @@
         "tooltip": "The relevant part of this image is mostly or entirely AI-generated."
       }
     ] %}
-    <small style="display: block; margin-bottom: 0.5rem"
+    <small class="vote-prompt"
       ><strong>Cast your vote:</strong></small
     >
     <div class="vote-buttons">

@@ -94,7 +94,7 @@
 
   {% if buckets.shame_list %}
   <div class="bucket-section">
-    <h4>⚠️ Found on AI Image Sites ({{ buckets.shame_list|length }})</h4>
+    <h4>Found on AI Image Sites ({{ buckets.shame_list|length }})</h4>
     <div class="bucket-scroll">
       {% for match in buckets.shame_list %}
       {{ render_match_card(match, "shame-list") }}

@@ -1,0 +1,8 @@
+{% macro distant_match_callout(count, label) %}
+<p class="analyzer-match-callout">
+  <strong>{{ count }} distant match{{ "es" if count != 1 else "" }} carry {{ label }}.</strong>
+  <a href="#direct-distant-traces"
+     onclick="const panel=document.getElementById('direct-distant-traces'); if (panel) panel.open = true;"
+  >View in Distant Traces</a>
+</p>
+{% endmacro %}
