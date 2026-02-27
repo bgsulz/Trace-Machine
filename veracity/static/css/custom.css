@@ -1566,3 +1566,14 @@ form.header-action.htmx-request button {
 .batch-strip .mini-search-link:hover {
   border-color: var(--pico-primary);
 }
+
+/* Tech Mode */
+html[data-tech-mode="off"] .tech-only,
+html:not([data-tech-mode]) .tech-only {
+  display: none;
+}
+html[data-tech-mode="on"] .friendly-only {
+  display: none;
+}
+
+.distant-traces-table { font-size: 0.85rem; margin-bottom: 1rem; }

@@ -33,21 +33,23 @@
     </div>
   </details>
   {% endfor %} {% endif %} {% if row.data.chunks %}
-  <hr />
-  <details>
-    <summary><strong>Raw Metadata / EXIF</strong></summary>
-    <div class="exif-raw-body">
-      <table class="exif-raw-table">
-        <tbody>
-          {% for key, value in row.data.chunks.items() %}
-          <tr>
-            <td><strong>{{ key }}</strong></td>
-            <td>{{ value }}</td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
-  </details>
+  <div class="tech-only">
+    <hr />
+    <details>
+      <summary><strong>Raw Metadata / EXIF</strong></summary>
+      <div class="exif-raw-body">
+        <table class="exif-raw-table">
+          <tbody>
+            {% for key, value in row.data.chunks.items() %}
+            <tr>
+              <td><strong>{{ key }}</strong></td>
+              <td>{{ value }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </details>
+  </div>
   {% endif %}
 </div>

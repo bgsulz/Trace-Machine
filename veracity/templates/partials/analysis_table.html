@@ -11,7 +11,7 @@
       <span class="badge found">FOUND</span>
     </summary>
     <div class="analyzer-content">
-      <table style="font-size: 0.85rem; margin-bottom: 1rem">
+      <table class="distant-traces-table">
         <thead>
           <tr>
             <th>Matched Image</th>
@@ -23,7 +23,7 @@
           {% for match in direct_distant.distant_matches %}
           <tr>
             <td>
-              <code>{{ match.hash_display or match.phash }}</code>
+              <span class="tech-only"><code>{{ match.hash_display or match.phash }}</code></span>
               {% if match.sources %}
               <br />
               <small>
@@ -59,24 +59,21 @@
             <td>
               <strong>{{ match.match_method_label }}</strong>
               {% if match.distance is not none %}
-              <br />
-              <small>Distance: {{ match.distance }}</small>
+              <span class="tech-only"><br /><small>Distance: {{ match.distance }}</small></span>
               {% endif %}
               {% if match.local %}
-              <br />
-              <small>
+              <span class="tech-only"><br /><small>
                 {{ match.local.extractor|upper }}: {{ match.local.inliers }} inliers /
                 {{ match.local.good_matches }} good
                 ({{ "%.1f"|format(match.local.inlier_ratio * 100) }}%).
-              </small>
+              </small></span>
               {% if match.local.crop_box %}
-              <br />
-              <small>
+              <span class="tech-only"><br /><small>
                 Region: [{{ "%.3f"|format(match.local.crop_box[0]) }},
                 {{ "%.3f"|format(match.local.crop_box[1]) }},
                 {{ "%.3f"|format(match.local.crop_box[2]) }},
                 {{ "%.3f"|format(match.local.crop_box[3]) }}]
-              </small>
+              </small></span>
               {% endif %}
               {% endif %}
             </td>
@@ -121,7 +118,10 @@
       <table class="contained-regions-table">
         <thead>
           <tr>
-            <th scope="col">Normalized Crop (x, y, w, h)</th>
+            <th scope="col">
+              <span class="tech-only">Normalized Crop (x, y, w, h)</span>
+              <span class="friendly-only">Matched Region</span>
+            </th>
             <th scope="col">Signals</th>
             <th scope="col">Action</th>
           </tr>
@@ -130,12 +130,13 @@
           {% for region in containments %}
           <tr>
             <td>
-              <code>
+              <code class="tech-only">
                 {{ '%.3f'|format(region.crop_box[0]) }},
                 {{ '%.3f'|format(region.crop_box[1]) }},
                 {{ '%.3f'|format(region.crop_box[2]) }},
                 {{ '%.3f'|format(region.crop_box[3]) }}
               </code>
+              <span class="friendly-only">Region detected</span>
             </td>
             <td>
               <small>Votes: {{ region.vote_real }} / {{ region.vote_edited }} / {{ region.vote_ai }}</small><br />
