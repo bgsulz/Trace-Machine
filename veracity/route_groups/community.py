@@ -13,6 +13,32 @@ from ..synthid_service import SYNTHID_CHOICES, apply_synthid_report
 from ..voting_service import VOTE_CHOICES, apply_vote, get_voter_id
 
 
+def _is_htmx_request() -> bool:
+    return bool(request.headers.get("HX-Request"))
+
+
+def _refresh_analyzer_fragment(
+    analysis_id: str,
+    slug: str,
+    *,
+    mini: bool,
+    link_target: str | None,
+) -> str:
+    return render_analyzer_fragment_html(
+        analysis_id,
+        slug,
+        link_target=link_target,
+        refresh=True,
+        mini=mini,
+    )
+
+
+def _toast_response(html: str, message: str):
+    response = make_response(html)
+    response.headers["HX-Trigger"] = json.dumps({"showToast": message})
+    return response
+
+
 def register_community_routes(
     bp: Blueprint,
     expired_analysis_response: Callable[[], object],
@@ -40,20 +66,17 @@ def register_community_routes(
         redirect_target = url_for("main.index")
         if source_type == "url" and analysis_link.startswith("/"):
             redirect_target = analysis_link
-        if request.headers.get("HX-Request") and analysis_id:
+        if _is_htmx_request() and analysis_id:
             payload = load_analysis_payload(analysis_id)
             if payload is None:
                 return expired_analysis_response()
-            html = render_analyzer_fragment_html(
+            html = _refresh_analyzer_fragment(
                 analysis_id,
                 "human",
-                link_target=link_target or None,
-                refresh=True,
                 mini=mini,
+                link_target=link_target or None,
             )
-            response = make_response(html)
-            response.headers["HX-Trigger"] = json.dumps({"showToast": "Thanks for your vote."})
-            return response
+            return _toast_response(html, "Thanks for your vote.")
         flash("Thanks for your vote.")
         return redirect(redirect_target)
 
@@ -63,7 +86,7 @@ def register_community_routes(
         analysis_id = (request.form.get("analysis_id") or "").strip()
         mini = request.form.get("mini") == "1"
         if not analysis_id:
-            if request.headers.get("HX-Request"):
+            if _is_htmx_request():
                 return expired_analysis_response()
             flash("Invalid report request.")
             return redirect(url_for("main.index"))
@@ -84,20 +107,17 @@ def register_community_routes(
             flash("Reporting is temporarily unavailable. Please try again.")
             return redirect(url_for("main.index"))
 
-        if request.headers.get("HX-Request") and analysis_id:
-            html = render_analyzer_fragment_html(
+        if _is_htmx_request() and analysis_id:
+            html = _refresh_analyzer_fragment(
                 analysis_id,
                 "synthid",
-                link_target="_blank" if mini else None,
-                refresh=True,
                 mini=mini,
+                link_target="_blank" if mini else None,
             )
-            response = make_response(html)
             msg = "SynthID report recorded." if status == "recorded" else "SynthID report updated."
             if status == "unchanged":
                 msg = "You already submitted this report."
-            response.headers["HX-Trigger"] = json.dumps({"showToast": msg})
-            return response
+            return _toast_response(html, msg)
 
         flash("Thanks for your report.")
         return redirect(url_for("main.index"))
@@ -128,4 +148,3 @@ def register_community_routes(
                 "total_cents": config.total_donated_cents,
             }
         )
-
