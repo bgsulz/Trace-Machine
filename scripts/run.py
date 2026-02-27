@@ -1,4 +1,6 @@
-from scripts.run import app
+from veracity import create_app
+
+app = create_app()
 
 if __name__ == "__main__":
     app.run(debug=True)
