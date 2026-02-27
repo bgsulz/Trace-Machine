@@ -7,10 +7,10 @@ from flask import Blueprint, abort, current_app, flash, jsonify, make_response, 
 
 from .. import csrf
 from ..analysis_cache import load_analysis_payload
-from ..analysis_service import render_analyzer_fragment_html
-from ..config_service import increment_total_donated, parse_amount_to_cents
-from ..synthid_service import SYNTHID_CHOICES, apply_synthid_report
-from ..voting_service import VOTE_CHOICES, apply_vote, get_voter_id
+from ..services.analysis_service import render_analyzer_fragment_html
+from ..services.config_service import increment_total_donated, parse_amount_to_cents
+from ..services.synthid_service import SYNTHID_CHOICES, apply_synthid_report
+from ..services.voting_service import VOTE_CHOICES, apply_vote, get_voter_id
 
 
 def _is_htmx_request() -> bool:

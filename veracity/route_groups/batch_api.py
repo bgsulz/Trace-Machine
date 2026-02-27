@@ -3,8 +3,8 @@ from __future__ import annotations
 from flask import Blueprint, flash, jsonify, redirect, render_template, request, url_for
 
 from .. import csrf, limiter
-from ..batch_service import MAX_BATCH_URLS, process_batch_urls
-from ..lookup_service import lookup_urls
+from ..services.batch_service import MAX_BATCH_URLS, process_batch_urls
+from ..services.lookup_service import lookup_urls
 
 MAX_LOOKUP_URLS = 50
 
@@ -78,4 +78,3 @@ def register_batch_api_routes(bp: Blueprint) -> None:
 
         results = lookup_urls(urls)
         return jsonify({"results": results})
-

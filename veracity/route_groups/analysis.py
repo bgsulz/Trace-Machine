@@ -10,7 +10,7 @@ from PIL import Image, ImageOps
 
 from .. import ingestion, limiter
 from ..analysis_cache import load_analysis_payload
-from ..analysis_service import (
+from ..services.analysis_service import (
     _prepare_row_for_render,
     handle_remote_analysis,
     perform_analysis,
@@ -23,10 +23,10 @@ from ..analyzers.tineye import (
     get_shame_list_matchers,
     process_tineye_response,
 )
-from ..containment_service import save_containment_link
+from ..services.containment_service import save_containment_link
 from ..registry import prepare_analysis_context
-from ..reporting import build_report_payload
-from ..voting_service import VOTE_CHOICES
+from ..services.reporting import build_report_payload
+from ..services.voting_service import VOTE_CHOICES
 
 MIN_CROP_PIXELS = 150
 MIN_CROP_ENTROPY_LOOSE = 0.5
@@ -347,4 +347,3 @@ def _rerender_original(payload):
         image_url=image_url,
         crop_box=crop_box,
     )
-
