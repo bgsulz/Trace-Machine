@@ -1,7 +1,13 @@
+from sqlalchemy.exc import IntegrityError
+
 from conftest import _make_test_image_bytes
 from veracity import db
 from veracity.models import ImageRegistry
-from veracity.registry import LocalMatchSnapshot, prepare_analysis_context
+from veracity.registry import (
+    LocalMatchSnapshot,
+    _get_or_create_registry_entry,
+    prepare_analysis_context,
+)
 
 
 def test_prepare_analysis_context_includes_local_only_neighbor(app, monkeypatch):
@@ -47,3 +53,48 @@ def test_prepare_analysis_context_includes_local_only_neighbor(app, monkeypatch)
         assert candidate_id in neighbors
         assert neighbors[candidate_id].match_method == "local"
         assert neighbors[candidate_id].local_match is not None
+
+
+def test_get_or_create_registry_entry_recovers_from_integrity_error(app, monkeypatch):
+    with app.app_context():
+        phash = "abc123abc123abcd"
+        whash = "def456def456def4"
+        existing = ImageRegistry(phash=phash, whash=whash)
+
+        class _QueryStub:
+            def __init__(self):
+                self.first_calls = 0
+
+            def filter_by(self, **_kwargs):
+                return self
+
+            def first(self):
+                self.first_calls += 1
+                if self.first_calls == 1:
+                    return None
+                return existing
+
+        query_stub = _QueryStub()
+        add_calls = {"count": 0}
+        rollback_calls = {"count": 0}
+
+        def _fake_add(_row):
+            add_calls["count"] += 1
+
+        def _fake_commit():
+            raise IntegrityError("insert", {}, Exception("duplicate key"))
+
+        def _fake_rollback():
+            rollback_calls["count"] += 1
+
+        monkeypatch.setattr("veracity.registry.ImageRegistry.query", query_stub, raising=False)
+        monkeypatch.setattr("veracity.registry.db.session.add", _fake_add)
+        monkeypatch.setattr("veracity.registry.db.session.commit", _fake_commit)
+        monkeypatch.setattr("veracity.registry.db.session.rollback", _fake_rollback)
+
+        result = _get_or_create_registry_entry(phash, whash)
+
+        assert result is existing
+        assert add_calls["count"] == 1
+        assert rollback_calls["count"] == 1
+        assert query_stub.first_calls == 2

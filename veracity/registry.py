@@ -7,7 +7,8 @@ from io import BytesIO
 from flask import current_app
 import imagehash
 from PIL import Image
-from sqlalchemy.orm import joinedload
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import joinedload, load_only
 
 from . import db
 from .analyzers.context import AnalysisContext
@@ -88,11 +89,7 @@ def prepare_analysis_context(image_bytes: bytes) -> AnalysisContext:
     phash_str = str(target_phash)
     whash_str = str(target_whash)
 
-    registry_entry = ImageRegistry.query.filter_by(phash=phash_str).first()
-    if not registry_entry:
-        registry_entry = ImageRegistry(phash=phash_str, whash=whash_str)
-        db.session.add(registry_entry)
-        db.session.commit()
+    registry_entry = _get_or_create_registry_entry(phash_str, whash_str)
 
     local_tuning = LocalMatchTuning()
     query_feature_cache: dict[str, LocalFeaturePayload] = {}
@@ -107,21 +104,18 @@ def prepare_analysis_context(image_bytes: bytes) -> AnalysisContext:
     base_phash = target_phash
     base_whash = target_whash
 
-    all_images = ImageRegistry.query.options(
-        joinedload(ImageRegistry.consensus),
-        joinedload(ImageRegistry.sources),
-        joinedload(ImageRegistry.facts),
-        joinedload(ImageRegistry.synthid_reports),
-        joinedload(ImageRegistry.local_features),
-    ).all()
-
-    neighbors = []
-    seen_ids: set[int] = set()
+    candidate_images = _load_matching_candidates(local_matching_enabled)
+    matched_order: list[int] = []
+    match_context: dict[int, tuple[str, LocalMatchSnapshot | None]] = {}
     local_candidates_evaluated = 0
     local_candidate_budget = _local_match_max_candidates()
 
-    for img in all_images:
+    for img in candidate_images:
         try:
+            candidate_id = getattr(img, "id", None)
+            if candidate_id is None:
+                continue
+
             hash_matched = _is_hash_match(base_phash, base_whash, img)
             local_match = None
             local_matched = False
@@ -129,7 +123,7 @@ def prepare_analysis_context(image_bytes: bytes) -> AnalysisContext:
             if (
                 local_matching_enabled
                 and local_candidates_evaluated < local_candidate_budget
-                and getattr(img, "id", None) != registry_entry.id
+                and candidate_id != registry_entry.id
             ):
                 local_match, attempted = _evaluate_local_candidate_match(
                     query_image_bytes=image_bytes,
@@ -141,21 +135,33 @@ def prepare_analysis_context(image_bytes: bytes) -> AnalysisContext:
                     local_candidates_evaluated += 1
                 local_matched = local_match is not None
 
-            if (hash_matched or local_matched) and img.id not in seen_ids:
-                neighbors.append(
-                    _serialize_neighbor(
-                        img,
-                        match_method=_resolve_match_method(hash_matched, local_matched),
-                        local_match=local_match,
-                    )
+            if (hash_matched or local_matched) and candidate_id not in match_context:
+                matched_order.append(candidate_id)
+                match_context[candidate_id] = (
+                    _resolve_match_method(hash_matched, local_matched),
+                    local_match,
                 )
-                seen_ids.add(img.id)
         except Exception:
             logger.exception(
                 "Failed to evaluate registry neighbor candidate id=%s",
                 getattr(img, "id", None),
             )
             continue
+
+    neighbor_details = _load_neighbor_details(matched_order)
+    neighbors: list[NeighborSnapshot] = []
+    for image_id in matched_order:
+        row = neighbor_details.get(image_id)
+        if row is None:
+            continue
+        match_method, local_match = match_context[image_id]
+        neighbors.append(
+            _serialize_neighbor(
+                row,
+                match_method=match_method,
+                local_match=local_match,
+            )
+        )
 
     return AnalysisContext(
         image_bytes=image_bytes,
@@ -166,6 +172,54 @@ def prepare_analysis_context(image_bytes: bytes) -> AnalysisContext:
         width=width,
         height=height,
     )
+
+
+def _get_or_create_registry_entry(phash: str, whash: str) -> ImageRegistry:
+    registry_entry = ImageRegistry.query.filter_by(phash=phash).first()
+    if registry_entry is not None:
+        return registry_entry
+
+    registry_entry = ImageRegistry(phash=phash, whash=whash)
+    db.session.add(registry_entry)
+    try:
+        db.session.commit()
+        return registry_entry
+    except IntegrityError:
+        # Another request created this hash concurrently.
+        db.session.rollback()
+        existing = ImageRegistry.query.filter_by(phash=phash).first()
+        if existing is not None:
+            return existing
+        raise
+
+
+def _load_matching_candidates(local_matching_enabled: bool) -> list[ImageRegistry]:
+    options = [
+        load_only(
+            ImageRegistry.id,
+            ImageRegistry.phash,
+            ImageRegistry.whash,
+        )
+    ]
+    if local_matching_enabled:
+        options.append(joinedload(ImageRegistry.local_features))
+    return ImageRegistry.query.options(*options).all()
+
+
+def _load_neighbor_details(image_ids: list[int]) -> dict[int, ImageRegistry]:
+    if not image_ids:
+        return {}
+    rows = (
+        ImageRegistry.query.options(
+            joinedload(ImageRegistry.consensus),
+            joinedload(ImageRegistry.sources),
+            joinedload(ImageRegistry.facts),
+            joinedload(ImageRegistry.synthid_reports),
+        )
+        .filter(ImageRegistry.id.in_(image_ids))
+        .all()
+    )
+    return {row.id: row for row in rows}
 
 
 def _serialize_neighbor(
