@@ -23,7 +23,8 @@
           {% for match in direct_distant.distant_matches %}
           <tr>
             <td>
-              <span class="tech-only"><code>{{ match.hash_display or match.phash }}</code></span>
+              <small>{% if match.sources %}Online Image{% else %}Uploaded Image{% endif %}</small>
+              <span class="tech-only"><br /><code>{{ match.hash_display or match.phash }}</code></span>
               {% if match.sources %}
               <br />
               <small>
@@ -59,6 +60,7 @@
             <td>
               <strong>{{ match.match_method_label }}</strong>
               {% if match.distance is not none %}
+              <br /><small>{{ ((64 - match.distance) / 64 * 100) | round | int }}% similar</small>
               <span class="tech-only"><br /><small>Distance: {{ match.distance }}</small></span>
               {% endif %}
               {% if match.local %}
