@@ -7,7 +7,6 @@ from flask import (
     abort,
     current_app,
     flash,
-    jsonify,
     make_response,
     redirect,
     render_template,
@@ -17,7 +16,7 @@ from flask import (
 )
 from PIL import Image, ImageOps
 
-from . import csrf, ingestion, limiter
+from . import ingestion, limiter
 from .analysis_service import (
     handle_remote_analysis,
     perform_analysis,
@@ -30,16 +29,13 @@ from .containment_service import save_containment_link
 from .config_service import (
     DONATION_GOAL_CENTS,
     get_global_config,
-    increment_total_donated,
-    parse_amount_to_cents,
 )
+from .route_groups.batch_api import register_batch_api_routes
+from .route_groups.community import register_community_routes
 from .registry import prepare_analysis_context
-from .voting_service import VOTE_CHOICES, apply_vote, get_voter_id
-from .synthid_service import SYNTHID_CHOICES, apply_synthid_report
+from .voting_service import VOTE_CHOICES
 from .analyzers.tineye import call_tineye_api, process_tineye_response, get_shame_list_matchers, build_summary
 from .analyzers.manager import get_analyzer_spec, _format_result
-from .batch_service import process_batch_urls, MAX_BATCH_URLS
-from .lookup_service import lookup_urls
 from .reporting import build_report_payload
 
 bp = Blueprint("main", __name__)
@@ -344,173 +340,6 @@ def run_tineye(analysis_id: str):
     return render_template("partials/analyzer_row.html", row=formatted_row)
 
 
-@bp.route("/vote", methods=["POST"])
-def vote():
-    phash = (request.form.get("phash") or "").strip()
-    vote_kind = (request.form.get("vote") or "").strip().lower()
-    source_type = (request.form.get("source_type") or "").strip().lower()
-    analysis_link = (request.form.get("analysis_link") or "").strip()
-    analysis_id = (request.form.get("analysis_id") or "").strip()
-    link_target = (request.form.get("link_target") or "").strip()
-    mini = request.form.get("mini") == "1"
-
-    if not phash or vote_kind not in VOTE_CHOICES:
-        flash("Invalid vote request.")
-        return redirect(url_for("main.index"))
-
-    voter_id = get_voter_id()
-    success, status = apply_vote(phash, vote_kind, voter_id)
-    if not success:
-        flash("Voting is temporarily unavailable. Please try again.")
-        return redirect(url_for("main.index"))
-
-    redirect_target = url_for("main.index")
-    if source_type == "url" and analysis_link.startswith("/"):
-        redirect_target = analysis_link
-    if request.headers.get("HX-Request") and analysis_id:
-        payload = load_analysis_payload(analysis_id)
-        if payload is None:
-            return _expired_analysis_response()
-        html = render_analyzer_fragment_html(
-            analysis_id,
-            "human",
-            link_target=link_target or None,
-            refresh=True,
-            mini=mini,
-        )
-        response = make_response(html)
-        response.headers["HX-Trigger"] = json.dumps({"showToast": "Thanks for your vote."})
-        return response
-    flash("Thanks for your vote.")
-    return redirect(redirect_target)
-
-
-@bp.route("/synthid-report", methods=["POST"])
-def synthid_report():
-    report = (request.form.get("report") or "").strip().lower()
-    analysis_id = (request.form.get("analysis_id") or "").strip()
-    mini = request.form.get("mini") == "1"
-    if not analysis_id:
-        if request.headers.get("HX-Request"):
-            return _expired_analysis_response()
-        flash("Invalid report request.")
-        return redirect(url_for("main.index"))
-
-    payload = load_analysis_payload(analysis_id)
-    if payload is None:
-        return _expired_analysis_response()
-    _, metadata = payload
-    phash = (metadata.get("phash") or "").strip()
-
-    if not phash or report not in SYNTHID_CHOICES:
-        flash("Invalid report request.")
-        return redirect(url_for("main.index"))
-
-    voter_id = get_voter_id()
-    success, status = apply_synthid_report(phash, report, voter_id)
-    if not success:
-        flash("Reporting is temporarily unavailable. Please try again.")
-        return redirect(url_for("main.index"))
-
-    if request.headers.get("HX-Request") and analysis_id:
-        html = render_analyzer_fragment_html(
-            analysis_id,
-            "synthid",
-            link_target="_blank" if mini else None,
-            refresh=True,
-            mini=mini,
-        )
-        response = make_response(html)
-        msg = "SynthID report recorded." if status == "recorded" else "SynthID report updated."
-        if status == "unchanged":
-            msg = "You already submitted this report."
-        response.headers["HX-Trigger"] = json.dumps({"showToast": msg})
-        return response
-
-    flash("Thanks for your report.")
-    return redirect(url_for("main.index"))
-
-
-@bp.route("/webhooks/kofi", methods=["POST"])
-@csrf.exempt
-def kofi_webhook():
-    payload = request.get_json(silent=True) or {}
-    if not payload:
-        raw = request.form.get("data")
-        if raw:
-            try:
-                payload = json.loads(raw)
-            except json.JSONDecodeError:
-                payload = {}
-    provided_token = (payload.get("verification_token") or "").strip()
-    expected_token = current_app.config.get("KOFI_TOKEN", "").strip()
-    if not expected_token or provided_token != expected_token:
-        abort(403)
-
-    amount_cents = parse_amount_to_cents(payload.get("amount"))
-    config = increment_total_donated(amount_cents)
-
-    return jsonify(
-        {
-            "status": "ok",
-            "added_cents": amount_cents,
-            "total_cents": config.total_donated_cents,
-        }
-    )
-
-
-@bp.route("/batch")
-def batch():
-    return render_template("batch.html")
-
-
-@bp.route("/batch", methods=["POST"])
-@limiter.limit("3/minute")
-def batch_submit():
-    raw_text = (request.form.get("urls") or "").strip()
-    if not raw_text:
-        flash("Please paste at least one image URL.")
-        return redirect(url_for("main.batch"))
-
-    urls = [line.strip() for line in raw_text.splitlines() if line.strip()]
-    if not urls:
-        flash("Please paste at least one image URL.")
-        return redirect(url_for("main.batch"))
-
-    if len(urls) > MAX_BATCH_URLS:
-        flash(f"Maximum {MAX_BATCH_URLS} URLs per batch.")
-        return redirect(url_for("main.batch"))
-
-    # Validate each URL format
-    valid_urls: list[str] = []
-    valid_positions: list[tuple[int, str]] = []
-    results_by_index: dict[int, dict] = {}
-    for idx, url in enumerate(urls):
-        if not url.startswith(("http://", "https://")):
-            results_by_index[idx] = {
-                "url": url,
-                "analysis_id": None,
-                "error": "Invalid URL format",
-                "image_data_url": None,
-                "public_url_display": url[:60],
-            }
-        else:
-            valid_urls.append(url)
-            valid_positions.append((idx, url))
-
-    if valid_urls:
-        batch_results = process_batch_urls(valid_urls)
-        by_url = {row["url"]: row for row in batch_results}
-        for idx, url in valid_positions:
-            row = by_url.get(url)
-            if row is not None:
-                results_by_index[idx] = dict(row)
-
-    results = [results_by_index[idx] for idx in range(len(urls)) if idx in results_by_index]
-
-    return render_template("batch_results.html", results=results)
-
-
 def _parse_normalized_box(form) -> tuple[float, float, float, float] | None:
     fields = ("crop_left", "crop_top", "crop_width", "crop_height")
     values: list[float] = []
@@ -621,27 +450,8 @@ def _rerender_original(payload):
     )
 
 
-MAX_LOOKUP_URLS = 50
-
-
-@bp.route("/api/lookup", methods=["POST"])
-@csrf.exempt
-@limiter.limit("30/minute")
-@limiter.limit("500/hour", key_func=lambda: "global")
-def api_lookup():
-    data = request.get_json(silent=True)
-    if not data or not isinstance(data.get("urls"), list):
-        return jsonify({"error": "Request body must be JSON with a 'urls' array."}), 400
-
-    urls = data["urls"]
-    if len(urls) > MAX_LOOKUP_URLS:
-        return jsonify({"error": f"Maximum {MAX_LOOKUP_URLS} URLs per request."}), 400
-
-    # Filter to strings only
-    urls = [u for u in urls if isinstance(u, str) and u]
-
-    results = lookup_urls(urls)
-    return jsonify({"results": results})
+register_community_routes(bp, _expired_analysis_response)
+register_batch_api_routes(bp)
 
 
 @bp.route("/dev/mini-test")
