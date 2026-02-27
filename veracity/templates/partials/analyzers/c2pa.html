@@ -17,7 +17,10 @@
       {{ row.data.matches|length }} distant match{{ "es" if row.data.matches|length != 1 else "" }}
       carry C2PA traces.
     </strong>
-    <a href="#direct-distant-traces">View in Distant Traces</a>
+    <a
+      href="#direct-distant-traces"
+      onclick="const panel=document.getElementById('direct-distant-traces'); if (panel) panel.open = true;"
+    >View in Distant Traces</a>
   </p>
   {% endif %}
 </div>

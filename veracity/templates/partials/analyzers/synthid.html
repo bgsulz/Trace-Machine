@@ -58,7 +58,10 @@
   <p style="font-size: 0.85rem; margin-top: 0.5rem;">
     {{ similar_images|length }} distant match{{ "es" if similar_images|length != 1 else "" }}
     carry SynthID reports.
-    <a href="#direct-distant-traces">View in Distant Traces</a>
+    <a
+      href="#direct-distant-traces"
+      onclick="const panel=document.getElementById('direct-distant-traces'); if (panel) panel.open = true;"
+    >View in Distant Traces</a>
   </p>
   {% endif %}
   {% endif %}
