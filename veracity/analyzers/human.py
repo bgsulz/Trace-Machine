@@ -13,7 +13,6 @@ from .hash_utils import (
 logger = logging.getLogger(__name__)
 
 
-_MAX_FUZZY_ROWS = 10_000
 _MAX_HAMMING_DISTANCE = 4
 
 _SEGMENT_LABELS = {
@@ -48,14 +47,7 @@ def _build_vote_breakdown(*, real: int | None, edited: int | None, ai: int | Non
 
 
 def run_human_consensus(context: AnalysisContext) -> dict[str, object]:
-    """Look up human consensus votes for an image via perceptual hashing.
-
-    Strategy (MUB, small DB assumptions):
-    - Compute a perceptual hash for the input image.
-    - Try an exact match lookup first (fast path).
-    - If no exact match, fall back to a simple Python-side fuzzy search
-      over existing ImageConsensus rows using Hamming distance.
-    """
+    """Aggregate human consensus from matched neighbors in analysis context."""
 
     target_hex = context.phash
     matches: list[dict[str, object]] = []

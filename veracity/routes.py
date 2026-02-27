@@ -84,7 +84,6 @@ def _expired_analysis_response():
 
 
 MIN_CROP_PIXELS = 150
-MIN_CROP_ENTROPY = 1.0
 MIN_CROP_ENTROPY_LOOSE = 0.5
 MIN_CROP_CONTRAST = 8.0
 
