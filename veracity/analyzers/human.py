@@ -5,6 +5,9 @@ from .hash_utils import (
     compute_base_hashes,
     compute_neighbor_distances,
     extract_sources,
+    format_hash_display,
+    local_match_payload,
+    match_method_label,
 )
 
 logger = logging.getLogger(__name__)
@@ -80,7 +83,6 @@ def run_human_consensus(context: AnalysisContext) -> dict[str, object]:
         ) = compute_neighbor_distances(
             base_phash, base_whash, neighbor_phash, neighbor_whash_val
         )
-        display_hash = display_hash or neighbor_phash
         distance_display = display_distance if match_method != "local" else None
 
         total_votes = (
@@ -90,29 +92,18 @@ def run_human_consensus(context: AnalysisContext) -> dict[str, object]:
         )
 
         sources = extract_sources(neighbor)
-        local = None
-        if local_snapshot is not None:
-            local = {
-                "extractor": getattr(local_snapshot, "extractor", "orb"),
-                "good_matches": int(getattr(local_snapshot, "good_matches", 0) or 0),
-                "inliers": int(getattr(local_snapshot, "inliers", 0) or 0),
-                "inlier_ratio": float(getattr(local_snapshot, "inlier_ratio", 0.0) or 0.0),
-                "homography_found": bool(getattr(local_snapshot, "homography_found", False)),
-                "crop_box": getattr(local_snapshot, "crop_box", None),
-            }
-
-        match_method_label = "Hash"
-        if match_method == "local":
-            match_method_label = "Local geometric"
-        elif match_method == "hybrid":
-            match_method_label = "Hybrid (hash + local)"
+        local = local_match_payload(local_snapshot, include_homography=True)
 
         # Prefer the hash type that matched neighbor inclusion; fall back to phash.
         matches.append(
             {
                 "phash": neighbor_phash,
                 "whash": neighbor_whash_val,
-                "hash_display": f"{display_hash} ({display_label})",
+                "hash_display": format_hash_display(
+                    display_hash,
+                    display_label,
+                    neighbor_phash,
+                ),
                 "distance": distance_display,
                 "distance_phash": phash_distance,
                 "distance_whash": whash_distance,
@@ -120,7 +111,7 @@ def run_human_consensus(context: AnalysisContext) -> dict[str, object]:
                 "vote_edited": consensus.vote_edited,
                 "vote_ai": consensus.vote_ai,
                 "match_method": match_method,
-                "match_method_label": match_method_label,
+                "match_method_label": match_method_label(match_method),
                 "local": local,
                 "vote_breakdown": _build_vote_breakdown(
                     real=consensus.vote_real, edited=consensus.vote_edited, ai=consensus.vote_ai

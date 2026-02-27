@@ -1,10 +1,10 @@
-import io
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
 import pytest
-from PIL import Image
 
 from conftest import _make_test_image_bytes
+from veracity.ingestion import IngestionError
+from veracity.remote_image_service import RemoteImageFetchResult
 
 
 @pytest.fixture
@@ -12,9 +12,14 @@ def client(app):
     return app.test_client()
 
 
-def _fake_fetch(url):
-    """Return valid image bytes and mime type."""
-    return _make_test_image_bytes(), "image/png"
+def _fake_remote_fetch(url):
+    return RemoteImageFetchResult(
+        image_bytes=_make_test_image_bytes(),
+        mime_type="image/png",
+        fetch_url=url,
+        full_res_url=None,
+        upgraded=False,
+    )
 
 
 class TestBatchPage:
@@ -43,9 +48,8 @@ class TestBatchPage:
         assert resp.status_code == 200
         assert b"Invalid URL format" in resp.data
 
-    @patch("veracity.batch_service.ingestion.fetch_image_bytes", side_effect=_fake_fetch)
-    @patch("veracity.batch_service.dethumbnail.get_full_res_url", return_value=None)
-    def test_valid_single_url(self, mock_dethumb, mock_fetch, client):
+    @patch("veracity.batch_service.fetch_remote_image", side_effect=_fake_remote_fetch)
+    def test_valid_single_url(self, mock_fetch, client):
         resp = client.post(
             "/batch",
             data={"urls": "https://example.com/photo.jpg"},
@@ -54,18 +58,16 @@ class TestBatchPage:
         assert b"Batch Results" in resp.data
         assert b"Full Analysis" in resp.data
 
-    @patch("veracity.batch_service.ingestion.fetch_image_bytes", side_effect=_fake_fetch)
-    @patch("veracity.batch_service.dethumbnail.get_full_res_url", return_value=None)
-    def test_duplicate_urls_deduplicated(self, mock_dethumb, mock_fetch, client):
+    @patch("veracity.batch_service.fetch_remote_image", side_effect=_fake_remote_fetch)
+    def test_duplicate_urls_deduplicated(self, mock_fetch, client):
         urls = "https://example.com/a.jpg\nhttps://example.com/a.jpg"
         resp = client.post("/batch", data={"urls": urls})
         assert resp.status_code == 200
         # Should only have one result card (deduplicated)
         assert resp.data.count(b"batch-card") >= 1
 
-    @patch("veracity.batch_service.ingestion.fetch_image_bytes", side_effect=_fake_fetch)
-    @patch("veracity.batch_service.dethumbnail.get_full_res_url", return_value=None)
-    def test_mixed_valid_and_invalid(self, mock_dethumb, mock_fetch, client):
+    @patch("veracity.batch_service.fetch_remote_image", side_effect=_fake_remote_fetch)
+    def test_mixed_valid_and_invalid(self, mock_fetch, client):
         urls = "https://example.com/good.jpg\nnot-a-url"
         resp = client.post("/batch", data={"urls": urls})
         assert resp.status_code == 200
@@ -73,15 +75,10 @@ class TestBatchPage:
         assert b"Invalid URL format" in resp.data
 
     @patch(
-        "veracity.batch_service.ingestion.fetch_image_bytes",
-        side_effect=lambda url: (_ for _ in ()).throw(
-            __import__("veracity.ingestion", fromlist=["IngestionError"]).IngestionError(
-                "Failed to download image from URL."
-            )
-        ),
+        "veracity.batch_service.fetch_remote_image",
+        side_effect=IngestionError("Failed to download image from URL."),
     )
-    @patch("veracity.batch_service.dethumbnail.get_full_res_url", return_value=None)
-    def test_fetch_error_shows_error_card(self, mock_dethumb, mock_fetch, client):
+    def test_fetch_error_shows_error_card(self, mock_fetch, client):
         resp = client.post(
             "/batch",
             data={"urls": "https://example.com/broken.jpg"},

@@ -23,6 +23,7 @@ from .analyzers.manager import (
 from .containment_service import get_displayable_containments
 from . import dethumbnail
 from .models import SynthIDReport, VoteHistory
+from .remote_image_service import fetch_remote_image
 from .registry import prepare_analysis_context
 from .trace_service import build_direct_and_distant_traces
 from .tools import generate_external_tools
@@ -35,34 +36,20 @@ def handle_remote_analysis(image_url: str, vote_slug: str | None, template_name:
         flash("Please provide an image URL to analyze.")
         return redirect(url_for("main.index"))
 
-    # Try to upgrade thumbnails to full resolution
-    full_res_url = dethumbnail.get_full_res_url(image_url)
-    fetch_url = image_url
-    upgraded = False
+    try:
+        fetched = fetch_remote_image(image_url)
+    except ingestion.IngestionError as exc:
+        flash(str(exc))
+        return redirect(url_for("main.index"))
 
-    if full_res_url:
-        try:
-            image_bytes, mime_type = ingestion.fetch_image_bytes(full_res_url)
-            fetch_url = full_res_url
-            upgraded = True
-        except ingestion.IngestionError:
-            pass  # Fall back to original URL below
-
-    if not upgraded:
-        try:
-            image_bytes, mime_type = ingestion.fetch_image_bytes(image_url)
-        except ingestion.IngestionError as exc:
-            flash(str(exc))
-            return redirect(url_for("main.index"))
-
-    if upgraded:
+    if fetched.upgraded:
         flash("Upgraded from thumbnail to full resolution.")
 
     return perform_analysis(
-        image_bytes,
-        mime_type,
+        fetched.image_bytes,
+        fetched.mime_type,
         "url",
-        image_url=fetch_url,
+        image_url=fetched.fetch_url,
         auto_vote=vote_slug,
         template_name=template_name,
     )

@@ -3,14 +3,13 @@ from __future__ import annotations
 import base64
 import logging
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from urllib.parse import urlparse
 
 from flask import current_app
 
-from . import dethumbnail, ingestion
 from .analysis_cache import store_analysis_payload, store_cached_analyzer_row
 from .analysis_service import _format_public_url
 from .analyzers.manager import ANALYZERS, run_all_analyzers
+from .remote_image_service import fetch_remote_image
 from .registry import prepare_analysis_context
 from . import voting_service
 
@@ -66,21 +65,9 @@ def _process_single_url(app, url: str) -> dict:
 
 def _do_process_url(url: str) -> dict:
     """Fetch, analyze, and cache a single image URL."""
-    # Attempt thumbnail upgrade
-    full_res_url = dethumbnail.get_full_res_url(url)
-    fetch_url = url
-    upgraded = False
-
-    if full_res_url:
-        try:
-            image_bytes, mime_type = ingestion.fetch_image_bytes(full_res_url)
-            fetch_url = full_res_url
-            upgraded = True
-        except ingestion.IngestionError:
-            pass
-
-    if not upgraded:
-        image_bytes, mime_type = ingestion.fetch_image_bytes(url)
+    fetched = fetch_remote_image(url)
+    image_bytes = fetched.image_bytes
+    mime_type = fetched.mime_type
 
     context = prepare_analysis_context(image_bytes)
     voting_service.persist_source_url(context.phash, url)
@@ -90,14 +77,14 @@ def _do_process_url(url: str) -> dict:
     metadata = {
         "mime_type": mime_type,
         "source": "url",
-        "image_url": fetch_url,
+        "image_url": fetched.fetch_url,
         "public_url": url,
         "analysis_link": None,
         "phash": context.phash,
         "whash": context.whash,
         "registry_id": context.registry_id,
         "crop_box": None,
-        "full_res_url": full_res_url if not upgraded else None,
+        "full_res_url": fetched.full_res_url if not fetched.upgraded else None,
         "image_width": context.width,
         "image_height": context.height,
         "public_url_display": public_url_display,

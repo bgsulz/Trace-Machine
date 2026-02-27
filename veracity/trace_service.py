@@ -10,16 +10,14 @@ from .analyzers.hash_utils import (
     compute_base_hashes,
     compute_neighbor_distances,
     extract_sources,
+    format_hash_display,
+    local_match_payload,
+    match_method_label,
 )
 from .models import ImageRegistry
 
 
 _MATCH_METHOD_PRIORITY = {"hybrid": 0, "local": 1, "hash": 2}
-_MATCH_METHOD_LABEL = {
-    "hybrid": "Hybrid (hash + local)",
-    "local": "Local geometric",
-    "hash": "Hash",
-}
 
 
 def build_direct_and_distant_traces(
@@ -161,16 +159,7 @@ def _build_distant_matches(context: AnalysisContext) -> list[dict[str, Any]]:
         ) = compute_neighbor_distances(base_phash, base_whash, phash, whash)
 
         method = str(getattr(neighbor, "match_method", "hash") or "hash").lower()
-        local_match = getattr(neighbor, "local_match", None)
-        local_payload = None
-        if local_match is not None:
-            local_payload = {
-                "extractor": getattr(local_match, "extractor", "orb"),
-                "good_matches": int(getattr(local_match, "good_matches", 0) or 0),
-                "inliers": int(getattr(local_match, "inliers", 0) or 0),
-                "inlier_ratio": float(getattr(local_match, "inlier_ratio", 0.0) or 0.0),
-                "crop_box": getattr(local_match, "crop_box", None),
-            }
+        local_payload = local_match_payload(getattr(neighbor, "local_match", None))
 
         distance = display_distance
         if method == "local":
@@ -182,14 +171,12 @@ def _build_distant_matches(context: AnalysisContext) -> list[dict[str, Any]]:
                 "image_id": neighbor_id,
                 "phash": phash,
                 "whash": whash,
-                "hash_display": f"{display_hash} ({display_label})"
-                if display_hash
-                else phash,
+                "hash_display": format_hash_display(display_hash, display_label, phash),
                 "distance": distance,
                 "distance_phash": phash_distance,
                 "distance_whash": whash_distance,
                 "match_method": method,
-                "match_method_label": _MATCH_METHOD_LABEL.get(method, "Hash"),
+                "match_method_label": match_method_label(method),
                 "local": local_payload,
                 "c2pa_facts": c2pa_facts,
                 "votes": vote_counts,

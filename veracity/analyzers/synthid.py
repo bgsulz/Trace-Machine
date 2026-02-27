@@ -13,6 +13,7 @@ from .hash_utils import (
     compute_base_hashes,
     compute_neighbor_distances,
     extract_sources,
+    format_hash_display,
 )
 
 
@@ -187,7 +188,7 @@ def _append_similar(
     similar_images.append({
         "phash": neighbor_phash,
         "whash": neighbor_whash,
-        "hash_display": f"{display_hash} ({display_label})" if display_hash else neighbor_phash,
+        "hash_display": format_hash_display(display_hash, display_label, neighbor_phash),
         "distance": display_distance,
         "detected": detected,
         "not_detected": not_detected,

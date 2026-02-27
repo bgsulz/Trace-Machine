@@ -482,37 +482,31 @@ def batch_submit():
         return redirect(url_for("main.batch"))
 
     # Validate each URL format
-    valid_urls = []
-    results = []
-    for url in urls:
+    valid_urls: list[str] = []
+    valid_positions: list[tuple[int, str]] = []
+    results_by_index: dict[int, dict] = {}
+    for idx, url in enumerate(urls):
         if not url.startswith(("http://", "https://")):
-            results.append({
+            results_by_index[idx] = {
                 "url": url,
                 "analysis_id": None,
                 "error": "Invalid URL format",
                 "image_data_url": None,
                 "public_url_display": url[:60],
-            })
+            }
         else:
             valid_urls.append(url)
+            valid_positions.append((idx, url))
 
     if valid_urls:
         batch_results = process_batch_urls(valid_urls)
-        # Merge: place batch results in order after validation errors
-        valid_iter = iter(batch_results)
-        merged = []
-        valid_set = set(valid_urls)
-        for url in urls:
-            if url in valid_set:
-                merged.append(next(valid_iter))
-                valid_set.discard(url)
-            else:
-                # Find the matching error result
-                for r in results:
-                    if r["url"] == url:
-                        merged.append(r)
-                        break
-        results = merged
+        by_url = {row["url"]: row for row in batch_results}
+        for idx, url in valid_positions:
+            row = by_url.get(url)
+            if row is not None:
+                results_by_index[idx] = dict(row)
+
+    results = [results_by_index[idx] for idx in range(len(urls)) if idx in results_by_index]
 
     return render_template("batch_results.html", results=results)
 
