@@ -32,4 +32,4 @@ CLAUDE.md
 AGENTS.md
 .worktrees/
 .agents/
-**/skills_lock.json
+skills-lock.json
