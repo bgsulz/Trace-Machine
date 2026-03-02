@@ -12,6 +12,9 @@
     {% endif %}
   </div>
   <div class="mini-card-detail">{{ row.summary }}</div>
+  {% if row.data.origin_label %}
+  <div class="mini-card-detail mini-card-tool">{{ row.data.origin_label }}</div>
+  {% endif %}
   {% if row.data.tool %}
   <div class="mini-card-detail mini-card-tool">{{ row.data.tool }}</div>
   {% endif %}

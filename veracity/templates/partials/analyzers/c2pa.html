@@ -1,19 +1,140 @@
 {% from "partials/macros/common.html" import distant_match_callout %}
 {% if row.data %}
+{% set actions = row.data.actions or [] %}
+{% set capture_details = row.data.capture_details or {} %}
+{% set ingredients = row.data.ingredients or [] %}
+{% set validation_status = row.data.validation_status or [] %}
+{% set signature_info = row.data.signature_info or {} %}
 <div class="analyzer-detail-block">
+  {% if row.data.origin_label %}
+  <div><strong>Origin signal:</strong> {{ row.data.origin_label }}</div>
+  {% endif %}
+  {% if row.data.signer %}
+  <div><strong>Signer:</strong> {{ row.data.signer }}</div>
+  {% endif %}
   {% if row.data.tool %}
   <div><strong>Tool:</strong> {{ row.data.tool }}</div>
-  {% endif %} {% if row.data.signature_status %}
+  {% endif %}
+  {% if row.data.claim_generator_info %}
+  <div>
+    <strong>Claim generators:</strong>
+    {{ row.data.claim_generator_info|join(", ") }}
+  </div>
+  {% endif %}
+  {% if row.data.signature_status %}
   <div><strong>Signature:</strong> {{ row.data.signature_status }}</div>
-  {% endif %} {% if row.data.provenance_depth %}
+  {% endif %}
+  {% if signature_info.alg %}
+  <div><strong>Signature algorithm:</strong> {{ signature_info.alg }}</div>
+  {% endif %}
+  {% if signature_info.time %}
+  <div><strong>Signed at:</strong> {{ signature_info.time }}</div>
+  {% endif %}
+  {% if row.data.manifest_label %}
+  <div><strong>Active manifest:</strong> {{ row.data.manifest_label }}</div>
+  {% endif %}
+  {% if row.data.manifest_title %}
+  <div><strong>Manifest title:</strong> {{ row.data.manifest_title }}</div>
+  {% endif %}
+  {% if row.data.manifest_format %}
+  <div><strong>Manifest format:</strong> {{ row.data.manifest_format }}</div>
+  {% endif %}
+  {% if row.data.provenance_depth is defined and row.data.provenance_depth is not none %}
   <div>
     <strong>Chain Length:</strong>
     {{ row.data.provenance_depth }} prior asset{{ "s" if
     row.data.provenance_depth != 1 else "" }}
   </div>
-  {% endif %} {% if row.data.matches %}
+  {% endif %}
+
+  {% if actions %}
+  <hr />
+  <details>
+    <summary><strong>Actions</strong> ({{ actions|length }})</summary>
+    <ul>
+      {% for action in actions %}
+      <li>
+        <strong>{{ action.action or "Unknown action" }}</strong>
+        {% if action.digital_source_type %}
+        <br /><small>digitalSourceType: {{ action.digital_source_type }}</small>
+        {% endif %}
+        {% if action.software_agent %}
+        <br /><small>softwareAgent: {{ action.software_agent }}</small>
+        {% endif %}
+      </li>
+      {% endfor %}
+    </ul>
+  </details>
+  {% endif %}
+
+  {% if capture_details %}
+  <details>
+    <summary><strong>Capture / EXIF details</strong></summary>
+    <table class="exif-raw-table">
+      <tbody>
+        {% for key, value in capture_details.items() %}
+        <tr>
+          <td><strong>{{ key }}</strong></td>
+          <td>{{ value }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </details>
+  {% endif %}
+
+  {% if ingredients %}
+  <details>
+    <summary><strong>Provenance ingredients</strong> ({{ ingredients|length }})</summary>
+    <ul>
+      {% for ingredient in ingredients %}
+      <li>
+        {% if ingredient.title %}<strong>{{ ingredient.title }}</strong>{% endif %}
+        {% if ingredient.relationship %}
+        <br /><small>relationship: {{ ingredient.relationship }}</small>
+        {% endif %}
+        {% if ingredient.claim_generator %}
+        <br /><small>claim_generator: {{ ingredient.claim_generator }}</small>
+        {% endif %}
+        {% if ingredient.format %}
+        <br /><small>format: {{ ingredient.format }}</small>
+        {% endif %}
+        {% if ingredient.document_id %}
+        <br /><small>document_id: {{ ingredient.document_id }}</small>
+        {% endif %}
+        {% if ingredient.validation_status %}
+        <br /><small>validation: {{ ingredient.validation_status|join(", ") }}</small>
+        {% endif %}
+      </li>
+      {% endfor %}
+    </ul>
+  </details>
+  {% endif %}
+
+  {% if validation_status %}
+  <details>
+    <summary><strong>Validation status</strong> ({{ validation_status|length }})</summary>
+    <ul>
+      {% for status in validation_status %}
+      <li><code>{{ status }}</code></li>
+      {% endfor %}
+    </ul>
+  </details>
+  {% endif %}
+
+  {% if row.data.matches %}
   <hr />
   {{ distant_match_callout(row.data.matches|length, "C2PA traces") }}
+  {% endif %}
+
+  {% if row.data.raw_manifest_store %}
+  <div class="tech-only">
+    <hr />
+    <details>
+      <summary><strong>Raw C2PA JSON</strong></summary>
+      <pre class="exif-pre">{{ row.data.raw_manifest_store | tojson(indent=2) }}</pre>
+    </details>
+  </div>
   {% endif %}
 </div>
 {% endif %}

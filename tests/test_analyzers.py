@@ -146,6 +146,104 @@ def test_c2pa_analyzer_writes_signer(monkeypatch):
     assert "Adobe" in str(result["summary"])
 
 
+def test_run_c2pa_tool_extracts_rich_manifest_fields(monkeypatch):
+    manifest = {
+        "manifests": {
+            "m1": {
+                "title": "Google image",
+                "format": "image/jpeg",
+                "instance_id": "urn:uuid:abc123",
+                "signature_info": {
+                    "issuer": "Google LLC",
+                    "alg": "es256",
+                    "time": "2026-01-02T03:04:05Z",
+                },
+                "claim_generator": "Google AI Studio",
+                "claim_generator_info": [
+                    {"name": "imagen", "version": "3.0"},
+                ],
+                "assertions": [
+                    {
+                        "label": "c2pa.actions",
+                        "data": {
+                            "actions": [
+                                {
+                                    "action": "c2pa.created",
+                                    "digitalSourceType": "http://cv.iptc.org/newscodes/digitalsourcetype/trainedAlgorithmicMedia",
+                                    "softwareAgent": {
+                                        "name": "Imagen",
+                                        "version": "3.0",
+                                    },
+                                }
+                            ]
+                        },
+                    },
+                    {
+                        "label": "stds.exif",
+                        "data": {
+                            "Make": "Google",
+                            "Model": "Pixel 9",
+                            "Software": "Camera 9.0",
+                        },
+                    },
+                ],
+                "ingredients": [
+                    {
+                        "title": "base image",
+                        "relationship": "parentOf",
+                        "format": "image/jpeg",
+                        "validation_status": ["claimSignature.validated"],
+                    }
+                ],
+            }
+        },
+        "active_manifest": "m1",
+        "validation_status": ["claimSignature.validated"],
+    }
+
+    class DummyReader:
+        def __init__(self, mime_type, stream):  # noqa: D401, ARG002
+            self._json = json.dumps(manifest)
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):  # noqa: D401, ARG002
+            return False
+
+        def json(self):
+            return self._json
+
+    monkeypatch.setattr(c2pa_analyzer, "Reader", DummyReader)
+
+    result = _run_c2pa_tool(_make_test_image_bytes())
+
+    assert result["status"] == "FOUND"
+    assert result["summary"] == "Signed by Google LLC (Generative AI signal)"
+
+    data = result["data"]
+    assert data["signer"] == "Google LLC"
+    assert data["tool"] == "Google AI Studio"
+    assert data["signature_status"] == "valid"
+    assert data["origin_signals"] == ["ai"]
+    assert data["origin_label"] == "Generative AI signal"
+    assert data["claim_generator_info"] == ["imagen 3.0"]
+    assert data["capture_details"]["make"] == "Google"
+    assert data["capture_details"]["model"] == "Pixel 9"
+    assert data["capture_details"]["software"] == "Camera 9.0"
+
+    actions = data["actions"]
+    assert len(actions) == 1
+    assert actions[0]["action"] == "c2pa.created"
+    assert actions[0]["origin_signal"] == "ai"
+    assert actions[0]["software_agent"] == "Imagen 3.0"
+
+    assert data["manifest_label"] == "m1"
+    assert data["manifest_title"] == "Google image"
+    assert data["manifest_count"] == 1
+    assert data["raw_manifest_store"]["active_manifest"] == "m1"
+
+
 def test_c2pa_analyzer_handles_duplicate_fact(monkeypatch, app):
     image = ImageRegistry(phash="deadbeefdeadbeef", whash="feedfacefeedface")
     db.session.add(image)
