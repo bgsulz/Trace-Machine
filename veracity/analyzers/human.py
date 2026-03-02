@@ -2,12 +2,7 @@ from __future__ import annotations
 import logging
 from .context import AnalysisContext
 from .hash_utils import (
-    compute_base_hashes,
-    compute_neighbor_distances,
-    extract_sources,
-    format_hash_display,
-    local_match_payload,
-    match_method_label,
+    iter_neighbor_views,
 )
 
 logger = logging.getLogger(__name__)
@@ -52,31 +47,23 @@ def run_human_consensus(context: AnalysisContext) -> dict[str, object]:
     target_hex = context.phash
     matches: list[dict[str, object]] = []
 
-    base_phash, base_whash = compute_base_hashes(context.phash, context.whash)
-
-    for neighbor in context.neighbors:
+    for neighbor_view in iter_neighbor_views(
+        context,
+        include_local_payload=True,
+        include_homography=True,
+    ):
+        neighbor = neighbor_view["neighbor"]
         consensus = getattr(neighbor, "consensus", None)
         if not consensus:
             continue
 
-        neighbor_id = getattr(neighbor, "id", None)
-        is_self_match = neighbor_id == context.registry_id if neighbor_id is not None else False
-        neighbor_phash = getattr(neighbor, "phash", None)
+        neighbor_phash = neighbor_view["phash"]
         if not neighbor_phash:
             continue
 
-        neighbor_whash_val = getattr(neighbor, "whash", None)
-        match_method = str(getattr(neighbor, "match_method", "hash") or "hash").lower()
-        local_snapshot = getattr(neighbor, "local_match", None)
-        (
-            phash_distance,
-            whash_distance,
-            display_hash,
-            display_label,
-            display_distance,
-        ) = compute_neighbor_distances(
-            base_phash, base_whash, neighbor_phash, neighbor_whash_val
-        )
+        neighbor_whash_val = neighbor_view["whash"]
+        match_method = neighbor_view["match_method"]
+        display_distance = neighbor_view["display_distance"]
         distance_display = display_distance if match_method != "local" else None
 
         total_votes = (
@@ -85,38 +72,33 @@ def run_human_consensus(context: AnalysisContext) -> dict[str, object]:
             + (consensus.vote_ai or 0)
         )
 
-        sources = extract_sources(neighbor)
-        local = local_match_payload(local_snapshot, include_homography=True)
+        created_at = neighbor_view["created_at"]
 
         # Prefer the hash type that matched neighbor inclusion; fall back to phash.
         matches.append(
             {
                 "phash": neighbor_phash,
                 "whash": neighbor_whash_val,
-                "image_id": neighbor_id,
-                "is_self_match": is_self_match,
-                "hash_display": format_hash_display(
-                    display_hash,
-                    display_label,
-                    neighbor_phash,
-                ),
+                "image_id": neighbor_view["id"],
+                "is_self_match": neighbor_view["is_self_match"],
+                "hash_display": neighbor_view["hash_display"],
                 "distance": distance_display,
-                "distance_phash": phash_distance,
-                "distance_whash": whash_distance,
+                "distance_phash": neighbor_view["phash_distance"],
+                "distance_whash": neighbor_view["whash_distance"],
                 "vote_real": consensus.vote_real,
                 "vote_edited": consensus.vote_edited,
                 "vote_ai": consensus.vote_ai,
                 "match_method": match_method,
-                "match_method_label": match_method_label(match_method),
-                "local": local,
+                "match_method_label": neighbor_view["match_method_label"],
+                "local": neighbor_view["local"],
                 "vote_breakdown": _build_vote_breakdown(
                     real=consensus.vote_real, edited=consensus.vote_edited, ai=consensus.vote_ai
                 ),
                 "total_votes": total_votes,
-                "created_at": neighbor.created_at.isoformat()
-                if getattr(neighbor, "created_at", None)
+                "created_at": created_at.isoformat()
+                if getattr(created_at, "isoformat", None)
                 else "",
-                "sources": sources,
+                "sources": neighbor_view["sources"],
             }
         )
 

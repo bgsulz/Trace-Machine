@@ -7,12 +7,7 @@ from sqlalchemy.orm import joinedload
 
 from ..analyzers.context import AnalysisContext
 from ..analyzers.hash_utils import (
-    compute_base_hashes,
-    compute_neighbor_distances,
-    extract_sources,
-    format_hash_display,
-    local_match_payload,
-    match_method_label,
+    iter_neighbor_views,
 )
 from ..models import ImageRegistry
 
@@ -128,14 +123,10 @@ def _build_direct_items(
 
 
 def _build_distant_matches(context: AnalysisContext) -> list[dict[str, Any]]:
-    base_phash, base_whash = compute_base_hashes(context.phash, context.whash)
     matches: list[dict[str, Any]] = []
 
-    for neighbor in context.neighbors:
-        neighbor_id = getattr(neighbor, "id", None)
-        if neighbor_id == context.registry_id:
-            continue
-
+    for neighbor_view in iter_neighbor_views(context, include_self=False, include_local_payload=True):
+        neighbor = neighbor_view["neighbor"]
         c2pa_facts = _extract_c2pa_facts(neighbor)
         vote_counts = _extract_vote_counts(neighbor)
         synthid_counts = _extract_synthid_counts(neighbor)
@@ -148,40 +139,29 @@ def _build_distant_matches(context: AnalysisContext) -> list[dict[str, Any]]:
         if carried_type_count == 0:
             continue
 
-        phash = getattr(neighbor, "phash", None)
-        whash = getattr(neighbor, "whash", None)
-        (
-            phash_distance,
-            whash_distance,
-            display_hash,
-            display_label,
-            display_distance,
-        ) = compute_neighbor_distances(base_phash, base_whash, phash, whash)
+        method = str(neighbor_view["match_method"] or "hash").lower()
 
-        method = str(getattr(neighbor, "match_method", "hash") or "hash").lower()
-        local_payload = local_match_payload(getattr(neighbor, "local_match", None))
-
-        distance = display_distance
+        distance = neighbor_view["display_distance"]
         if method == "local":
             distance = None
 
-        created_at = getattr(neighbor, "created_at", None)
+        created_at = neighbor_view["created_at"]
         matches.append(
             {
-                "image_id": neighbor_id,
-                "phash": phash,
-                "whash": whash,
-                "hash_display": format_hash_display(display_hash, display_label, phash),
+                "image_id": neighbor_view["id"],
+                "phash": neighbor_view["phash"],
+                "whash": neighbor_view["whash"],
+                "hash_display": neighbor_view["hash_display"],
                 "distance": distance,
-                "distance_phash": phash_distance,
-                "distance_whash": whash_distance,
+                "distance_phash": neighbor_view["phash_distance"],
+                "distance_whash": neighbor_view["whash_distance"],
                 "match_method": method,
-                "match_method_label": match_method_label(method),
-                "local": local_payload,
+                "match_method_label": neighbor_view["match_method_label"],
+                "local": neighbor_view["local"],
                 "c2pa_facts": c2pa_facts,
                 "votes": vote_counts,
                 "synthid": synthid_counts,
-                "sources": extract_sources(neighbor),
+                "sources": neighbor_view["sources"],
                 "created_at": _iso_datetime(created_at),
                 "_sort_method": _MATCH_METHOD_PRIORITY.get(method, 99),
                 "_sort_types": carried_type_count,

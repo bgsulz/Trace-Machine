@@ -11,9 +11,7 @@ from .. import db
 from ..models import ProvenanceFact
 from .context import AnalysisContext
 from .hash_utils import (
-    compute_base_hashes,
-    compute_neighbor_distances,
-    extract_sources,
+    iter_neighbor_views,
 )
 
 try:  # pragma: no cover - import guard
@@ -229,44 +227,28 @@ def run_c2pa(context: AnalysisContext) -> dict[str, object]:
 
     # 3. Build a list of nearby matches from provenance facts on neighbors.
     matches: list[dict[str, object]] = []
-    base_phash, base_whash = compute_base_hashes(context.phash, context.whash)
 
-    for neighbor in context.neighbors:
-        neighbor_id = getattr(neighbor, "id", None)
-        if neighbor_id == context.registry_id:
-            continue
-
-        phash = getattr(neighbor, "phash", None)
+    for neighbor_view in iter_neighbor_views(context, include_self=False):
+        neighbor = neighbor_view["neighbor"]
+        phash = neighbor_view["phash"]
         if not phash:
             continue
 
-        neighbor_whash_val = getattr(neighbor, "whash", None)
-        (
-            phash_distance,
-            whash_distance,
-            display_hash,
-            display_label,
-            display_distance,
-        ) = compute_neighbor_distances(
-            base_phash, base_whash, phash, neighbor_whash_val
-        )
-
+        neighbor_whash_val = neighbor_view["whash"]
         for fact in getattr(neighbor, "facts", []) or []:
             if fact.analyzer != "c2pa":
                 continue
-
-            sources = extract_sources(neighbor)
 
             matches.append(
                 {
                     "phash": phash,
                     "whash": neighbor_whash_val,
-                    "hash_display": f"{display_hash} ({display_label})",
-                    "distance": display_distance,
-                    "distance_phash": phash_distance,
-                    "distance_whash": whash_distance,
+                    "hash_display": neighbor_view["hash_display"],
+                    "distance": neighbor_view["display_distance"],
+                    "distance_phash": neighbor_view["phash_distance"],
+                    "distance_whash": neighbor_view["whash_distance"],
                     "fact_data": str(fact.data),
-                    "sources": sources,
+                    "sources": neighbor_view["sources"],
                 }
             )
 

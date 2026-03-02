@@ -10,10 +10,7 @@ from __future__ import annotations
 
 from .context import AnalysisContext
 from .hash_utils import (
-    compute_base_hashes,
-    compute_neighbor_distances,
-    extract_sources,
-    format_hash_display,
+    iter_neighbor_views,
 )
 
 
@@ -31,8 +28,6 @@ _CONTRADICTION_RATIO = 3
 
 def run_synthid(context: AnalysisContext) -> dict[str, object]:
     """Scan neighbors for SynthID reports and compute gating score."""
-    base_phash, base_whash = compute_base_hashes(context.phash, context.whash)
-
     this_image = {"detected": 0, "not_detected": 0}
     similar_images: list[dict[str, object]] = []
     score = 0.0
@@ -40,7 +35,8 @@ def run_synthid(context: AnalysisContext) -> dict[str, object]:
     tier_a_detected = 0
     tier_a_not_detected = 0
 
-    for neighbor in context.neighbors:
+    for neighbor_view in iter_neighbor_views(context):
+        neighbor = neighbor_view["neighbor"]
         synthid = getattr(neighbor, "synthid", None)
         if synthid is None:
             continue
@@ -51,19 +47,12 @@ def run_synthid(context: AnalysisContext) -> dict[str, object]:
             continue
 
         any_reports = True
-        neighbor_id = getattr(neighbor, "id", None)
-        neighbor_phash = getattr(neighbor, "phash", None)
-        neighbor_whash = getattr(neighbor, "whash", None)
-
-        phash_dist, whash_dist, display_hash, display_label, display_distance = (
-            compute_neighbor_distances(
-                base_phash, base_whash, neighbor_phash, neighbor_whash
-            )
-        )
+        phash_dist = neighbor_view["phash_distance"]
+        whash_dist = neighbor_view["whash_distance"]
 
         # Classify tier
         min_dist = _min_distance(phash_dist, whash_dist)
-        if neighbor_id == context.registry_id:
+        if neighbor_view["is_self_match"]:
             # Tier A: same entry
             weight = _WEIGHT_SAME_ENTRY
             tier_a_detected += detected
@@ -81,16 +70,20 @@ def run_synthid(context: AnalysisContext) -> dict[str, object]:
             weight = _WEIGHT_SAME_HASH
             score += weight * detected
             _append_similar(
-                similar_images, neighbor, display_hash, display_label,
-                display_distance, detected, not_detected,
+                similar_images,
+                neighbor_view,
+                detected,
+                not_detected,
             )
         else:
             # Tier C: similar (within neighbor threshold)
             weight = _WEIGHT_SIMILAR
             score += weight * detected
             _append_similar(
-                similar_images, neighbor, display_hash, display_label,
-                display_distance, detected, not_detected,
+                similar_images,
+                neighbor_view,
+                detected,
+                not_detected,
             )
 
     # Determine contested flag
@@ -176,22 +169,16 @@ def _min_distance(phash_dist: int | None, whash_dist: int | None) -> int | None:
 
 def _append_similar(
     similar_images: list[dict[str, object]],
-    neighbor,
-    display_hash: str | None,
-    display_label: str,
-    display_distance: int | None,
+    neighbor_view: dict[str, object],
     detected: int,
     not_detected: int,
 ) -> None:
-    neighbor_phash = getattr(neighbor, "phash", None)
-    neighbor_whash = getattr(neighbor, "whash", None)
-    sources = extract_sources(neighbor)
     similar_images.append({
-        "phash": neighbor_phash,
-        "whash": neighbor_whash,
-        "hash_display": format_hash_display(display_hash, display_label, neighbor_phash),
-        "distance": display_distance,
+        "phash": neighbor_view["phash"],
+        "whash": neighbor_view["whash"],
+        "hash_display": neighbor_view["hash_display"],
+        "distance": neighbor_view["display_distance"],
         "detected": detected,
         "not_detected": not_detected,
-        "sources": sources,
+        "sources": neighbor_view["sources"],
     })

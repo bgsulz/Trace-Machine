@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import List, Tuple
+from typing import Any, Iterator, List, Tuple
 
 import imagehash
 
@@ -102,3 +102,60 @@ def extract_sources(neighbor, limit: int = 3) -> List[dict[str, str]]:
         if url:
             sources.append({"url": url})
     return sources
+
+
+def iter_neighbor_views(
+    context,
+    *,
+    include_self: bool = True,
+    include_local_payload: bool = False,
+    include_homography: bool = False,
+    source_limit: int = 3,
+) -> Iterator[dict[str, Any]]:
+    base_phash, base_whash = compute_base_hashes(context.phash, context.whash)
+
+    for neighbor in context.neighbors:
+        neighbor_id = getattr(neighbor, "id", None)
+        is_self_match = (
+            neighbor_id == context.registry_id if neighbor_id is not None else False
+        )
+        if is_self_match and not include_self:
+            continue
+
+        neighbor_phash = getattr(neighbor, "phash", None)
+        neighbor_whash = getattr(neighbor, "whash", None)
+        (
+            phash_distance,
+            whash_distance,
+            display_hash,
+            display_label,
+            display_distance,
+        ) = compute_neighbor_distances(
+            base_phash, base_whash, neighbor_phash, neighbor_whash
+        )
+        match_method = str(getattr(neighbor, "match_method", "hash") or "hash").lower()
+        local_payload_data = None
+        if include_local_payload:
+            local_payload_data = local_match_payload(
+                getattr(neighbor, "local_match", None),
+                include_homography=include_homography,
+            )
+
+        yield {
+            "neighbor": neighbor,
+            "id": neighbor_id,
+            "is_self_match": is_self_match,
+            "phash": neighbor_phash,
+            "whash": neighbor_whash,
+            "phash_distance": phash_distance,
+            "whash_distance": whash_distance,
+            "display_hash": display_hash,
+            "display_label": display_label,
+            "display_distance": display_distance,
+            "hash_display": format_hash_display(display_hash, display_label, neighbor_phash),
+            "match_method": match_method,
+            "match_method_label": match_method_label(match_method),
+            "local": local_payload_data,
+            "sources": extract_sources(neighbor, limit=source_limit),
+            "created_at": getattr(neighbor, "created_at", None),
+        }
