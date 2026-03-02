@@ -24,20 +24,27 @@
   {% if row.data.signature_status %}
   <div><strong>Signature:</strong> {{ row.data.signature_status }}</div>
   {% endif %}
-  {% if signature_info.alg %}
-  <div><strong>Signature algorithm:</strong> {{ signature_info.alg }}</div>
-  {% endif %}
   {% if signature_info.time %}
   <div><strong>Signed at:</strong> {{ signature_info.time }}</div>
   {% endif %}
-  {% if row.data.manifest_label %}
-  <div><strong>Active manifest:</strong> {{ row.data.manifest_label }}</div>
-  {% endif %}
-  {% if row.data.manifest_title %}
-  <div><strong>Manifest title:</strong> {{ row.data.manifest_title }}</div>
-  {% endif %}
   {% if row.data.manifest_format %}
   <div><strong>Manifest format:</strong> {{ row.data.manifest_format }}</div>
+  {% endif %}
+  {% if signature_info.alg %}
+  <div class="tech-only"><strong>Signature algorithm:</strong> {{ signature_info.alg }}</div>
+  {% endif %}
+  {% if row.data.manifest_label %}
+  <div class="tech-only"><strong>Active manifest:</strong> {{ row.data.manifest_label }}</div>
+  {% endif %}
+  {% if row.data.manifest_title %}
+  <div class="tech-only"><strong>Manifest title:</strong> {{ row.data.manifest_title }}</div>
+  {% endif %}
+  {% if validation_status %}
+  <div class="tech-only">
+    <strong>Validation status:</strong>
+    <pre class="exif-pre"><code>{% for status in validation_status %}{{ status }}{% if not loop.last %}
+{% endif %}{% endfor %}</code></pre>
+  </div>
   {% endif %}
   {% if row.data.provenance_depth is defined and row.data.provenance_depth is not none %}
   <div>
@@ -49,12 +56,15 @@
 
   {% if actions %}
   <hr />
-  <details>
+  <details open>
     <summary><strong>Actions</strong> ({{ actions|length }})</summary>
     <ul>
       {% for action in actions %}
       <li>
-        <strong>{{ action.action or "Unknown action" }}</strong>
+        <strong>{{ action.action_display or action.action or "Unknown action" }}</strong>
+        {% if action.action %}
+        <br /><small><code>{{ action.action }}</code></small>
+        {% endif %}
         {% if action.digital_source_type %}
         <br /><small>digitalSourceType: {{ action.digital_source_type }}</small>
         {% endif %}
@@ -111,17 +121,6 @@
   </details>
   {% endif %}
 
-  {% if validation_status %}
-  <details>
-    <summary><strong>Validation status</strong> ({{ validation_status|length }})</summary>
-    <ul>
-      {% for status in validation_status %}
-      <li><code>{{ status }}</code></li>
-      {% endfor %}
-    </ul>
-  </details>
-  {% endif %}
-
   {% if row.data.matches %}
   <hr />
   {{ distant_match_callout(row.data.matches|length, "C2PA traces") }}
@@ -130,7 +129,7 @@
   {% if row.data.raw_manifest_store %}
   <div class="tech-only">
     <hr />
-    <details>
+    <details class="c2pa-raw-json">
       <summary><strong>Raw C2PA JSON</strong></summary>
       <pre class="exif-pre">{{ row.data.raw_manifest_store | tojson(indent=2) }}</pre>
     </details>

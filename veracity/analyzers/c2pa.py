@@ -51,6 +51,20 @@ _CAPTURE_KEYS = (
     ("CreateDate", "create_date"),
     ("ModifyDate", "modify_date"),
 )
+_ACTION_NAME_OVERRIDES = {
+    "c2pa.created": "Created",
+    "c2pa.opened": "Opened",
+    "c2pa.placed": "Placed",
+    "c2pa.copied": "Copied",
+    "c2pa.converted": "Converted",
+    "c2pa.cropped": "Cropped",
+    "c2pa.resized": "Resized",
+    "c2pa.edited": "Edited",
+    "c2pa.filtered": "Filtered",
+    "c2pa.transcoded": "Transcoded",
+    "c2pa.exported": "Exported",
+    "c2pa.redacted": "Redacted",
+}
 
 
 def _detect_mime_type(image_bytes: bytes) -> str:
@@ -218,6 +232,10 @@ def run_c2pa(context: AnalysisContext) -> dict[str, object]:
     base_phash, base_whash = compute_base_hashes(context.phash, context.whash)
 
     for neighbor in context.neighbors:
+        neighbor_id = getattr(neighbor, "id", None)
+        if neighbor_id == context.registry_id:
+            continue
+
         phash = getattr(neighbor, "phash", None)
         if not phash:
             continue
@@ -308,6 +326,7 @@ def _extract_actions_and_origin_signals(
             if not isinstance(item, dict):
                 continue
             action_name = str(item.get("action") or item.get("label") or "").strip()
+            action_display = _friendly_action_name(action_name)
             digital_source_type = _extract_digital_source_type(item)
             source_signal = _source_signal_from_digital_source_type(digital_source_type)
             if source_signal:
@@ -317,6 +336,8 @@ def _extract_actions_and_origin_signals(
             action_entry: dict[str, str] = {}
             if action_name:
                 action_entry["action"] = action_name
+            if action_display:
+                action_entry["action_display"] = action_display
             if digital_source_type:
                 action_entry["digital_source_type"] = digital_source_type
             if software_agent:
@@ -344,6 +365,21 @@ def _extract_digital_source_type(action: dict[str, Any]) -> str:
             return nested.strip()
 
     return ""
+
+
+def _friendly_action_name(action_name: str) -> str:
+    if not action_name:
+        return ""
+    if action_name in _ACTION_NAME_OVERRIDES:
+        return _ACTION_NAME_OVERRIDES[action_name]
+
+    normalized = action_name
+    if normalized.startswith("c2pa."):
+        normalized = normalized[5:]
+    normalized = normalized.replace("_", " ").replace("-", " ").strip()
+    if not normalized:
+        return action_name
+    return normalized.title()
 
 
 def _source_signal_from_digital_source_type(value: str) -> str | None:

@@ -235,6 +235,7 @@ def test_run_c2pa_tool_extracts_rich_manifest_fields(monkeypatch):
     actions = data["actions"]
     assert len(actions) == 1
     assert actions[0]["action"] == "c2pa.created"
+    assert actions[0]["action_display"] == "Created"
     assert actions[0]["origin_signal"] == "ai"
     assert actions[0]["software_agent"] == "Imagen 3.0"
 
@@ -694,6 +695,41 @@ def test_run_c2pa_sets_similar_when_neighbors_have_facts(monkeypatch):
     matches = result["data"]["matches"]
     assert len(matches) == 1
     assert matches[0]["fact_data"] == "Signed by Example Corp"
+
+
+def test_run_c2pa_ignores_self_neighbor_fact(monkeypatch):
+    context = AnalysisContext(
+        image_bytes=b"payload",
+        phash="0011ffaa0011ffaa",
+        whash="0011ffaa0011ffbb",
+        registry_id=42,
+        neighbors=[
+            SimpleNamespace(
+                id=42,
+                phash="0011ffaa0011ffaa",
+                whash="0011ffaa0011ffbb",
+                facts=[SimpleNamespace(analyzer="c2pa", data="Signed by Self")],
+                sources=[SimpleNamespace(url="https://example.com/self")],
+            )
+        ],
+        width=12,
+        height=12,
+    )
+
+    monkeypatch.setattr(
+        c2pa_analyzer,
+        "_run_c2pa_tool",
+        lambda *_: {
+            "status": "NOT FOUND",
+            "summary": "No C2PA signature found.",
+            "data": {},
+        },
+    )
+
+    result = c2pa_analyzer.run_c2pa(context)
+
+    assert result["status"] == "NOT FOUND"
+    assert result["data"]["matches"] == []
 
 
 def test_build_vote_breakdown_handles_zero_totals():

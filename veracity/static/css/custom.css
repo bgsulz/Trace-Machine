@@ -752,6 +752,9 @@ details[open] > summary {
 .exif-raw-table td:last-child { word-break: break-all; }
 .exif-finding-key { font-weight: normal; }
 
+/* C2PA Analyzer */
+.c2pa-raw-json { margin-top: 0.5rem; }
+
 /* SynthID Analyzer */
 .analyzer-note {
   font-size: 0.85rem;
