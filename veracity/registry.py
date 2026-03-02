@@ -335,7 +335,7 @@ def _evaluate_local_candidate_match(
 
     crop_box = None
     if evidence.normalized_box is not None:
-        crop_box = tuple(round(float(v), 6) for v in evidence.normalized_box)
+        crop_box = tuple(float(v) for v in evidence.normalized_box)
 
     return (
         LocalMatchSnapshot(
