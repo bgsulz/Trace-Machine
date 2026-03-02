@@ -386,4 +386,4 @@ def test_htmx_synthid_report_mini_returns_mini_fragment(client, app):
 
     assert resp.status_code == 200
     assert b"mini-card-content" in resp.data
-    assert b"analyzer-row-synthid" not in resp.data
+    assert b'id="analyzer-row-synthid"' not in resp.data

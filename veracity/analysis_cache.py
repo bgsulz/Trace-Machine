@@ -43,6 +43,26 @@ def store_analysis_payload(
     return token
 
 
+def load_analysis_metadata(analysis_id: str) -> dict[str, Any] | None:
+    """Load only the JSON metadata for an analysis (no image bytes)."""
+    meta_path = analysis_meta_path(analysis_id)
+    try:
+        return json.loads(meta_path.read_text(encoding="utf-8"))
+    except (FileNotFoundError, json.JSONDecodeError):
+        return None
+
+
+def update_analysis_metadata(analysis_id: str, updates: dict[str, Any]) -> None:
+    """Merge *updates* into existing metadata on disk."""
+    meta_path = analysis_meta_path(analysis_id)
+    try:
+        metadata = json.loads(meta_path.read_text(encoding="utf-8"))
+    except (FileNotFoundError, json.JSONDecodeError):
+        return
+    metadata.update(updates)
+    meta_path.write_text(json.dumps(metadata), encoding="utf-8")
+
+
 def load_analysis_payload(
     analysis_id: str,
 ) -> tuple[bytes, dict[str, Any]] | None:

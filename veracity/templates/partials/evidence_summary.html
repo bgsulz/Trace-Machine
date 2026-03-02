@@ -1,0 +1,29 @@
+<div
+  id="evidence-summary"
+  class="evidence-summary{% if has_notable_evidence %} evidence-summary--alert{% endif %}"
+  {% if oob_swap %}hx-swap-oob="outerHTML:#evidence-summary"{% endif %}
+>
+  {% if has_distant_traces %}
+  <a
+    href="#direct-distant-traces"
+    class="evidence-summary__item evidence-summary__item--found"
+    onclick="const el=document.getElementById('direct-distant-traces'); if(el) el.open=true;"
+  >
+    <span class="evidence-dot evidence-dot--found"></span>
+    <span class="evidence-summary__name">Distant Traces</span>
+    <span class="evidence-summary__detail">Similar images carry evidence</span>
+  </a>
+  {% endif %}
+  {% for item in analyzer_summary %}
+  {% set sc = item.status|lower|replace(' ', '-') %}
+  <a
+    href="#analyzer-row-{{ item.slug }}"
+    class="evidence-summary__item evidence-summary__item--{{ sc }}"
+    onclick="const el=document.getElementById('analyzer-row-{{ item.slug }}'); if(el) el.open=true;"
+  >
+    <span class="evidence-dot evidence-dot--{{ sc }}"></span>
+    <span class="evidence-summary__name">{{ item.name }}</span>
+    <span class="evidence-summary__detail">{{ item.summary }}</span>
+  </a>
+  {% endfor %}
+</div>

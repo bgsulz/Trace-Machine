@@ -171,6 +171,7 @@
   {% endif %}
 
   {% for analyzer in analyzers %}
+  {% if analyzer.slug != 'tineye' %}
   {% set row_id = placeholder_prefix ~ analyzer.slug %}
   {% set hx_url = url_for(
     'main.analyzer_fragment',
@@ -196,5 +197,6 @@
       <em>Contacting {{ analyzer.name }}...</em>
     </div>
   </details>
+  {% endif %}
   {% endfor %}
 </div>

@@ -8,10 +8,12 @@ from flask import abort, current_app, flash, redirect, render_template, url_for
 
 from .. import ingestion
 from ..analysis_cache import (
+    load_analysis_metadata,
     load_analysis_payload,
     load_cached_analyzer_row,
     store_analysis_payload,
     store_cached_analyzer_row,
+    update_analysis_metadata,
 )
 from ..analyzers.manager import (
     ANALYZERS,
@@ -43,6 +45,8 @@ def _build_analyzer_summary(
     """Build lightweight summary for the evidence summary strip."""
     summary: list[dict[str, Any]] = []
     for row in rows:
+        if row.get("slug") == "tineye":
+            continue
         status = (row.get("status") or "LOADING").upper()
         summary_text = row.get("summary") or _SUMMARY_FALLBACK.get(status.lower(), "")
         summary.append(
@@ -54,6 +58,33 @@ def _build_analyzer_summary(
             }
         )
     return summary
+
+
+_EVIDENCE_SLUGS = [s.slug for s in ANALYZERS if s.slug != "tineye"]
+
+
+def render_evidence_summary_oob(analysis_id: str) -> str:
+    """Return an OOB-swappable evidence summary fragment for *analysis_id*."""
+    rows: list[dict[str, Any]] = []
+    for slug in _EVIDENCE_SLUGS:
+        cached = load_cached_analyzer_row(analysis_id, slug)
+        if cached is not None:
+            rows.append(cached)
+
+    analyzer_summary = _build_analyzer_summary(rows)
+    has_notable_evidence = any(
+        r["status"] in ("FOUND", "DETECTED", "SIMILAR") for r in analyzer_summary
+    )
+    metadata = load_analysis_metadata(analysis_id) or {}
+    has_distant_traces = metadata.get("has_distant_traces", False)
+
+    return render_template(
+        "partials/evidence_summary.html",
+        analyzer_summary=analyzer_summary,
+        has_notable_evidence=has_notable_evidence,
+        has_distant_traces=has_distant_traces,
+        oob_swap=True,
+    )
 
 
 def handle_remote_analysis(image_url: str, vote_slug: str | None, template_name: str):
@@ -127,6 +158,8 @@ def perform_analysis(
         context,
         analyzer_rows=analyzer_rows,
     )
+    has_distant_traces = bool(direct_distant and direct_distant.get("distant_matches"))
+    update_analysis_metadata(analysis_id, {"has_distant_traces": has_distant_traces})
     containments = get_displayable_containments(context.registry_id)
     analyzer_summary = _build_analyzer_summary(analyzer_rows)
     has_notable_evidence = any(

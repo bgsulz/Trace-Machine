@@ -112,39 +112,37 @@
         </div>
       </div>
       {% if analyzer_summary %}
-      <div class="evidence-summary{% if has_notable_evidence %} evidence-summary--alert{% endif %}">
-        {% if direct_distant and direct_distant.distant_matches %}
-        <a
-          href="#direct-distant-traces"
-          class="evidence-summary__item evidence-summary__item--found"
-          onclick="const el=document.getElementById('direct-distant-traces'); if(el) el.open=true;"
-        >
-          <span class="evidence-dot evidence-dot--found"></span>
-          <span class="evidence-summary__name">Distant Traces</span>
-          <span class="evidence-summary__detail">Similar images carry evidence</span>
-        </a>
-        {% endif %}
-        {% for item in analyzer_summary %}
-        {% set sc = item.status|lower|replace(' ', '-') %}
-        <a
-          href="#analyzer-row-{{ item.slug }}"
-          class="evidence-summary__item evidence-summary__item--{{ sc }}"
-          onclick="const el=document.getElementById('analyzer-row-{{ item.slug }}'); if(el) el.open=true;"
-        >
-          <span class="evidence-dot evidence-dot--{{ sc }}"></span>
-          <span class="evidence-summary__name">{{ item.name }}</span>
-          <span class="evidence-summary__detail">{{ item.summary }}</span>
-        </a>
-        {% endfor %}
-      </div>
+      {% set has_distant_traces = direct_distant and direct_distant.distant_matches %}
+      {% include "partials/evidence_summary.html" %}
       {% endif %}
 
       <div>
         {% include "partials/analysis_table.html" %}
       </div>
 
-      {% if tools %}
       <h3>Analysis Tools</h3>
+      {% set tineye_row_id = "analyzer-placeholder-tineye" %}
+      <div class="analyzer-list">
+        <details
+          class="analyzer-item"
+          id="{{ tineye_row_id }}"
+          hx-get="{{ url_for('main.analyzer_fragment', analysis_id=analysis_id, slug='tineye') }}"
+          hx-trigger="load"
+          hx-target="#{{ tineye_row_id }}"
+          hx-swap="outerHTML"
+        >
+          <summary class="analyzer-header">
+            <div class="analyzer-header-info">
+              <span class="analyzer-title"><strong>TinEye Reverse Search</strong></span>
+            </div>
+            <span class="badge loading">RUNNING</span>
+          </summary>
+          <div class="analyzer-content">
+            <em>Contacting TinEye Reverse Search...</em>
+          </div>
+        </details>
+      </div>
+      {% if tools %}
       {% include "partials/tools_table.html" %}
       {% endif %}
     </div>

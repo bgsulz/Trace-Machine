@@ -7,7 +7,7 @@ from flask import Blueprint, abort, current_app, flash, jsonify, make_response, 
 
 from ... import csrf
 from ...analysis_cache import load_analysis_payload
-from ...services.analysis_service import render_analyzer_fragment_html
+from ...services.analysis_service import render_analyzer_fragment_html, render_evidence_summary_oob
 from ...services.config_service import increment_total_donated, parse_amount_to_cents
 from ...services.synthid_service import SYNTHID_CHOICES, apply_synthid_report
 from ...services.voting_service import VOTE_CHOICES, apply_vote, get_voter_id
@@ -76,6 +76,7 @@ def register_community_routes(
                 mini=mini,
                 link_target=link_target or None,
             )
+            html += render_evidence_summary_oob(analysis_id)
             return _toast_response(html, "Thanks for your vote.")
         flash("Thanks for your vote.")
         return redirect(redirect_target)
@@ -114,6 +115,7 @@ def register_community_routes(
                 mini=mini,
                 link_target="_blank" if mini else None,
             )
+            html += render_evidence_summary_oob(analysis_id)
             msg = "SynthID report recorded." if status == "recorded" else "SynthID report updated."
             if status == "unchanged":
                 msg = "You already submitted this report."
