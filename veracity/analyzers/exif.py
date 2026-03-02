@@ -68,6 +68,7 @@ def run_exif_metadata(context: AnalysisContext) -> dict[str, object]:
             "data": {
                 "findings": [],
                 "chunks": sorted_chunks,
+                "has_distant_matches": False,
             },
         }
 
@@ -80,6 +81,7 @@ def run_exif_metadata(context: AnalysisContext) -> dict[str, object]:
         "data": {
             "findings": findings,
             "chunks": sorted_chunks,
+            "has_distant_matches": False,
         },
     }
 

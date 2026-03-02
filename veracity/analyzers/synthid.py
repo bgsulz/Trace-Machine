@@ -160,6 +160,7 @@ def run_synthid(context: AnalysisContext) -> dict[str, object]:
             "contested": contested,
             "this_image": this_image,
             "similar_images": similar_images,
+            "has_distant_matches": bool(similar_images),
             "totals": totals,
             "score": score,
             "caveat": caveat,

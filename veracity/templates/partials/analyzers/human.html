@@ -7,7 +7,7 @@
     {{ row.data.totals.vote_ai }}</small
   >
 
-  {% if row.data.has_matches %}
+  {% if row.data.has_distant_matches %}
   <hr />
   <p class="analyzer-match-callout">
     <strong>{{ row.data.matches_summary }}</strong>
@@ -16,6 +16,9 @@
       onclick="const panel=document.getElementById('direct-distant-traces'); if (panel) panel.open = true;"
     >View in Distant Traces</a>
   </p>
+  {% elif row.data.has_matches %}
+  <hr />
+  <p><em>{{ row.data.direct_only_message }}</em></p>
   {% else %}
   <p><em>{{ row.data.no_votes_message }}</em></p>
   {% endif %}

@@ -386,7 +386,40 @@ def test_human_consensus_uses_fuzzy_match(app):
     assert data["totals"]["vote_real"] == 3
     assert data["totals"]["vote_ai"] == 7
     assert data["has_matches"] is True
+    assert data["has_distant_matches"] is True
     assert "Similar" in data["matches_summary"]
+
+
+def test_human_consensus_treats_self_votes_as_direct_only():
+    neighbor = SimpleNamespace(
+        id=42,
+        phash="0011ffaa0011ffaa",
+        whash="0011ffaa0011ffbb",
+        consensus=SimpleNamespace(vote_real=2, vote_edited=0, vote_ai=1),
+        created_at=None,
+        sources=[],
+    )
+
+    context = AnalysisContext(
+        image_bytes=b"payload",
+        phash="0011ffaa0011ffaa",
+        whash="0011ffaa0011ffbb",
+        registry_id=42,
+        neighbors=[neighbor],
+        width=12,
+        height=12,
+    )
+
+    result = run_human_consensus(context)
+    data = result["data"]
+
+    assert result["status"] == "FOUND"
+    assert data["has_matches"] is True
+    assert data["has_distant_matches"] is False
+    assert data["distant_match_count"] == 0
+    assert data["matches_summary"] == ""
+    assert data["totals"]["total_votes"] == 3
+    assert "direct vote" in result["summary"]
 
 
 def test_human_consensus_attaches_sources(app):
@@ -694,6 +727,7 @@ def test_run_c2pa_sets_similar_when_neighbors_have_facts(monkeypatch):
     assert "visually similar image" in result["summary"]  # singular for 1 match
     matches = result["data"]["matches"]
     assert len(matches) == 1
+    assert result["data"]["has_distant_matches"] is True
     assert matches[0]["fact_data"] == "Signed by Example Corp"
 
 
@@ -729,6 +763,7 @@ def test_run_c2pa_ignores_self_neighbor_fact(monkeypatch):
     result = c2pa_analyzer.run_c2pa(context)
 
     assert result["status"] == "NOT FOUND"
+    assert result["data"]["has_distant_matches"] is False
     assert result["data"]["matches"] == []
 
 

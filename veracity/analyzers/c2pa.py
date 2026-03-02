@@ -280,6 +280,7 @@ def run_c2pa(context: AnalysisContext) -> dict[str, object]:
     # Attach matches for the UI layer; always include the key for consistency.
     data = result.get("data") or {}
     data["matches"] = matches
+    data["has_distant_matches"] = bool(matches)
     result["data"] = data
 
     return result

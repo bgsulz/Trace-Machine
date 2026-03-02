@@ -55,7 +55,7 @@
   {% endif %}
 
   {# Similar image traces are now centralized under Direct and Distant #}
-  {% if similar_images %}
+  {% if row.data.has_distant_matches %}
   {{ distant_match_callout(similar_images|length, "SynthID reports") }}
   {% endif %}
   {% endif %}

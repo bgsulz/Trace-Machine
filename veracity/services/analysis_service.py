@@ -254,6 +254,7 @@ def _prepare_row_for_render(
     if phash:
         row_data["phash"] = phash
     row["data"] = row_data
+    _ensure_distant_match_flags(row, metadata)
 
     lens_link = _build_google_lens_link(metadata, analysis_id)
 
@@ -340,8 +341,81 @@ def _ensure_human_vote_defaults(row_data: dict[str, Any]) -> None:
     row_data.setdefault("matches", [])
     row_data.setdefault("matches_summary", "")
     row_data.setdefault("has_matches", False)
+    row_data.setdefault("has_distant_matches", False)
+    row_data.setdefault("distant_match_count", 0)
+    row_data.setdefault("direct_only_message", "Votes are recorded on this image only.")
     row_data.setdefault("local_match_count", 0)
     row_data.setdefault("no_votes_message", "No votes yet.")
+
+
+def _ensure_distant_match_flags(row: dict[str, Any], metadata: dict[str, Any] | None) -> None:
+    row_data = row.get("data")
+    if not isinstance(row_data, dict):
+        return
+
+    slug = str(row.get("slug") or "")
+    if slug == "c2pa":
+        row_data["has_distant_matches"] = bool(row_data.get("matches") or [])
+        return
+
+    if slug == "synthid":
+        row_data["has_distant_matches"] = bool(row_data.get("similar_images") or [])
+        return
+
+    if slug == "exif":
+        row_data["has_distant_matches"] = False
+        return
+
+    if slug != "human":
+        return
+
+    matches = row_data.get("matches") or []
+    if not isinstance(matches, list):
+        row_data["has_distant_matches"] = False
+        row_data["distant_match_count"] = 0
+        return
+
+    registry_id = metadata.get("registry_id") if isinstance(metadata, dict) else None
+    row_phash = str(row_data.get("phash") or "")
+    row_whash = str(row_data.get("whash") or (metadata or {}).get("whash") or "")
+    distant_match_count = sum(
+        1
+        for match in matches
+        if isinstance(match, dict)
+        and not _is_human_self_match(
+            match,
+            registry_id=registry_id,
+            row_phash=row_phash,
+            row_whash=row_whash,
+        )
+    )
+    row_data["distant_match_count"] = distant_match_count
+    row_data["has_distant_matches"] = distant_match_count > 0
+
+
+def _is_human_self_match(
+    match: dict[str, Any],
+    *,
+    registry_id: int | None,
+    row_phash: str,
+    row_whash: str,
+) -> bool:
+    explicit = match.get("is_self_match")
+    if isinstance(explicit, bool):
+        return explicit
+
+    image_id = match.get("image_id")
+    if registry_id is not None and image_id is not None:
+        return image_id == registry_id
+
+    match_phash = str(match.get("phash") or "")
+    match_whash = str(match.get("whash") or "")
+    if not row_phash or not match_phash or row_phash != match_phash:
+        return False
+
+    if row_whash and match_whash and row_whash != match_whash:
+        return False
+    return True
 
 
 def _build_google_lens_link(metadata: dict[str, Any] | None, analysis_id: str | None) -> str | None:

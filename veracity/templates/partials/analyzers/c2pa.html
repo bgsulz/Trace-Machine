@@ -121,7 +121,7 @@
   </details>
   {% endif %}
 
-  {% if row.data.matches %}
+  {% if row.data.has_distant_matches %}
   <hr />
   {{ distant_match_callout(row.data.matches|length, "C2PA traces") }}
   {% endif %}

@@ -66,6 +66,7 @@ def test_manual_state_no_reports():
     assert result["status"] == "MANUAL"
     assert result["data"]["display_state"] == "manual"
     assert result["data"]["score"] == 0
+    assert result["data"]["has_distant_matches"] is False
 
 
 def test_manual_state_empty_synthid():
@@ -244,6 +245,7 @@ def test_similar_image_propagation():
     )
     result = run_synthid(context)
     assert len(result["data"]["similar_images"]) == 1
+    assert result["data"]["has_distant_matches"] is True
     assert result["data"]["similar_images"][0]["detected"] == 2
     # Only from similar -> summary should mention "similar image"
     assert result["data"]["this_image"]["detected"] == 0
