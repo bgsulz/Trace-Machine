@@ -31,3 +31,5 @@ thumbs.db
 CLAUDE.md
 AGENTS.md
 .worktrees/
+.agents/
+**/skills_lock.json

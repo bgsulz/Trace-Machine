@@ -1,5 +1,4 @@
 {% extends "base.html" %}
-{% from "partials/hint_card.html" import hint_card %}
 
 {% block head_extra %}
 <link
@@ -95,18 +94,6 @@
     </div><!-- .result-left -->
 
     <div class="result-secondary">
-      {% call hint_card(show_dismiss=True) %}
-      <h4>Reading Your Results</h4>
-      <dl class="hint-definitions">
-        <dt><span class="badge found">FOUND</span> / <span class="badge detected">DETECTED</span></dt>
-        <dd>There's a trace! The analyzer found some evidence. Read the analysis details to understand more.</dd>
-        <dt><span class="badge similar">SIMILAR</span></dt>
-        <dd>A previously analyzed image very similar to this one has some evidence.</dd>
-        <dt><span class="badge not-found">NOT FOUND</span></dt>
-        <dd>No evidence detected. This doesn't prove the image is real.</dd>
-      </dl>
-      {% endcall %}
-
       <div class="report-heading">
         <h3>Provenance Report</h3>
         <div class="report-heading-actions">
@@ -124,6 +111,34 @@
           </a>
         </div>
       </div>
+      {% if analyzer_summary %}
+      <div class="evidence-summary{% if has_notable_evidence %} evidence-summary--alert{% endif %}">
+        {% if direct_distant and direct_distant.distant_matches %}
+        <a
+          href="#direct-distant-traces"
+          class="evidence-summary__item evidence-summary__item--found"
+          onclick="const el=document.getElementById('direct-distant-traces'); if(el) el.open=true;"
+        >
+          <span class="evidence-dot evidence-dot--found"></span>
+          <span class="evidence-summary__name">Distant Traces</span>
+          <span class="evidence-summary__detail">Similar images carry evidence</span>
+        </a>
+        {% endif %}
+        {% for item in analyzer_summary %}
+        {% set sc = item.status|lower|replace(' ', '-') %}
+        <a
+          href="#analyzer-row-{{ item.slug }}"
+          class="evidence-summary__item evidence-summary__item--{{ sc }}"
+          onclick="const el=document.getElementById('analyzer-row-{{ item.slug }}'); if(el) el.open=true;"
+        >
+          <span class="evidence-dot evidence-dot--{{ sc }}"></span>
+          <span class="evidence-summary__name">{{ item.name }}</span>
+          <span class="evidence-summary__detail">{{ item.summary }}</span>
+        </a>
+        {% endfor %}
+      </div>
+      {% endif %}
+
       <div>
         {% include "partials/analysis_table.html" %}
       </div>

@@ -31,6 +31,31 @@ from . import voting_service
 from ..analyzers.human import _build_vote_breakdown
 
 
+_SUMMARY_FALLBACK: dict[str, str] = {
+    "manual": "Manual check required",
+    "loading": "Running\u2026",
+}
+
+
+def _build_analyzer_summary(
+    rows: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Build lightweight summary for the evidence summary strip."""
+    summary: list[dict[str, Any]] = []
+    for row in rows:
+        status = (row.get("status") or "LOADING").upper()
+        summary_text = row.get("summary") or _SUMMARY_FALLBACK.get(status.lower(), "")
+        summary.append(
+            {
+                "slug": row.get("slug"),
+                "name": row.get("name"),
+                "status": status,
+                "summary": summary_text,
+            }
+        )
+    return summary
+
+
 def handle_remote_analysis(image_url: str, vote_slug: str | None, template_name: str):
     if not image_url:
         flash("Please provide an image URL to analyze.")
@@ -103,6 +128,10 @@ def perform_analysis(
         analyzer_rows=analyzer_rows,
     )
     containments = get_displayable_containments(context.registry_id)
+    analyzer_summary = _build_analyzer_summary(analyzer_rows)
+    has_notable_evidence = any(
+        r["status"] in ("FOUND", "DETECTED", "SIMILAR") for r in analyzer_summary
+    )
     return render_template(
         template_name,
         image_url=image_data_url,
@@ -120,6 +149,8 @@ def perform_analysis(
         public_url_display=public_url_display,
         image_width=context.width,
         image_height=context.height,
+        analyzer_summary=analyzer_summary,
+        has_notable_evidence=has_notable_evidence,
     )
 
 

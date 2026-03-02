@@ -19,7 +19,7 @@
 </form>
 {%- endmacro %}
 
-<details class="analyzer-item" id="analyzer-row-{{ row.slug }}" {{ 'open' if expand_by_default else '' }}>
+<details class="analyzer-item analyzer-item--{{ status_class }}" id="analyzer-row-{{ row.slug }}" {{ 'open' if expand_by_default else '' }}>
   <summary class="analyzer-header">
     <div class="analyzer-header-info">
       <span class="analyzer-title">
