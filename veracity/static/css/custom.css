@@ -1018,14 +1018,12 @@ details[open] > summary {
   padding: 1rem;
   margin-bottom: 1rem;
   border-radius: var(--pico-border-radius);
-  background-color: var(--veracity-warning-dark);
+  background-color: var(--veracity-warning);
   color: var(--pico-color);
 }
 
-@media (prefers-color-scheme: dark) {
-  .flash-warning {
-    background-color: var(--veracity-warning);
-  }
+[data-theme="dark"] .flash-warning {
+  background-color: var(--veracity-warning-dark);
 }
 
 /* Toast notifications */
