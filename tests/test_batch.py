@@ -63,8 +63,8 @@ class TestBatchPage:
         urls = "https://example.com/a.jpg\nhttps://example.com/a.jpg"
         resp = client.post("/batch", data={"urls": urls})
         assert resp.status_code == 200
-        # Should only have one result card (deduplicated)
-        assert resp.data.count(b"batch-card") >= 1
+        assert b"Batch Results (1 image)" in resp.data
+        assert resp.data.count(b'<article class="batch-card ') == 1
 
     @patch("veracity.services.batch_service.fetch_remote_image", side_effect=_fake_remote_fetch)
     def test_mixed_valid_and_invalid(self, mock_fetch, client):

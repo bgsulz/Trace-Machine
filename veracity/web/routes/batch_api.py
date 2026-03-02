@@ -51,7 +51,11 @@ def register_batch_api_routes(bp: Blueprint) -> None:
         if valid_urls:
             batch_results = process_batch_urls(valid_urls)
             by_url = {row["url"]: row for row in batch_results}
+            first_valid_index_by_url: dict[str, int] = {}
             for idx, url in valid_positions:
+                if url not in first_valid_index_by_url:
+                    first_valid_index_by_url[url] = idx
+            for url, idx in first_valid_index_by_url.items():
                 row = by_url.get(url)
                 if row is not None:
                     results_by_index[idx] = dict(row)
