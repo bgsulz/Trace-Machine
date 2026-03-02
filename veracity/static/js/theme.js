@@ -52,57 +52,35 @@ function initializeThemeButton() {
     systemQuery.addEventListener("change", handleSystemChange);
   }
 
-  function initToggle() {
-    const btn = document.getElementById("theme-toggle-button");
-    if (!btn) return;
-    const icon = btn.querySelector("img");
-    const iconMap = {
-      system: btn.dataset.iconSystem,
-      light: btn.dataset.iconLight,
-      dark: btn.dataset.iconDark,
-    };
-    const order = (btn.dataset.order || "system,light,dark")
-      .split(",")
-      .map((m) => m.trim())
-      .filter(Boolean);
-    const labels = { system: "System", light: "Light", dark: "Dark" };
+  function syncRadios() {
+    const mode = getMode();
+    document.querySelectorAll("input[name='theme-mode']").forEach((r) => {
+      r.checked = r.value === mode;
+    });
+  }
 
-    function nextMode(mode) {
-      const idx = order.indexOf(mode);
-      return order[(idx + 1) % order.length] || "system";
-    }
+  function initModalControls() {
+    const radios = document.querySelectorAll("input[name='theme-mode']");
+    if (!radios.length) return;
 
-    function syncButton() {
-      const mode = getMode();
-      const label = labels[mode] || "System";
-      btn.dataset.mode = mode;
-      btn.setAttribute("aria-label", `Change theme (current: ${label})`);
-      btn.title = `Theme: ${label}. Click to cycle.`;
-      if (icon && iconMap[mode]) {
-        icon.src = iconMap[mode];
-        icon.alt = `${label} theme icon`;
-      }
-    }
-
-    btn.addEventListener("click", () => {
-      setMode(nextMode(getMode()));
-      syncButton();
+    radios.forEach((r) => {
+      r.addEventListener("change", () => setMode(r.value));
     });
 
     window.addEventListener("storage", (e) => {
       if (e.key === storageKey) {
         applyMode(readStorage());
-        syncButton();
+        syncRadios();
       }
     });
 
-    syncButton();
+    syncRadios();
   }
 
   if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", initToggle);
+    document.addEventListener("DOMContentLoaded", initModalControls);
   } else {
-    initToggle();
+    initModalControls();
   }
 }
 

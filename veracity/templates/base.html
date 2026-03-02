@@ -44,26 +44,8 @@
             <a href="{{ url_for('main.index') }}">Analyze</a>
             <a href="{{ url_for('main.batch') }}">Batch</a>
             <a href="{{ url_for('main.analyzer_info') }}">Info</a>
-            <a href="#" id="show-tips-link" hidden>Show tips</a>
+            <a href="#" id="options-link">Options</a>
           </nav>
-          <div class="theme-toggle">
-            <button
-              type="button"
-              id="theme-toggle-button"
-              class="theme-toggle-button"
-              aria-label="Change theme"
-              title="Cycle theme"
-              data-icon-system="{{ url_for('static', filename='icons/system.svg') }}"
-              data-icon-light="{{ url_for('static', filename='icons/sun.svg') }}"
-              data-icon-dark="{{ url_for('static', filename='icons/moon.svg') }}"
-              data-order="system,light,dark"
-            >
-              <img
-                src="{{ url_for('static', filename='icons/system.svg') }}"
-                alt="Theme icon"
-              />
-            </button>
-          </div>
           <button
             type="button"
             class="nav-toggle"
@@ -79,6 +61,35 @@
 
       {% block content %}{% endblock %}
     </main>
+
+    <!-- Options modal -->
+    <dialog id="options-modal">
+      <article>
+        <div class="options-header">
+          <h3>Options</h3>
+          <button type="button" class="icon-btn" aria-label="Close" id="options-modal-close">
+            <img src="{{ url_for('static', filename='icons/xmark.svg') }}" alt="" width="20" height="20" />
+          </button>
+        </div>
+        <fieldset class="options-fieldset">
+          <legend>Theme</legend>
+          <label><input type="radio" name="theme-mode" value="system" /> System default</label>
+          <label><input type="radio" name="theme-mode" value="light" /> Light</label>
+          <label><input type="radio" name="theme-mode" value="dark" /> Dark</label>
+        </fieldset>
+        <label class="option-switch-label">
+          <input type="checkbox" role="switch" id="hints-checkbox" />
+          <span>Show tips</span>
+        </label>
+        <label class="option-switch-label">
+          <input type="checkbox" role="switch" id="tech-mode-checkbox" />
+          <span>
+            Technical details
+            <small>Show hashes, raw data, and debug information in reports</small>
+          </span>
+        </label>
+      </article>
+    </dialog>
 
     <!-- Toast container -->
     <div id="toast-container" aria-live="polite" aria-atomic="true"
@@ -119,6 +130,24 @@
         // Expose globally for potential direct use
         window.showToast = showToast;
       })();
+
+      document.addEventListener("DOMContentLoaded", () => {
+        const optionsLink = document.getElementById("options-link");
+        const optionsModal = document.getElementById("options-modal");
+        const optionsClose = document.getElementById("options-modal-close");
+        if (optionsLink && optionsModal) {
+          optionsLink.addEventListener("click", (e) => {
+            e.preventDefault();
+            optionsModal.showModal();
+          });
+          optionsModal.addEventListener("click", (e) => {
+            if (e.target === optionsModal) optionsModal.close();
+          });
+        }
+        if (optionsClose && optionsModal) {
+          optionsClose.addEventListener("click", () => optionsModal.close());
+        }
+      });
 
       document.addEventListener("DOMContentLoaded", () => {
         const toggle = document.getElementById("nav-toggle");

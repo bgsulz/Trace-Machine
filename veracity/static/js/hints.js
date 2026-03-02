@@ -23,9 +23,9 @@
     document.querySelectorAll("[data-hint-card]").forEach((el) => {
       el.hidden = !visible;
     });
-    const navLink = document.getElementById("show-tips-link");
-    if (navLink) {
-      navLink.hidden = visible;
+    const checkbox = document.getElementById("hints-checkbox");
+    if (checkbox) {
+      checkbox.checked = visible;
     }
   }
 
@@ -37,17 +37,20 @@
       btn.addEventListener("click", () => {
         writeDismissed(true);
         setHintsVisible(false);
-        window.showToast("Tips dismissed. Click 'Show tips' in the menu to see them again.");
+        window.showToast("Tips hidden. Open Options to re-enable them.");
       });
     });
 
-    const showTipsLink = document.getElementById("show-tips-link");
-    if (showTipsLink) {
-      showTipsLink.addEventListener("click", (e) => {
-        e.preventDefault();
-        writeDismissed(false);
-        setHintsVisible(true);
-        window.showToast("Here are some tips to help you get started.");
+    const hintsCheckbox = document.getElementById("hints-checkbox");
+    if (hintsCheckbox) {
+      hintsCheckbox.addEventListener("change", () => {
+        if (hintsCheckbox.checked) {
+          writeDismissed(false);
+          setHintsVisible(true);
+        } else {
+          writeDismissed(true);
+          setHintsVisible(false);
+        }
       });
     }
   }

@@ -107,7 +107,23 @@
       </dl>
       {% endcall %}
 
-      <h3>Provenance Report</h3>
+      <div class="report-heading">
+        <h3>Provenance Report</h3>
+        <div class="report-heading-actions">
+          <button type="button" class="icon-btn tooltip-trigger" id="copy-link-btn" aria-label="Copy link">
+            <img src="{{ url_for('static', filename='icons/copy.svg') }}" alt="" width="18" height="18" />
+            <span class="tooltip-bubble tooltip-bubble--end" role="tooltip">Copy link</span>
+          </button>
+          <a href="{{ url_for('main.export_analysis_json', analysis_id=analysis_id) }}" class="icon-btn tooltip-trigger" download="veracity-report-{{ analysis_id }}.json" aria-label="Download JSON">
+            <img src="{{ url_for('static', filename='icons/download-circle.svg') }}" alt="" width="18" height="18" />
+            <span class="tooltip-bubble tooltip-bubble--end" role="tooltip">Download JSON</span>
+          </a>
+          <a href="{{ url_for('main.export_analysis_html', analysis_id=analysis_id) }}" class="icon-btn tooltip-trigger" target="_blank" rel="noopener noreferrer" aria-label="Print report">
+            <img src="{{ url_for('static', filename='icons/printing-page.svg') }}" alt="" width="18" height="18" />
+            <span class="tooltip-bubble tooltip-bubble--end" role="tooltip">Print report</span>
+          </a>
+        </div>
+      </div>
       <div>
         {% include "partials/analysis_table.html" %}
       </div>
@@ -120,14 +136,6 @@
   </div>
 </section>
 
-<div class="quick-actions">
-  <button type="button" id="copy-link-btn">Copy Link</button>
-  <a href="{{ url_for('main.export_analysis_json', analysis_id=analysis_id) }}" role="button" class="secondary" download="veracity-report-{{ analysis_id }}.json">Download JSON</a>
-  <a href="{{ url_for('main.export_analysis_html', analysis_id=analysis_id) }}" role="button" class="secondary" target="_blank" rel="noopener noreferrer">Print Report</a>
-  <a href="https://github.com/bgsulz/Trace-Machine/issues/new" role="button" class="secondary" hidden>Report Issue</a>
-  <button type="button" id="tech-mode-toggle" class="secondary">Technical Details: Off</button>
-  <a href="{{ url_for('main.index') }}" role="button" class="secondary">New Analysis</a>
-</div>
 {% endblock %}
 
 {% block body_scripts %}

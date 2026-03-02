@@ -25,20 +25,17 @@
   applyMode(readStorage());
   window.__traceMachineTech = { storageKey, getMode, setMode };
 
-  function syncButton(btn) {
-    const isOn = getMode() === "on";
-    btn.setAttribute("aria-pressed", isOn ? "true" : "false");
-    btn.textContent = isOn ? "Technical Details: On" : "Technical Details: Off";
+  function syncCheckbox(checkbox) {
+    checkbox.checked = getMode() === "on";
   }
 
   function initToggle() {
-    const btn = document.getElementById("tech-mode-toggle");
-    if (!btn) return;
-    btn.addEventListener("click", () => {
-      setMode(getMode() === "on" ? "off" : "on");
-      syncButton(btn);
+    const checkbox = document.getElementById("tech-mode-checkbox");
+    if (!checkbox) return;
+    checkbox.addEventListener("change", () => {
+      setMode(checkbox.checked ? "on" : "off");
     });
-    syncButton(btn);
+    syncCheckbox(checkbox);
   }
 
   if (document.readyState === "loading") {
