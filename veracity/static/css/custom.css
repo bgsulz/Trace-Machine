@@ -1579,4 +1579,45 @@ html[data-tech-mode="on"] .friendly-only {
   display: none;
 }
 
-.distant-traces-table { font-size: 0.85rem; margin-bottom: 1rem; }
+.distant-traces-table {
+  font-size: 0.85rem;
+  margin-bottom: 1rem;
+}
+
+@media (max-width: 768px) {
+  .distant-traces-table {
+    width: 100%;
+  }
+
+  .distant-traces-table thead {
+    display: none;
+  }
+
+  .distant-traces-table tbody,
+  .distant-traces-table tr,
+  .distant-traces-table td {
+    display: block;
+    width: 100%;
+  }
+
+  .distant-traces-table tr {
+    padding: 0.5rem 0;
+    border-top: 1px dashed var(--pico-muted-border-color);
+  }
+
+  .distant-traces-table tr:first-child {
+    border-top: none;
+  }
+
+  .distant-traces-table td {
+    border: none;
+    padding: 0.4rem 0;
+  }
+
+  .distant-traces-table td::before {
+    content: attr(data-label);
+    display: block;
+    font-weight: 700;
+    margin-bottom: 0.2rem;
+  }
+}
