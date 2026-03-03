@@ -51,11 +51,3 @@
   --pico-muted-border-color: #2a2a2a;
   --pico-table-row-stripped-background-color: rgba(120, 120, 120, 0.0375);
 }
-
-@font-face {
-  font-family: 'Quando';
-  src: url('../fonts/Quando-Regular.ttf') format('truetype');
-  font-weight: 400;
-  font-style: normal;
-  font-display: swap;
-}

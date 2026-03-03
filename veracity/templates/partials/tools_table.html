@@ -1,17 +1,13 @@
-{% if tools %}
-<div class="analyzer-list">
-  {% for tool in tools %}
-  <details class="analyzer-item" open>
-    <summary class="analyzer-header">
-      <strong>{{ tool.name }}</strong>
-    </summary>
-    <div class="analyzer-content">
-      {% for link in tool.links %}
-      <a href="{{ link.url }}" target="_blank" rel="noopener noreferrer">{{ link.label|trim }}</a>
-      {% if not loop.last %} · {% endif %}
-      {% endfor %}
-    </div>
-  </details>
-  {% endfor %}
-</div>
-{% endif %}
+{% for tool in tools %}
+<details class="analyzer-item" open>
+  <summary class="analyzer-header">
+    <strong>{{ tool.name }}</strong>
+  </summary>
+  <div class="analyzer-content">
+    {% for link in tool.links %}
+    <a href="{{ link.url }}" target="_blank" rel="noopener noreferrer">{{ link.label|trim }}</a>
+    {% if not loop.last %} · {% endif %}
+    {% endfor %}
+  </div>
+</details>
+{% endfor %}
