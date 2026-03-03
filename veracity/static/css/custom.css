@@ -240,7 +240,6 @@ body > header {
   border: 1px solid var(--pico-muted-border-color);
   border-radius: var(--pico-border-radius);
   background-color: var(--pico-card-background-color);
-  box-shadow: var(--pico-card-box-shadow);
 }
 
 .home-section {
