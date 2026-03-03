@@ -135,16 +135,27 @@
             <div class="analyzer-header-info">
               <span class="analyzer-title"><strong>TinEye Reverse Search</strong></span>
             </div>
-            <span class="badge loading">RUNNING</span>
           </summary>
           <div class="analyzer-content">
-            <em>Contacting TinEye Reverse Search...</em>
+            <em>Loading TinEye Reverse Search...</em>
           </div>
         </details>
+        {% if tools %}
+        {% for tool in tools %}
+        <details class="analyzer-item" open>
+          <summary class="analyzer-header">
+            <strong>{{ tool.name }}</strong>
+          </summary>
+          <div class="analyzer-content">
+            {% for link in tool.links %}
+            <a href="{{ link.url }}" target="_blank" rel="noopener noreferrer">{{ link.label|trim }}</a>
+            {% if not loop.last %} · {% endif %}
+            {% endfor %}
+          </div>
+        </details>
+        {% endfor %}
+        {% endif %}
       </div>
-      {% if tools %}
-      {% include "partials/tools_table.html" %}
-      {% endif %}
     </div>
   </div>
 </section>

@@ -830,6 +830,10 @@ button.vote-btn-edited .tooltip-trigger::after {
   border-color: var(--pico-primary-border);
 }
 
+#analyzer-row-tineye > .analyzer-header .badge {
+  display: none;
+}
+
 .analyzer-item--found,
 .analyzer-item--detected {
   border-left-width: 3px;
