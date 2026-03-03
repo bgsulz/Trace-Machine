@@ -895,6 +895,18 @@ button.vote-btn-edited .tooltip-trigger::after {
   margin: 0 0 0.5rem;
 }
 
+.analyzer-content > :last-child {
+  margin-bottom: 0;
+}
+
+.analyzer-content:not(:has(.analyzer-detail-block *)) > .analyzer-summary {
+  margin-bottom: 0;
+}
+
+html:not([data-tech-mode="on"]) .analyzer-content:not(:has(.analyzer-detail-block > :not(.tech-only))) > .analyzer-summary {
+  margin-bottom: 0;
+}
+
 /* Analyzer Details */
 details[open] > summary {
   margin-bottom: 0;
@@ -909,7 +921,12 @@ details[open] > summary {
   font-size: 0.9rem;
 }
 
-.analyzer-detail-block p:last-child {
+.analyzer-detail-block:not(:has(*)),
+html:not([data-tech-mode="on"]) .analyzer-detail-block:not(:has(> :not(.tech-only))) {
+  display: none;
+}
+
+.analyzer-detail-block :last-child {
   margin-bottom: 0;
 }
 

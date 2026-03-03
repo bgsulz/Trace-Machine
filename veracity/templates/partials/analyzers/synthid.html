@@ -46,45 +46,45 @@
   {% if row.data.has_distant_matches %}
   {{ distant_match_callout(similar_images|length, "SynthID reports") }}
   {% endif %}
-
-  {# Vote buttons — hidden until Check Google is clicked #}
-  {% if row.data.phash %}
-  <div class="synthid-voting-area" id="synthid-vote-area" hidden>
-    <hr />
-    <small class="vote-prompt"><strong>Did you find SynthID?</strong></small>
-    <div class="vote-buttons">
-      <form
-        action="{{ url_for('main.synthid_report') }}"
-        method="post"
-        hx-post="{{ url_for('main.synthid_report') }}"
-        hx-target="#analyzer-row-synthid"
-        hx-swap="outerHTML"
-      >
-        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
-        <input type="hidden" name="analysis_id" value="{{ row.context.analysis_id }}" />
-        <input type="hidden" name="report" value="detected" />
-        <button
-          type="submit"
-          class="vote-btn-ai{% if current_report and current_report != 'detected' %} vote-btn-muted{% endif %}"
-        >SynthID Detected</button>
-      </form>
-
-      <form
-        action="{{ url_for('main.synthid_report') }}"
-        method="post"
-        hx-post="{{ url_for('main.synthid_report') }}"
-        hx-target="#analyzer-row-synthid"
-        hx-swap="outerHTML"
-      >
-        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
-        <input type="hidden" name="analysis_id" value="{{ row.context.analysis_id }}" />
-        <input type="hidden" name="report" value="not_detected" />
-        <button
-          type="submit"
-          class="vote-btn-real{% if current_report and current_report != 'not_detected' %} vote-btn-muted{% endif %}"
-        >Not Detected</button>
-      </form>
-    </div>
-  </div>
-  {% endif %}
 </div>
+
+{# Vote buttons — hidden until Check Google is clicked #}
+{% if row.data.phash %}
+<div class="synthid-voting-area" id="synthid-vote-area" hidden>
+  <hr />
+  <small class="vote-prompt"><strong>Did you find SynthID?</strong></small>
+  <div class="vote-buttons">
+    <form
+      action="{{ url_for('main.synthid_report') }}"
+      method="post"
+      hx-post="{{ url_for('main.synthid_report') }}"
+      hx-target="#analyzer-row-synthid"
+      hx-swap="outerHTML"
+    >
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+      <input type="hidden" name="analysis_id" value="{{ row.context.analysis_id }}" />
+      <input type="hidden" name="report" value="detected" />
+      <button
+        type="submit"
+        class="vote-btn-ai{% if current_report and current_report != 'detected' %} vote-btn-muted{% endif %}"
+      >SynthID Detected</button>
+    </form>
+
+    <form
+      action="{{ url_for('main.synthid_report') }}"
+      method="post"
+      hx-post="{{ url_for('main.synthid_report') }}"
+      hx-target="#analyzer-row-synthid"
+      hx-swap="outerHTML"
+    >
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+      <input type="hidden" name="analysis_id" value="{{ row.context.analysis_id }}" />
+      <input type="hidden" name="report" value="not_detected" />
+      <button
+        type="submit"
+        class="vote-btn-real{% if current_report and current_report != 'not_detected' %} vote-btn-muted{% endif %}"
+      >Not Detected</button>
+    </form>
+  </div>
+</div>
+{% endif %}
