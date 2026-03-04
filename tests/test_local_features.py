@@ -1,6 +1,9 @@
 import numpy as np
+from types import SimpleNamespace
 
 from veracity.matching.local_features import (
+    _compute_inlier_coverage,
+    _dedupe_candidate_matches,
     LocalFeaturePayload,
     LocalMatchTuning,
     deserialize_feature_payload,
@@ -74,3 +77,51 @@ def test_select_persistent_features_keeps_orb_when_fallback_disabled(monkeypatch
 
     assert selected is not None
     assert selected.extractor == "orb"
+
+
+def test_dedupe_candidate_matches_keeps_best_per_train_index():
+    matches = [
+        SimpleNamespace(queryIdx=0, trainIdx=7, distance=21.0),
+        SimpleNamespace(queryIdx=1, trainIdx=7, distance=11.0),
+        SimpleNamespace(queryIdx=3, trainIdx=9, distance=19.0),
+    ]
+
+    deduped = _dedupe_candidate_matches(matches)
+
+    assert len(deduped) == 2
+    assert any(m.trainIdx == 7 and m.queryIdx == 1 for m in deduped)
+    assert any(m.trainIdx == 9 and m.queryIdx == 3 for m in deduped)
+
+
+def test_compute_inlier_coverage_is_small_for_tight_cluster():
+    points = np.array(
+        [
+            [[10.0, 10.0]],
+            [[11.0, 10.0]],
+            [[11.0, 11.0]],
+            [[10.0, 11.0]],
+        ],
+        dtype=np.float32,
+    )
+    mask = np.array([1, 1, 1, 1], dtype=np.uint8)
+
+    coverage = _compute_inlier_coverage(points, mask, width=100, height=100)
+
+    assert coverage < 0.001
+
+
+def test_compute_inlier_coverage_is_large_for_wide_spread():
+    points = np.array(
+        [
+            [[10.0, 10.0]],
+            [[90.0, 10.0]],
+            [[90.0, 90.0]],
+            [[10.0, 90.0]],
+        ],
+        dtype=np.float32,
+    )
+    mask = np.array([1, 1, 1, 1], dtype=np.uint8)
+
+    coverage = _compute_inlier_coverage(points, mask, width=100, height=100)
+
+    assert coverage > 0.6
