@@ -552,6 +552,12 @@ nav {
   margin: 0;
 }
 
+.inline-form button.analyze-region-btn {
+  padding: 0.2rem 0.55rem;
+  font-size: 0.72rem;
+  line-height: 1.15;
+}
+
 /* Analyzer titles & tooltips */
 .analyzer-title {
   display: inline-flex;

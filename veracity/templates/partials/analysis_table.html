@@ -49,7 +49,7 @@
                   <input type="hidden" name="crop_width" value="{{ match.local.crop_box[2] }}" />
                   <input type="hidden" name="crop_height" value="{{ match.local.crop_box[3] }}" />
                   <input type="hidden" name="parent_registry_id" value="{{ match.image_id }}" />
-                  <button type="submit" class="secondary">
+                  <button type="submit" class="secondary analyze-region-btn">
                     Analyze region (Source {{ loop.index }})
                   </button>
                 </form>
@@ -159,7 +159,7 @@
                 <input type="hidden" name="crop_top" value="{{ region.crop_box[1] }}" />
                 <input type="hidden" name="crop_width" value="{{ region.crop_box[2] }}" />
                 <input type="hidden" name="crop_height" value="{{ region.crop_box[3] }}" />
-                <button type="submit" class="secondary">Analyze region</button>
+                <button type="submit" class="secondary analyze-region-btn">Analyze region</button>
               </form>
             </td>
           </tr>
