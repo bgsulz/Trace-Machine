@@ -29,32 +29,35 @@
               <br />
               <small>
                 {% for src in match.sources %}
-                <a href="{{ url_for('main.analyze', url=src.url) }}">Source {{ loop.index }}</a>{% if not loop.last %}, {% endif %}
+                <a href="{{ url_for('main.analyze', url=src.url) }}">Open source {{ loop.index }}</a>{% if not loop.last %}, {% endif %}
                 {% endfor %}
               </small>
               {% endif %}
               {% if match.local and match.local.crop_box and match.sources %}
-              <br />
-              <small>
-                {% for src in match.sources %}
+              <div class="matched-region-action">
                 <form
                   action="{{ url_for('main.analyze_matched_region') }}"
                   method="post"
-                  class="inline-form"
+                  class="inline-form matched-region-form"
                 >
                   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
-                  <input type="hidden" name="image_url" value="{{ src.url }}" />
+                  <select
+                    id="matched-region-source-{{ loop.index }}"
+                    name="image_url"
+                    aria-label="Select source image"
+                  >
+                    {% for src in match.sources %}
+                    <option value="{{ src.url }}">Source {{ loop.index }}</option>
+                    {% endfor %}
+                  </select>
                   <input type="hidden" name="crop_left" value="{{ match.local.crop_box[0] }}" />
                   <input type="hidden" name="crop_top" value="{{ match.local.crop_box[1] }}" />
                   <input type="hidden" name="crop_width" value="{{ match.local.crop_box[2] }}" />
                   <input type="hidden" name="crop_height" value="{{ match.local.crop_box[3] }}" />
                   <input type="hidden" name="parent_registry_id" value="{{ match.image_id }}" />
-                  <button type="submit" class="secondary analyze-region-btn">
-                    Analyze region (Source {{ loop.index }})
-                  </button>
+                  <button type="submit" class="secondary analyze-region-btn">Analyze matched region</button>
                 </form>
-                {% endfor %}
-              </small>
+              </div>
               {% endif %}
             </td>
             <td data-label="Match Evidence">

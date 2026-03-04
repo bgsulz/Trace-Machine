@@ -558,6 +558,23 @@ nav {
   line-height: 1.15;
 }
 
+.matched-region-action {
+  margin-top: 0.45rem;
+}
+
+.matched-region-form {
+  margin: 0;
+}
+
+.matched-region-form select {
+  width: auto;
+  min-width: 8rem;
+  margin: 0;
+  padding: 0.2rem 1.4rem 0.2rem 0.45rem;
+  font-size: 0.78rem;
+  line-height: 1.15;
+}
+
 /* Analyzer titles & tooltips */
 .analyzer-title {
   display: inline-flex;
