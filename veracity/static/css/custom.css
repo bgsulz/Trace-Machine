@@ -488,6 +488,29 @@ nav {
   background: none !important;
 }
 
+.autocrop-form {
+  margin-top: 0.5rem;
+}
+
+.autocrop-bar {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.autocrop-btn {
+  width: auto;
+  padding-left: 1.25rem;
+  padding-right: 1.25rem;
+}
+
+.autocrop-hint {
+  font-size: 0.78rem;
+  color: var(--pico-muted-color);
+  text-align: center;
+}
+
 .dethumbnail-alert {
   margin-top: 1rem;
   padding: 1rem;

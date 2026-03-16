@@ -83,6 +83,21 @@
               </button>
             </div>
           </div>
+          {% if auto_crop and auto_crop.has_overlay %}
+          <form
+            class="autocrop-form"
+            method="post"
+            action="{{ url_for('main.autocrop_analysis', analysis_id=analysis_id) }}"
+          >
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+            <div class="autocrop-bar">
+              <button type="submit" class="outline autocrop-btn" title="{{ auto_crop.method }}">
+                Auto-crop to image
+              </button>
+              <span class="autocrop-hint">{{ auto_crop.method }}</span>
+            </div>
+          </form>
+          {% endif %}
           <p id="crop-status" class="crop-status" hidden></p>
         </form>
       </div>

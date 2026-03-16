@@ -7,6 +7,7 @@ from urllib.parse import urlparse, quote_plus
 from flask import abort, current_app, flash, redirect, render_template, url_for
 
 from .. import ingestion
+from ..autocrop import detect_overlay_crop
 from ..analysis_cache import (
     load_analysis_metadata,
     load_analysis_payload,
@@ -165,6 +166,9 @@ def perform_analysis(
     has_notable_evidence = any(
         r["status"] in ("FOUND", "DETECTED", "SIMILAR") for r in analyzer_summary
     )
+    # Only run overlay detection when we aren't already looking at a cropped result,
+    # to avoid suggesting a second auto-crop on an already-cropped image.
+    auto_crop = detect_overlay_crop(image_bytes) if crop_box is None else None
     return render_template(
         template_name,
         image_url=image_data_url,
@@ -184,6 +188,7 @@ def perform_analysis(
         image_height=context.height,
         analyzer_summary=analyzer_summary,
         has_notable_evidence=has_notable_evidence,
+        auto_crop=auto_crop,
     )
 
 

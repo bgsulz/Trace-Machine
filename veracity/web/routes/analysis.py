@@ -23,6 +23,7 @@ from ...analyzers.tineye import (
     get_shame_list_matchers,
     process_tineye_response,
 )
+from ...autocrop import detect_overlay_crop
 from ...services.containment_service import save_containment_link
 from ...services.remote_image_service import fetch_remote_image
 from ...registry import prepare_analysis_context
@@ -115,6 +116,43 @@ def register_analysis_routes(
             except Exception:
                 # Best effort; containment links are helpful but not critical.
                 current_app.logger.exception("Failed to save containment link")
+
+        return perform_analysis(
+            cropped_bytes,
+            "image/png",
+            "file",
+            context=child_context,
+            crop_box=sanitized_box,
+        )
+
+    @bp.route("/analysis/<analysis_id>/autocrop", methods=["POST"])
+    def autocrop_analysis(analysis_id: str):
+        payload = load_analysis_payload(analysis_id)
+        if payload is None:
+            return expired_analysis_response()
+
+        image_bytes, metadata = payload
+
+        result = detect_overlay_crop(image_bytes)
+        if not result.has_overlay or result.crop_box is None:
+            flash("Auto-crop could not find a clear overlay to remove.")
+            return _rerender_original(payload)
+
+        try:
+            cropped_bytes, sanitized_box = _crop_image_bytes(image_bytes, result.crop_box)
+        except ValueError as exc:
+            flash(str(exc))
+            return _rerender_original(payload)
+
+        child_context = prepare_analysis_context(cropped_bytes)
+        parent_registry_id = metadata.get("registry_id")
+        if parent_registry_id:
+            try:
+                save_containment_link(
+                    parent_registry_id, child_context.registry_id, sanitized_box
+                )
+            except Exception:
+                current_app.logger.exception("Failed to save auto-crop containment link")
 
         return perform_analysis(
             cropped_bytes,
