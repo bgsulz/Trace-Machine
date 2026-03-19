@@ -1,131 +1,105 @@
 <p>
-  <strong>C2PA</strong> stands for Coalition for Content Provenance and
-  Authenticity. It's a standard for embedding provenance records directly
-  into media files &mdash; a ledger of the image's history. It documents
-  where the file came from, what tools created or modified it, and who
-  vouched for it. This record is called a <strong>manifest</strong>, and
-  it's cryptographically signed so that any tampering with the image data
-  after signing will break the signature.
+  <strong>C2PA</strong> (Coalition for Content Provenance and Authenticity)
+  is a standard for embedding provenance records — called
+  <strong>manifests</strong> — directly into media files. A manifest
+  documents where a file came from, what tools created or modified it,
+  and who vouched for it. It's cryptographically signed, so any
+  post-signing tampering breaks the signature.
 </p>
 
-<h3>Who uses C2PA?</h3>
 <p>
-  OpenAI's gpt-image-1 and gpt-image-1.5 (the image models behind
-  ChatGPT) sign their output with C2PA manifests.
-  Google's Nano Banana models (the Gemini image family) do the same,
-  pairing C2PA metadata with their SynthID watermark.
-  Adobe Photoshop and Lightroom can attach manifests to edited files,
-  and some cameras from Nikon, Canon, and Leica sign photos on-device.
+  OpenAI's image models (gpt-image-1 / 1.5), Google's Nano Banana Pro and Nano Banana 2
+  models (Gemini image family), Adobe Photoshop &amp; Lightroom, and
+  cameras from Nikon, Canon, and Leica all support C2PA signing.
 </p>
 <p>
   Because both AI generators and cameras use C2PA, the manifest's
-  <em>content</em> matters more than its mere presence. A manifest that
-  says <code>digitalSourceType: trainedAlgorithmicMedia</code> is the
-  signer telling you the image was AI-generated. A manifest that says
-  <code>digitalSourceType: digitalCapture</code> is the signer telling
-  you a camera sensor captured it. Trace Machine surfaces these signals
-  so you can see exactly what the signer claimed.
+  <em>content</em> matters more than its presence. A manifest claiming
+  <code>digitalSourceType: trainedAlgorithmicMedia</code> means the
+  signer says the image is AI-generated;
+  <code>digitalSourceType: digitalCapture</code> means the signer says a
+  camera captured it. Trace Machine surfaces these signals for you.
 </p>
 
-<h3>What C2PA can show</h3>
+<h5>What C2PA can show</h5>
 <ul>
   <li>
-    <strong>Integrity:</strong> that the image data has not been altered
-    since the manifest was signed. If someone edits even a single pixel
-    without re-signing, the signature breaks.
+    <strong>Integrity:</strong> the image hasn't been altered since
+    signing — even a single changed pixel breaks the signature.
   </li>
   <li>
     <strong>Claimed origin:</strong> the signer's assertions about how
-    the image was made &mdash; AI-generated, camera-captured, edited in
-    Photoshop, and so on.
+    the image was made (AI-generated, camera-captured, edited, etc.).
   </li>
   <li>
-    <strong>Edit history:</strong> a chain of prior manifests (called
-    "ingredients") showing how the image was transformed over time, if
-    the tools along the way supported C2PA.
+    <strong>Edit history:</strong> a chain of prior manifests
+    ("ingredients") showing transformations over time, if all tools in
+    the chain supported C2PA.
   </li>
 </ul>
 
-<h3>What C2PA cannot prove</h3>
+<h5>What C2PA cannot prove</h5>
 <p>
-  A C2PA manifest records <em>claims made by the signer</em>.
-  It does not independently verify those claims. A manifest that says
-  "camera capture" proves that the signer <em>said</em> it was a camera
-  capture &mdash; not that a camera actually took the photo.
-  The attribution, timestamps, and origin labels inside a manifest are
-  only as trustworthy as the signer who created them.
+  A manifest records <em>claims made by the signer</em> — it doesn't
+  independently verify them. "Camera capture" in a manifest proves the
+  signer <em>said</em> it was a camera capture, not that a camera
+  actually took the photo. Claims are only as trustworthy as the signer.
 </p>
 
-<h3>Can you forge a C2PA manifest?</h3>
+<h5>Can you forge a C2PA manifest?</h5>
 <p>
-  Yes, and this is important to understand. Anyone can create a
-  cryptographically valid C2PA manifest using free, open-source tools.
-  The signature math will check out. What a forger <em>can't</em> easily
-  do is make their certificate appear on a recognized
-  <strong>trust list</strong> &mdash; the registry of signers that have
-  been vetted by the C2PA organization. When Trace Machine reads a
-  manifest, it checks whether the signing certificate is recognized by a
-  trust list or not, and tells you the difference.
-</p>
-<p>
-  Think of it this way: anyone can print a business card that says "Dr.
-  Smith, Licensed Physician." The card itself looks fine. But you'd want
-  to check with the medical board before trusting it. Trace Machine
-  checks the equivalent of the medical board for you and tells you what
-  it found.
+  Yes. Anyone can create a cryptographically valid manifest using free,
+  open-source tools. What a forger <em>can't</em> easily do is get their
+  certificate onto a recognized <strong>trust list</strong> — the
+  registry of vetted signers maintained by the C2PA organization.
+  Trace Machine checks whether the signing certificate is on a trust
+  list and tells you the result.
 </p>
 <div class="flash-warning">
-  <strong>Important limitation:</strong> Even trust-list recognition is
-  not foolproof. The C2PA trust list is maintained by the C2PA
-  organization itself &mdash; it is not the same as the industry-standard
-  trust infrastructure (called the <abbr title="Common CA Database">CCADB</abbr>)
-  that web browsers use for HTTPS. Security researchers have also
-  demonstrated forgeries that passed validation on
-  Adobe's own Content Credentials website. C2PA is useful provenance
-  information, but it is not a verdict of authenticity.
+  <strong>Important limitation:</strong> Trust-list recognition isn't
+  foolproof. The C2PA trust list is maintained by the C2PA organization
+  itself, not the industry-standard
+  <abbr title="Common CA Database">CCADB</abbr> infrastructure that
+  browsers use for HTTPS. Security researchers have demonstrated
+  forgeries that passed validation on Adobe's Content Credentials site.
+  C2PA is useful provenance information, not a verdict of authenticity.
 </div>
 
-<h3>Timestamps and durability</h3>
 <p>
-  Every C2PA manifest is signed with a certificate, and certificates
-  expire. What happens to the manifest when its certificate expires
-  depends on whether the signer included an independent
-  <strong>timestamp</strong>:
+  Manifests are signed with certificates, and certificates expire.
+  What happens next depends on whether the signer included an
+  independent timestamp:
 </p>
 <ul>
   <li>
-    <strong>With a TSA timestamp:</strong> An independent Time Stamp
-    Authority cryptographically proves the signature was created while the
-    certificate was still valid. The manifest remains verifiable
-    indefinitely, even after the certificate expires.
+    <strong>With a TSA timestamp:</strong> A Time Stamp Authority
+    proves the signature was created while the certificate was valid.
+    The manifest stays verifiable indefinitely.
   </li>
   <li>
     <strong>Without a TSA timestamp:</strong> Once the certificate
-    expires, the manifest can no longer be cryptographically verified.
-    The provenance data is still there, but its authenticity can't be
-    proven. Many real-world C2PA implementations skip this step.
+    expires, the manifest can no longer be verified. Many real-world
+    implementations skip this step.
   </li>
 </ul>
 <p>
   Trace Machine shows you which kind of timestamp (if any) a manifest
-  has, so you can judge how durable the provenance record is.
+  has.
 </p>
 
-<h3>Stripping and screenshots</h3>
 <div class="flash-warning">
   <strong>Important limitation:</strong> C2PA metadata lives inside the
-  image file. It's easily lost &mdash; taking a screenshot, stripping
-  metadata, re-encoding the image, or uploading to most social media
-  platforms will erase it. The <em>absence</em> of a C2PA manifest tells
-  you nothing about how an image was made. Only its <em>presence</em>
-  provides information.
+  image file and is easily lost — screenshots, metadata stripping,
+  re-encoding, or uploading to most social platforms will erase it.
+  The <em>absence</em> of a manifest tells you nothing; only its
+  <em>presence</em> provides information.
 </div>
 
 <section>
-  <h3>C2PA demo image</h3>
+  <h5>C2PA demo image</h5>
   <p>
-    Try analyzing this demo image to see what it looks like when
-    Trace Machine detects a C2PA manifest.
+    Analyze this demo image to see what Trace Machine shows when it
+    detects a C2PA manifest.
   </p>
   <figure>
     <img
@@ -157,7 +131,7 @@
   <li>
     <a href="https://contentauthenticity.org/how-it-works"
        target="_blank" rel="noopener noreferrer">
-      Content Authenticity Initiative &mdash; How It Works
+      Content Authenticity Initiative — How It Works
     </a>
   </li>
   <li>
@@ -165,7 +139,6 @@
        target="_blank" rel="noopener noreferrer">
       Hacker Factor: C2PA and Untrusted Certificates
     </a>
-    &mdash; independent security research on C2PA's trust model
   </li>
   <li>
     <a href="https://www.softwareseni.com/the-c2pa-trust-layer-in-2026-where-it-works-and-where-it-breaks/"
