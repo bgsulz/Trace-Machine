@@ -1,7 +1,7 @@
 <p>
   <strong>C2PA</strong> (Coalition for Content Provenance and Authenticity)
-  is a standard for embedding provenance records — called
-  <strong>manifests</strong> — directly into media files. A manifest
+  is a standard for embedding provenance records -- called
+  <strong>manifests</strong> -- directly into media files. A manifest
   documents where a file came from, what tools created or modified it,
   and who vouched for it. It's cryptographically signed, so any
   post-signing tampering breaks the signature.
@@ -25,7 +25,7 @@
 <ul>
   <li>
     <strong>Integrity:</strong> the image hasn't been altered since
-    signing — even a single changed pixel breaks the signature.
+    signing -- even a single changed pixel breaks the signature.
   </li>
   <li>
     <strong>Claimed origin:</strong> the signer's assertions about how
@@ -40,7 +40,7 @@
 
 <h5>What C2PA cannot prove</h5>
 <p>
-  A manifest records <em>claims made by the signer</em> — it doesn't
+  A manifest records <em>claims made by the signer</em> -- it doesn't
   independently verify them. "Camera capture" in a manifest proves the
   signer <em>said</em> it was a camera capture, not that a camera
   actually took the photo. Claims are only as trustworthy as the signer.
@@ -50,7 +50,7 @@
 <p>
   Yes. Anyone can create a cryptographically valid manifest using free,
   open-source tools. What a forger <em>can't</em> easily do is get their
-  certificate onto a recognized <strong>trust list</strong> — the
+  certificate onto a recognized <strong>trust list</strong> -- the
   registry of vetted signers maintained by the C2PA organization.
   Trace Machine checks whether the signing certificate is on a trust
   list and tells you the result.
@@ -89,7 +89,7 @@
 
 <div class="flash-warning">
   <strong>Important limitation:</strong> C2PA metadata lives inside the
-  image file and is easily lost — screenshots, metadata stripping,
+  image file and is easily lost -- screenshots, metadata stripping,
   re-encoding, or uploading to most social platforms will erase it.
   The <em>absence</em> of a manifest tells you nothing; only its
   <em>presence</em> provides information.
@@ -131,7 +131,7 @@
   <li>
     <a href="https://contentauthenticity.org/how-it-works"
        target="_blank" rel="noopener noreferrer">
-      Content Authenticity Initiative — How It Works
+      Content Authenticity Initiative -- How It Works
     </a>
   </li>
   <li>
