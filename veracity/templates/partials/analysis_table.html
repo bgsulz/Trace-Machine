@@ -3,107 +3,122 @@
 
 <div class="analyzer-list">
   {% if direct_distant and direct_distant.distant_matches %}
+  {% set matches = direct_distant.distant_matches %}
+  {% set match_count = matches|length %}
+  {# Aggregate SynthID verdict across all matches #}
+  {% set ns = namespace(synthid_detected=0, synthid_not_detected=0) %}
+  {% for m in matches %}
+    {% if m.synthid %}
+      {% set ns.synthid_detected = ns.synthid_detected + m.synthid.detected %}
+      {% set ns.synthid_not_detected = ns.synthid_not_detected + m.synthid.not_detected %}
+    {% endif %}
+  {% endfor %}
   <details class="analyzer-item" id="direct-distant-traces" open>
     <summary class="analyzer-header">
       <div class="analyzer-header-info">
-        <span class="analyzer-title"><strong>Distant Traces</strong></span>
+        <span class="analyzer-title"><strong>Distant traces</strong></span>
       </div>
-      <span class="badge found">FOUND</span>
+      <span class="badge found">{{ match_count }} match{{ "es" if match_count != 1 }} found</span>
     </summary>
     <div class="analyzer-content">
-      <table class="distant-traces-table">
-        <thead>
-          <tr>
-            <th>Matched Image</th>
-            <th>Match Evidence</th>
-            <th>Carried Traces</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for match in direct_distant.distant_matches %}
-          <tr>
-            <td data-label="Matched Image">
-              <small>{% if match.sources %}Online Image{% else %}Uploaded Image{% endif %}</small>
-              <span class="tech-only"><br /><code>{{ match.hash_display or match.phash }}</code></span>
-              {% if match.sources %}
-              <br />
-              <small>
-                {% for src in match.sources %}
-                <a href="{{ url_for('main.analyze', url=src.url) }}">Open source {{ loop.index }}</a>{% if not loop.last %}, {% endif %}
-                {% endfor %}
-              </small>
-              {% endif %}
-              {% if match.local and match.local.crop_box and match.sources %}
-              <div class="matched-region-action">
-                <form
-                  action="{{ url_for('main.analyze_matched_region') }}"
-                  method="post"
-                  class="inline-form matched-region-form"
-                >
-                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
-                  <select
-                    id="matched-region-source-{{ loop.index }}"
-                    name="image_url"
-                    aria-label="Select source image"
-                  >
-                    {% for src in match.sources %}
-                    <option value="{{ src.url }}">Source {{ loop.index }}</option>
-                    {% endfor %}
-                  </select>
-                  <input type="hidden" name="crop_left" value="{{ match.local.crop_box[0] }}" />
-                  <input type="hidden" name="crop_top" value="{{ match.local.crop_box[1] }}" />
-                  <input type="hidden" name="crop_width" value="{{ match.local.crop_box[2] }}" />
-                  <input type="hidden" name="crop_height" value="{{ match.local.crop_box[3] }}" />
-                  <input type="hidden" name="parent_registry_id" value="{{ match.image_id }}" />
-                  <button type="submit" class="secondary analyze-region-btn">Analyze matched region</button>
-                </form>
+      {# -- Verdict line -- #}
+      {% if ns.synthid_detected > 0 %}
+      <div class="dt-verdict dt-verdict--detected">
+        <span class="dt-verdict__dot"></span>
+        <strong>SynthID detected on matched copy</strong>
+        <span class="tech-only dt-verdict__counts">{{ ns.synthid_detected }} detected / {{ ns.synthid_not_detected }} not detected</span>
+      </div>
+      {% elif ns.synthid_not_detected > 0 %}
+      <div class="dt-verdict dt-verdict--clear">
+        <span class="dt-verdict__dot dt-verdict__dot--clear"></span>
+        <strong>No SynthID detected on matched copies</strong>
+        <span class="tech-only dt-verdict__counts">0 detected / {{ ns.synthid_not_detected }} not detected</span>
+      </div>
+      {% endif %}
+
+      {# -- Match cards -- #}
+      <div class="dt-cards{% if match_count > 3 %} dt-cards--capped{% endif %}">
+        {% for match in matches %}
+        <div class="dt-card{% if loop.index > 3 and match_count > 3 %} dt-card--overflow{% endif %}">
+          <div class="dt-card__top">
+            <div class="dt-card__source">
+              <span class="dt-card__label friendly-only">{% if match.sources %}Online image{% else %}Uploaded image{% endif %}</span>
+              <span class="dt-card__label tech-only"><code>{{ match.hash_display or match.phash }}</code></span>
+              <small class="dt-card__method friendly-only">{{ match.match_method_label }}{% if match.distance is not none %} · {{ ((64 - match.distance) / 64 * 100) | round | int }}% similar{% endif %}</small>
+              <small class="dt-card__method tech-only">{{ match.match_method_label }}{% if match.distance is not none %} · dist {{ match.distance }}{% endif %}</small>
+            </div>
+            {% if match.local and match.local.inlier_ratio is not none %}
+            <div class="dt-card__confidence" title="{{ "%.0f"|format(match.local.inlier_ratio * 100) }}% inlier ratio">
+              <div class="dt-card__confidence-bar">
+                <div class="dt-card__confidence-fill" style="width: {{ "%.0f"|format(match.local.inlier_ratio * 100) }}%"></div>
               </div>
-              {% endif %}
-            </td>
-            <td data-label="Match Evidence">
-              <strong>{{ match.match_method_label }}</strong>
-              {% if match.distance is not none %}
-              <br /><small>{{ ((64 - match.distance) / 64 * 100) | round | int }}% similar</small>
-              <span class="tech-only"><br /><small>Distance: {{ match.distance }}</small></span>
-              {% endif %}
-              {% if match.local %}
-              <span class="tech-only"><br /><small>
-                {{ match.local.extractor|upper }}: {{ match.local.inliers }} inliers /
-                {{ match.local.good_matches }} good
-                ({{ "%.1f"|format(match.local.inlier_ratio * 100) }}%).
-              </small></span>
-              {% if match.local.crop_box %}
-              <span class="tech-only"><br /><small>
-                Region: [{{ "%.3f"|format(match.local.crop_box[0]) }},
-                {{ "%.3f"|format(match.local.crop_box[1]) }},
-                {{ "%.3f"|format(match.local.crop_box[2]) }},
-                {{ "%.3f"|format(match.local.crop_box[3]) }}]
-              </small></span>
-              {% endif %}
-              {% endif %}
-            </td>
-            <td data-label="Carried Traces">
-              {% if match.c2pa_facts %}
-              <div><strong>C2PA:</strong> {{ match.c2pa_facts|join("; ") }}</div>
-              {% endif %}
-              {% if match.votes %}
-              <div>
-                <strong>Consensus:</strong>
-                {{ match.votes.total_votes }} votes
-                ({{ match.votes.vote_real }} / {{ match.votes.vote_edited }} / {{ match.votes.vote_ai }})
-              </div>
-              {% endif %}
-              {% if match.synthid %}
-              <div>
-                <strong>SynthID reports:</strong>
-                {{ match.synthid.detected }} detected / {{ match.synthid.not_detected }} not detected
-              </div>
-              {% endif %}
-            </td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
+              <small class="dt-card__confidence-pct">{{ "%.0f"|format(match.local.inlier_ratio * 100) }}%</small>
+            </div>
+            {% endif %}
+          </div>
+
+          {# Carried traces summary (normal mode) #}
+          <div class="dt-card__traces friendly-only">
+            {% if match.synthid %}
+            <small>SynthID: {{ match.synthid.detected }} detected / {{ match.synthid.not_detected }} not detected</small>
+            {% endif %}
+            {% if match.c2pa_facts %}
+            <small>C2PA: {{ match.c2pa_facts|join("; ") }}</small>
+            {% endif %}
+            {% if match.votes %}
+            <small>Consensus: {{ match.votes.total_votes }} votes ({{ match.votes.vote_real }}R / {{ match.votes.vote_edited }}E / {{ match.votes.vote_ai }}A)</small>
+            {% endif %}
+          </div>
+
+          {# Technical detail block #}
+          {% if match.local or match.votes or match.c2pa_facts or match.synthid %}
+          <div class="dt-card__tech tech-only">
+            {% if match.local %}
+            <code class="dt-card__tech-block">{{ match.local.extractor|upper }}: {{ match.local.inliers }} inliers / {{ match.local.good_matches }} good ({{ "%.1f"|format(match.local.inlier_ratio * 100) }}%){% if match.local.crop_box %}
+Region: [{{ "%.3f"|format(match.local.crop_box[0]) }}, {{ "%.3f"|format(match.local.crop_box[1]) }}, {{ "%.3f"|format(match.local.crop_box[2]) }}, {{ "%.3f"|format(match.local.crop_box[3]) }}]{% endif %}</code>
+            {% endif %}
+            {% if match.synthid %}
+            <small>SynthID: {{ match.synthid.detected }} detected / {{ match.synthid.not_detected }} not detected</small>
+            {% endif %}
+            {% if match.c2pa_facts %}
+            <small>C2PA: {{ match.c2pa_facts|join("; ") }}</small>
+            {% endif %}
+            {% if match.votes %}
+            <small>Consensus: {{ match.votes.total_votes }} votes ({{ match.votes.vote_real }} real / {{ match.votes.vote_edited }} edited / {{ match.votes.vote_ai }} AI)</small>
+            {% endif %}
+          </div>
+          {% endif %}
+
+          {# Action buttons #}
+          <div class="dt-card__actions">
+            {% if match.sources %}
+            <a href="{{ url_for('main.analyze', url=match.sources[0].url) }}" class="dt-card__btn dt-card__btn--link">Open source</a>
+            {% endif %}
+            {% if match.local and match.local.crop_box and match.sources %}
+            <form
+              action="{{ url_for('main.analyze_matched_region') }}"
+              method="post"
+              class="dt-card__form"
+            >
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+              <input type="hidden" name="image_url" value="{{ match.sources[0].url }}" />
+              <input type="hidden" name="crop_left" value="{{ match.local.crop_box[0] }}" />
+              <input type="hidden" name="crop_top" value="{{ match.local.crop_box[1] }}" />
+              <input type="hidden" name="crop_width" value="{{ match.local.crop_box[2] }}" />
+              <input type="hidden" name="crop_height" value="{{ match.local.crop_box[3] }}" />
+              <input type="hidden" name="parent_registry_id" value="{{ match.image_id }}" />
+              <button type="submit" class="dt-card__btn">Analyze region</button>
+            </form>
+            {% endif %}
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      {% if match_count > 3 %}
+      <button class="dt-show-all" onclick="this.previousElementSibling.classList.remove('dt-cards--capped'); this.remove();">
+        Show all {{ match_count }} matches
+      </button>
+      {% endif %}
     </div>
   </details>
   {% endif %}
