@@ -1,25 +1,25 @@
 /* ── C2PA Trust Assessment ─────────────────────────────────────────── */
 
 .c2pa-trust-assessment {
-  border: 1px solid var(--border-color, #d0d0d0);
-  border-left: 4px solid var(--border-color, #d0d0d0);
-  border-radius: 6px;
+  border: 1px solid var(--pico-muted-border-color);
+  border-left: 3px solid var(--pico-muted-border-color);
+  border-radius: var(--pico-border-radius);
   padding: 0.75rem 1rem;
   margin-bottom: 1rem;
-  background: var(--surface-raised, #fafafa);
+  background: var(--pico-card-background-color);
 }
 
 .c2pa-trust-assessment--good {
-  border-left-color: #2e7d32;
+  border-left-color: var(--veracity-success);
 }
 .c2pa-trust-assessment--info {
-  border-left-color: #1565c0;
+  border-left-color: var(--pico-primary);
 }
 .c2pa-trust-assessment--warning {
-  border-left-color: #e65100;
+  border-left-color: var(--veracity-warning);
 }
 .c2pa-trust-assessment--error {
-  border-left-color: #b71c1c;
+  border-left-color: var(--veracity-danger);
 }
 
 /* ── Summary row ──────────────────────────────────────────────────── */
@@ -37,41 +37,54 @@
   flex-shrink: 0;
   font-size: 1rem;
 }
-.c2pa-trust-assessment--good .c2pa-trust-icon { color: #2e7d32; }
-.c2pa-trust-assessment--warning .c2pa-trust-icon { color: #e65100; }
-.c2pa-trust-assessment--error .c2pa-trust-icon { color: #b71c1c; }
-.c2pa-trust-assessment--info .c2pa-trust-icon { color: #1565c0; }
+.c2pa-trust-assessment--good .c2pa-trust-icon { color: var(--veracity-success); }
+.c2pa-trust-assessment--warning .c2pa-trust-icon { color: var(--veracity-warning-dark); }
+.c2pa-trust-assessment--error .c2pa-trust-icon { color: var(--veracity-danger); }
+.c2pa-trust-assessment--info .c2pa-trust-icon { color: var(--pico-primary); }
+
+[data-theme="dark"] .c2pa-trust-assessment--warning .c2pa-trust-icon { color: var(--veracity-warning); }
 
 /* ── Detail rows ──────────────────────────────────────────────────── */
 
 .c2pa-trust-details {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 0.2rem 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
   font-size: 0.875rem;
   margin-top: 0.4rem;
 }
 
+.c2pa-trust-row {
+  display: flex;
+  gap: 0.5rem;
+}
+
 .c2pa-trust-key {
-  color: var(--text-muted, #666);
+  color: var(--pico-muted-color);
   white-space: nowrap;
 }
+.c2pa-trust-key::after {
+  content: ":";
+}
 .c2pa-trust-value {
-  color: var(--text-primary, #222);
+  color: var(--pico-color);
 }
 .c2pa-trust-value em {
-  color: var(--text-muted, #666);
+  color: var(--pico-muted-color);
   font-size: 0.82em;
 }
 .c2pa-trust-value--expired_no_tsa,
 .c2pa-trust-value--revoked {
-  color: #b71c1c;
+  color: var(--veracity-danger);
 }
 .c2pa-trust-value--at_risk {
-  color: #e65100;
+  color: var(--veracity-warning-dark);
+}
+[data-theme="dark"] .c2pa-trust-value--at_risk {
+  color: var(--veracity-warning);
 }
 .c2pa-trust-value--durable {
-  color: #2e7d32;
+  color: var(--veracity-success);
 }
 
 /* ── Timestamp badge (inline after "Signed at:" value) ────────────── */
@@ -86,16 +99,22 @@
   font-weight: 500;
 }
 .c2pa-ts-badge--verified {
-  background: #e8f5e9;
-  color: #2e7d32;
+  background: color-mix(in srgb, var(--veracity-success) 15%, transparent);
+  color: var(--veracity-success);
 }
 .c2pa-ts-badge--unverified {
-  background: #fff3e0;
-  color: #e65100;
+  background: color-mix(in srgb, var(--veracity-warning) 15%, transparent);
+  color: var(--veracity-warning-dark);
+}
+[data-theme="dark"] .c2pa-ts-badge--unverified {
+  color: var(--veracity-warning);
 }
 .c2pa-ts-badge--clock {
-  background: #fff3e0;
-  color: #bf360c;
+  background: color-mix(in srgb, var(--veracity-warning) 15%, transparent);
+  color: var(--veracity-warning-dark);
+}
+[data-theme="dark"] .c2pa-ts-badge--clock {
+  color: var(--veracity-warning);
 }
 
 /* ── Caveats ──────────────────────────────────────────────────────── */
@@ -107,7 +126,7 @@
   cursor: pointer;
   font-size: 0.85rem;
   font-weight: 600;
-  color: var(--text-muted, #555);
+  color: var(--pico-muted-color);
 }
 .c2pa-caveat-count {
   font-weight: 400;
@@ -123,30 +142,17 @@
   margin: 0.3rem 0;
 }
 .c2pa-caveat--error {
-  background: #fbe9e7;
-  color: #b71c1c;
+  background: color-mix(in srgb, var(--veracity-danger) 10%, transparent);
+  color: var(--veracity-danger);
 }
 .c2pa-caveat--warning {
-  background: #fff8e1;
-  color: #7a4a00;
+  background: color-mix(in srgb, var(--veracity-warning) 12%, transparent);
+  color: var(--veracity-warning-dark);
+}
+[data-theme="dark"] .c2pa-caveat--warning {
+  color: var(--veracity-warning);
 }
 .c2pa-caveat--info {
-  background: #e3f2fd;
-  color: #0d47a1;
-}
-
-/* ── "What does this mean?" explainer ─────────────────────────────── */
-
-.c2pa-explainer > summary {
-  cursor: pointer;
-  font-size: 0.88rem;
-}
-.c2pa-explainer-body {
-  font-size: 0.84rem;
-  line-height: 1.55;
-  color: var(--text-secondary, #444);
-  max-width: 56ch;
-}
-.c2pa-explainer-body p {
-  margin: 0.4rem 0;
+  background: color-mix(in srgb, var(--pico-primary) 10%, transparent);
+  color: var(--pico-primary);
 }

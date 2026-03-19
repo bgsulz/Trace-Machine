@@ -214,37 +214,6 @@
   {{ distant_match_callout(row.data.matches|length, "C2PA traces") }}
   {% endif %}
 
-  {# ── What C2PA can and can't prove ────────────────────────────────── #}
-  <hr />
-  <details class="c2pa-explainer">
-    <summary><strong>What does this mean?</strong></summary>
-    <div class="c2pa-explainer-body">
-      <p>
-        A C2PA manifest is a cryptographic label attached to an image.
-        It records claims about where the image came from, how it was
-        made, and who signed it.
-      </p>
-      <p>
-        <strong>What it can show:</strong> that the image data has not
-        been altered since it was signed, what software or device the
-        signer says created it, and a chain of prior edits if present.
-      </p>
-      <p>
-        <strong>What it cannot prove:</strong> that the signed claims
-        are true. A manifest saying "camera capture" does not prove a
-        camera took the photo — only that the signer <em>said</em> a
-        camera took it. Attribution, timestamps, and origin labels are
-        all claims made by the signer, not independently verified facts.
-      </p>
-      <p>
-        The strength of a C2PA manifest depends on <em>who</em> signed
-        it (and whether you trust them), <em>whether</em> their
-        certificate is recognized by a trust list, and <em>whether</em>
-        an independent timestamp makes the manifest durable.
-      </p>
-    </div>
-  </details>
-
   {% if row.data.raw_manifest_store %}
   <div class="tech-only">
     <hr />
