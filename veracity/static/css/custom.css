@@ -1018,18 +1018,67 @@ html:not([data-tech-mode="on"])
 .exif-metadata-list {
   font-size: 0.9rem;
 }
-.exif-raw-body {
+.exif-finding-key {
+  font-weight: normal;
+}
+
+/* Friendly summary — simple key-value rows */
+.exif-summary {
+  margin: 0;
+  padding: 0;
+  font-size: 0.85rem;
+}
+.exif-summary dt {
+  display: inline;
+  color: var(--pico-muted-color);
+  margin: 0;
+  font-weight: 600;
+}
+.exif-summary dt::after {
+  content: " ";
+}
+.exif-summary dd {
+  display: inline;
+  margin: 0;
+  word-break: break-word;
+}
+.exif-summary dd::after {
+  content: "";
+  display: block;
+  margin-bottom: 0.15rem;
+}
+
+/* Grouped raw metadata */
+.exif-grouped-body {
   font-size: 0.85rem;
   margin-top: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+.exif-group {
+  border: 1px solid var(--pico-muted-border-color);
+  border-radius: 4px;
+}
+.exif-group__header {
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  padding: 0.35rem 0.6rem;
+}
+.exif-group__count {
+  font-weight: normal;
+  opacity: 0.6;
+}
+.exif-group .exif-raw-table {
+  margin: 0;
 }
 .exif-raw-table td:first-child {
   width: 30%;
 }
 .exif-raw-table td:last-child {
   word-break: break-all;
-}
-.exif-finding-key {
-  font-weight: normal;
 }
 
 /* C2PA Analyzer */

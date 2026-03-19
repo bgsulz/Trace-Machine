@@ -1,5 +1,9 @@
-{% set findings = row.data.findings %} {% set chunks = row.data.chunks or {} %}
+{% set findings = row.data.findings %}
+{% set chunks = row.data.chunks or {} %}
+{% set grouped = row.data.grouped_chunks or [] %}
+{% set friendly = row.data.friendly_summary or [] %}
 <div class="analyzer-detail-block">
+
   {% if findings %}
   <div class="flash-warning">
     <strong>Warning:</strong>
@@ -23,8 +27,7 @@
           <strong>{{ meta_key }}:</strong>
           {% if meta_value is mapping %}
           <pre class="exif-pre">
-{{ meta_value | tojson(indent=2) }}</pre
-          >
+{{ meta_value | tojson(indent=2) }}</pre>
           {% else %} {{ meta_value }} {% endif %}
         </li>
         {% endfor %}
@@ -32,22 +35,44 @@
       {% endif %}
     </div>
   </details>
-  {% endfor %} {% endif %} {% if row.data.chunks %}
+  {% endfor %}
+  {% endif %}
+
+  {# ── Friendly summary (always visible) ─────────────────────────── #}
+  {% if friendly %}
+  <dl class="exif-summary">
+    {% for item in friendly %}
+    <dt>{{ item.label }}</dt>
+    <dd>{{ item.value }}</dd>
+    {% endfor %}
+  </dl>
+  {% endif %}
+
+  {# ── Grouped raw metadata (tech-only) ──────────────────────────── #}
+  {% if grouped %}
   <div class="tech-only">
     <hr />
     <details>
-      <summary><strong>Raw Metadata / EXIF</strong></summary>
-      <div class="exif-raw-body">
-        <table class="exif-raw-table">
-          <tbody>
-            {% for key, value in row.data.chunks.items() %}
-            <tr>
-              <td><strong>{{ key }}</strong></td>
-              <td>{{ value }}</td>
-            </tr>
-            {% endfor %}
-          </tbody>
-        </table>
+      <summary><strong>All Metadata</strong></summary>
+      <div class="exif-grouped-body">
+        {% for group in grouped %}
+        <details class="exif-group" {% if group.name == 'Basic' %}open{% endif %}>
+          <summary class="exif-group__header">
+            {{ group.name }}
+            <span class="exif-group__count">({{ group.entries | length }})</span>
+          </summary>
+          <table class="exif-raw-table">
+            <tbody>
+              {% for key, value in group.entries.items() %}
+              <tr>
+                <td><strong>{{ key }}</strong></td>
+                <td>{{ value }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </details>
+        {% endfor %}
       </div>
     </details>
   </div>
