@@ -5,7 +5,80 @@
 {% set ingredients = row.data.ingredients or [] %}
 {% set validation_status = row.data.validation_status or [] %}
 {% set signature_info = row.data.signature_info or {} %}
+{% set ta = row.data.trust_assessment or {} %}
 <div class="analyzer-detail-block">
+
+  {# ── Trust Assessment ─────────────────────────────────────────────── #}
+  {% if ta and ta.summary_line %}
+  <div class="c2pa-trust-assessment c2pa-trust-assessment--{{ ta.overall_severity or 'info' }}">
+    <div class="c2pa-trust-summary">
+      {% if ta.overall_severity == 'good' %}
+        <span class="c2pa-trust-icon" aria-hidden="true">&#x2714;</span>
+      {% elif ta.overall_severity == 'error' %}
+        <span class="c2pa-trust-icon" aria-hidden="true">&#x2718;</span>
+      {% else %}
+        <span class="c2pa-trust-icon" aria-hidden="true">&#x26A0;</span>
+      {% endif %}
+      <span class="c2pa-trust-summary-text">{{ ta.summary_line }}</span>
+    </div>
+
+    <div class="c2pa-trust-details">
+      {# Timestamp row #}
+      <div class="c2pa-trust-row">
+        <span class="c2pa-trust-key">Timestamp</span>
+        <span class="c2pa-trust-value">{{ ta.timestamp_label }}</span>
+      </div>
+
+      {# Certificate trust row #}
+      <div class="c2pa-trust-row">
+        <span class="c2pa-trust-key">Certificate</span>
+        <span class="c2pa-trust-value">{{ ta.trust_label }}</span>
+      </div>
+
+      {# Durability row #}
+      <div class="c2pa-trust-row">
+        <span class="c2pa-trust-key">Long-term verifiability</span>
+        <span class="c2pa-trust-value c2pa-trust-value--{{ ta.durability or 'unknown' }}">
+          {{ ta.durability_label }}
+        </span>
+      </div>
+
+      {# Cert expiry detail (tech-only) #}
+      {% if ta.cert_expiry_date %}
+      <div class="c2pa-trust-row tech-only">
+        <span class="c2pa-trust-key">Certificate expires</span>
+        <span class="c2pa-trust-value">
+          {{ ta.cert_expiry_date }}
+          {% if ta.cert_expired %}
+            <em>(expired)</em>
+          {% elif ta.cert_days_until_expiry is defined and ta.cert_days_until_expiry is not none %}
+            <em>({{ ta.cert_days_until_expiry }} days remaining)</em>
+          {% endif %}
+        </span>
+      </div>
+      {% endif %}
+    </div>
+
+    {# Caveats #}
+    {% if ta.caveats %}
+    <details class="c2pa-caveats" {% if ta.overall_severity in ('error', 'warning') %}open{% endif %}>
+      <summary>
+        Important context
+        <span class="c2pa-caveat-count">({{ ta.caveats|length }})</span>
+      </summary>
+      <div class="c2pa-caveat-list">
+        {% for caveat in ta.caveats %}
+        <p class="c2pa-caveat c2pa-caveat--{{ caveat.severity or 'info' }}">
+          {{ caveat.text }}
+        </p>
+        {% endfor %}
+      </div>
+    </details>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  {# ── Existing provenance fields ───────────────────────────────────── #}
   {% if row.data.origin_label %}
   <div><strong>Origin signal:</strong> {{ row.data.origin_label }}</div>
   {% endif %}
@@ -21,12 +94,27 @@
     {{ row.data.claim_generator_info|join(", ") }}
   </div>
   {% endif %}
+
+  {# Replaced the old bare "Signature: valid/invalid" with the trust
+     assessment above.  Keep only as a tech-only fallback. #}
   {% if row.data.signature_status %}
-  <div><strong>Signature:</strong> {{ row.data.signature_status }}</div>
+  <div class="tech-only"><strong>Signature (raw):</strong> {{ row.data.signature_status }}</div>
   {% endif %}
+
+  {# Timestamp — now annotated with source #}
   {% if signature_info.time %}
-  <div><strong>Signed at:</strong> {{ signature_info.time }}</div>
+  <div>
+    <strong>Signed at:</strong> {{ signature_info.time }}
+    {% if ta.timestamp_type == 'rfc3161' %}
+      <small class="c2pa-ts-badge c2pa-ts-badge--verified" title="Independently verified by a Time Stamp Authority">(TSA-verified)</small>
+    {% elif ta.timestamp_type == 'rfc3161_unverified' %}
+      <small class="c2pa-ts-badge c2pa-ts-badge--unverified" title="TSA present but certificate not verified">(TSA unverified)</small>
+    {% elif ta.timestamp_type == 'clock_only' %}
+      <small class="c2pa-ts-badge c2pa-ts-badge--clock" title="Time set by signer's device clock — not independently verified">(device clock)</small>
+    {% endif %}
+  </div>
   {% endif %}
+
   {% if row.data.manifest_format %}
   <div><strong>Manifest format:</strong> {{ row.data.manifest_format }}</div>
   {% endif %}
@@ -125,6 +213,37 @@
   <hr />
   {{ distant_match_callout(row.data.matches|length, "C2PA traces") }}
   {% endif %}
+
+  {# ── What C2PA can and can't prove ────────────────────────────────── #}
+  <hr />
+  <details class="c2pa-explainer">
+    <summary><strong>What does this mean?</strong></summary>
+    <div class="c2pa-explainer-body">
+      <p>
+        A C2PA manifest is a cryptographic label attached to an image.
+        It records claims about where the image came from, how it was
+        made, and who signed it.
+      </p>
+      <p>
+        <strong>What it can show:</strong> that the image data has not
+        been altered since it was signed, what software or device the
+        signer says created it, and a chain of prior edits if present.
+      </p>
+      <p>
+        <strong>What it cannot prove:</strong> that the signed claims
+        are true. A manifest saying "camera capture" does not prove a
+        camera took the photo — only that the signer <em>said</em> a
+        camera took it. Attribution, timestamps, and origin labels are
+        all claims made by the signer, not independently verified facts.
+      </p>
+      <p>
+        The strength of a C2PA manifest depends on <em>who</em> signed
+        it (and whether you trust them), <em>whether</em> their
+        certificate is recognized by a trust list, and <em>whether</em>
+        an independent timestamp makes the manifest durable.
+      </p>
+    </div>
+  </details>
 
   {% if row.data.raw_manifest_store %}
   <div class="tech-only">

@@ -1,0 +1,152 @@
+/* ── C2PA Trust Assessment ─────────────────────────────────────────── */
+
+.c2pa-trust-assessment {
+  border: 1px solid var(--border-color, #d0d0d0);
+  border-left: 4px solid var(--border-color, #d0d0d0);
+  border-radius: 6px;
+  padding: 0.75rem 1rem;
+  margin-bottom: 1rem;
+  background: var(--surface-raised, #fafafa);
+}
+
+.c2pa-trust-assessment--good {
+  border-left-color: #2e7d32;
+}
+.c2pa-trust-assessment--info {
+  border-left-color: #1565c0;
+}
+.c2pa-trust-assessment--warning {
+  border-left-color: #e65100;
+}
+.c2pa-trust-assessment--error {
+  border-left-color: #b71c1c;
+}
+
+/* ── Summary row ──────────────────────────────────────────────────── */
+
+.c2pa-trust-summary {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  font-weight: 600;
+  font-size: 0.95rem;
+  margin-bottom: 0.5rem;
+}
+
+.c2pa-trust-icon {
+  flex-shrink: 0;
+  font-size: 1rem;
+}
+.c2pa-trust-assessment--good .c2pa-trust-icon { color: #2e7d32; }
+.c2pa-trust-assessment--warning .c2pa-trust-icon { color: #e65100; }
+.c2pa-trust-assessment--error .c2pa-trust-icon { color: #b71c1c; }
+.c2pa-trust-assessment--info .c2pa-trust-icon { color: #1565c0; }
+
+/* ── Detail rows ──────────────────────────────────────────────────── */
+
+.c2pa-trust-details {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.2rem 0.75rem;
+  font-size: 0.875rem;
+  margin-top: 0.4rem;
+}
+
+.c2pa-trust-key {
+  color: var(--text-muted, #666);
+  white-space: nowrap;
+}
+.c2pa-trust-value {
+  color: var(--text-primary, #222);
+}
+.c2pa-trust-value em {
+  color: var(--text-muted, #666);
+  font-size: 0.82em;
+}
+.c2pa-trust-value--expired_no_tsa,
+.c2pa-trust-value--revoked {
+  color: #b71c1c;
+}
+.c2pa-trust-value--at_risk {
+  color: #e65100;
+}
+.c2pa-trust-value--durable {
+  color: #2e7d32;
+}
+
+/* ── Timestamp badge (inline after "Signed at:" value) ────────────── */
+
+.c2pa-ts-badge {
+  display: inline-block;
+  font-size: 0.78em;
+  padding: 0.1em 0.45em;
+  border-radius: 3px;
+  margin-left: 0.35em;
+  vertical-align: baseline;
+  font-weight: 500;
+}
+.c2pa-ts-badge--verified {
+  background: #e8f5e9;
+  color: #2e7d32;
+}
+.c2pa-ts-badge--unverified {
+  background: #fff3e0;
+  color: #e65100;
+}
+.c2pa-ts-badge--clock {
+  background: #fff3e0;
+  color: #bf360c;
+}
+
+/* ── Caveats ──────────────────────────────────────────────────────── */
+
+.c2pa-caveats {
+  margin-top: 0.6rem;
+}
+.c2pa-caveats > summary {
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-muted, #555);
+}
+.c2pa-caveat-count {
+  font-weight: 400;
+}
+.c2pa-caveat-list {
+  margin-top: 0.35rem;
+}
+.c2pa-caveat {
+  font-size: 0.84rem;
+  line-height: 1.45;
+  padding: 0.35rem 0.5rem;
+  border-radius: 4px;
+  margin: 0.3rem 0;
+}
+.c2pa-caveat--error {
+  background: #fbe9e7;
+  color: #b71c1c;
+}
+.c2pa-caveat--warning {
+  background: #fff8e1;
+  color: #7a4a00;
+}
+.c2pa-caveat--info {
+  background: #e3f2fd;
+  color: #0d47a1;
+}
+
+/* ── "What does this mean?" explainer ─────────────────────────────── */
+
+.c2pa-explainer > summary {
+  cursor: pointer;
+  font-size: 0.88rem;
+}
+.c2pa-explainer-body {
+  font-size: 0.84rem;
+  line-height: 1.55;
+  color: var(--text-secondary, #444);
+  max-width: 56ch;
+}
+.c2pa-explainer-body p {
+  margin: 0.4rem 0;
+}

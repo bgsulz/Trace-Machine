@@ -13,6 +13,7 @@ from .context import AnalysisContext
 from .hash_utils import (
     iter_neighbor_views,
 )
+from .trust_assessment import build_trust_assessment, extract_validation_codes
 
 try:  # pragma: no cover - import guard
     from c2pa import Reader
@@ -148,6 +149,17 @@ def _run_c2pa_tool(image_bytes: bytes) -> dict[str, object]:
         active_manifest=active_manifest,
         ingredients=ingredients,
     )
+    # Structured trust analysis
+    validation_codes = extract_validation_codes(
+        manifest_store=manifest_store,
+        active_manifest=active_manifest,
+        ingredients=ingredients,
+    )
+    trust_assessment = build_trust_assessment(
+        active_manifest=active_manifest,
+        validation_codes=validation_codes,
+    )
+
     signature_status = _infer_signature_status(
         active_manifest=active_manifest,
         ingredients=ingredients,
@@ -180,6 +192,7 @@ def _run_c2pa_tool(image_bytes: bytes) -> dict[str, object]:
         "validation_status": validation_status,
         "claim_generator_info": claim_generator_info,
         "signature_info": signature_info,
+        "trust_assessment": trust_assessment,
         "raw_manifest_store": manifest_store,
     }
     if signature_status is not None:
