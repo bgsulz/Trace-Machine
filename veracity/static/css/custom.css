@@ -488,27 +488,24 @@ nav {
   background: none !important;
 }
 
-.autocrop-form {
-  margin-top: 0.5rem;
-}
-
 .autocrop-bar {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.35rem;
+  margin-top: 0.5rem;
 }
 
 .autocrop-btn {
-  width: auto;
-  padding-left: 1.25rem;
-  padding-right: 1.25rem;
+  font-size: 0.8rem;
+  padding: 0.4rem 0.8rem;
+  width: auto !important;
+  margin-bottom: 0;
 }
 
 .autocrop-hint {
-  font-size: 0.78rem;
+  font-size: 0.72rem;
   color: var(--pico-muted-color);
-  text-align: center;
+  margin-top: 0.25rem;
 }
 
 .dethumbnail-alert {
