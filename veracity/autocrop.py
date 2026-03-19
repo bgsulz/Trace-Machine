@@ -23,7 +23,7 @@ from PIL import Image, ImageOps
 # Minimum fraction of width that a qualifying row must cover.
 _MIN_WIDTH_COVERAGE = 0.80
 # Maximum fraction of image height that a detected banner may occupy.
-_MAX_BANNER_HEIGHT_FRAC = 0.25
+_MAX_BANNER_HEIGHT_FRAC = 0.30
 # Minimum banner height in rows (avoids single-pixel edge artifacts).
 _MIN_BANNER_ROWS = 8
 # Multiplier over baseline std used to set the spike threshold.
@@ -184,17 +184,12 @@ def _scan_banner(
     if banner_height < _MIN_BANNER_ROWS:
         return None
 
-    # Confidence: how much stronger is the banner region vs. the interior?
-    if from_bottom:
-        banner_grad = abs_sobel[crop_row:, :]
-    else:
-        banner_grad = abs_sobel[: crop_row + 1, :]
-
-    banner_mean = float(banner_grad.mean())
-    interior_lo = int(H * 0.20)
-    interior_hi = int(H * 0.80)
-    interior_ref = float(row_means[interior_lo:interior_hi].mean()) + 1e-6
-    raw_ratio = (banner_mean - interior_ref) / interior_ref
+    # Confidence: how strongly the boundary row's gradient exceeds the
+    # threshold.  A text banner on a black/solid background produces a very
+    # prominent edge at the boundary even though the *average* gradient of
+    # the entire banner region may be low (mostly solid background).
+    boundary_strength = float(row_means[crop_row])
+    raw_ratio = (boundary_strength - threshold) / (threshold + 1e-6)
     confidence = min(1.0, max(0.0, raw_ratio))
 
     if from_bottom:

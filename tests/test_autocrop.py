@@ -137,9 +137,9 @@ class TestDetectOverlayCropUnit:
         assert not result.has_overlay
         assert result.crop_box is None
 
-    def test_rejects_banner_taller_than_25_percent(self):
-        # 110 px out of 300 = ~37% — exceeds _MAX_BANNER_HEIGHT_FRAC.
-        result = detect_overlay_crop(_make_banner_image(banner_bottom=110))
+    def test_rejects_banner_taller_than_30_percent(self):
+        # 120 px out of 300 = 40% — exceeds _MAX_BANNER_HEIGHT_FRAC (0.30).
+        result = detect_overlay_crop(_make_banner_image(banner_bottom=120))
         assert not result.has_overlay
 
     def test_rejects_narrow_overlay(self):
