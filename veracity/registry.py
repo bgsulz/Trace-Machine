@@ -29,7 +29,7 @@ from .models import ImageLocalFeatures, ImageRegistry
 logger = logging.getLogger(__name__)
 
 _MAX_PHASH_DISTANCE = 4
-_MAX_WHASH_DISTANCE = 6
+_MAX_WHASH_DISTANCE = 3
 _DEFAULT_LOCAL_MATCH_MAX_CANDIDATES = 200
 
 
