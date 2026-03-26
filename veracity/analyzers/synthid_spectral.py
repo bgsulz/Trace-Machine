@@ -238,23 +238,29 @@ def _detect(image_array: np.ndarray, codebook: dict) -> SpectralResult:
     multi_scale_consistency = float(np.std(scale_scores))
 
     # -- Decision --
-    threshold = codebook["detection_threshold"]
-    is_watermarked = (
-        correlation > threshold
-        and avg_phase_match > 0.45
-        and 0.7 < structure_ratio < 2.0
-    )
+    # The codebook threshold (0.179) was calibrated on pure reference images.
+    # Real content images produce much weaker correlation (~0.01–0.02 for
+    # genuine Gemini output) because image content drowns out the watermark.
+    # We use empirically-tuned thresholds for real-world images instead.
+    _CORR_FLOOR = 0.003       # below this, indistinguishable from noise
+    _CORR_STRONG = 0.025      # strong real-world watermark signal
+    _PHASE_BASELINE = 0.5     # random-chance phase match
+    _PHASE_CEIL = 0.2         # max meaningful excess over baseline
 
-    corr_mean = codebook["correlation_mean"]
-    corr_score = max(0.0, (correlation - threshold) / (corr_mean - threshold + 1e-10))
-    phase_score = avg_phase_match
-    structure_score = max(0.0, 1 - abs(structure_ratio - 1.32) / 0.6)
-    consistency_score = max(0.0, 1 - multi_scale_consistency * 5)
+    # Correlation score: 0 at floor, 1 at strong
+    corr_score = max(0.0, min(1.0,
+        (correlation - _CORR_FLOOR) / (_CORR_STRONG - _CORR_FLOOR)
+    ))
 
-    confidence = min(
-        1.0,
-        0.35 * corr_score + 0.35 * phase_score + 0.15 * structure_score + 0.15 * consistency_score,
-    )
+    # Phase score: excess over random baseline, normalised
+    phase_excess = max(0.0, avg_phase_match - _PHASE_BASELINE)
+    phase_score = min(1.0, phase_excess / _PHASE_CEIL)
+
+    # Confidence: correlation-dominant (70%) with phase as supporting signal (30%)
+    confidence = min(1.0, 0.70 * corr_score + 0.30 * phase_score)
+
+    # Binary decision gate
+    is_watermarked = confidence >= 0.50
 
     return SpectralResult(
         is_watermarked=bool(is_watermarked),
@@ -265,11 +271,9 @@ def _detect(image_array: np.ndarray, codebook: dict) -> SpectralResult:
         carrier_strength=avg_carrier_strength,
         multi_scale_consistency=multi_scale_consistency,
         details={
-            "threshold": threshold,
-            "corr_score": corr_score,
-            "phase_score": phase_score,
-            "structure_score": structure_score,
-            "consistency_score": consistency_score,
+            "corr_score": round(corr_score, 4),
+            "phase_score": round(phase_score, 4),
+            "phase_excess": round(phase_excess, 4),
             "scale_correlations": scale_scores,
         },
     )
@@ -307,7 +311,7 @@ def run_synthid_spectral(context: AnalysisContext) -> dict[str, object]:
         summary = (
             f"SynthID watermark detected (confidence {result.confidence:.0%})."
         )
-    elif result.confidence > 0.3:
+    elif result.confidence > 0.20:
         status = "UNCERTAIN"
         summary = (
             f"Possible SynthID signal (confidence {result.confidence:.0%})."
