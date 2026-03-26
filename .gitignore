@@ -33,3 +33,4 @@ AGENTS.md
 .worktrees/
 .agents/
 skills-lock.json
+.synthid-spectral-data

@@ -1,0 +1,53 @@
+<div class="analyzer-detail-block">
+  <div class="flash-warning">
+    <strong>Experimental:</strong>
+    This analyzer uses offline spectral analysis to detect SynthID watermarks.
+    It can only detect watermarks from Google AI tools (Gemini, Imagen).
+    Results should be treated as an additional signal, not definitive proof.
+  </div>
+
+  {% if row.data.is_watermarked %}
+  <p>
+    <strong>Confidence:</strong> {{ row.data.confidence_pct }}
+  </p>
+  {% elif row.data.confidence is defined and row.data.confidence > 0.3 %}
+  <p>
+    <strong>Confidence:</strong> {{ row.data.confidence_pct }}
+  </p>
+  <p class="analyzer-note">
+    The signal is above background noise but below the detection threshold.
+    This could indicate a degraded watermark (e.g. from heavy compression or resizing).
+  </p>
+  {% endif %}
+
+  <div class="tech-only">
+    <hr />
+    <details>
+      <summary><strong>Spectral Details</strong></summary>
+      <table class="exif-raw-table">
+        <tbody>
+          <tr>
+            <td><strong>Noise Correlation</strong></td>
+            <td>{{ row.data.correlation }}</td>
+          </tr>
+          <tr>
+            <td><strong>Phase Match</strong></td>
+            <td>{{ row.data.phase_match }}</td>
+          </tr>
+          <tr>
+            <td><strong>Structure Ratio</strong></td>
+            <td>{{ row.data.structure_ratio }}</td>
+          </tr>
+          <tr>
+            <td><strong>Carrier Strength</strong></td>
+            <td>{{ row.data.carrier_strength }}</td>
+          </tr>
+          <tr>
+            <td><strong>Multi-Scale Consistency</strong></td>
+            <td>{{ row.data.multi_scale_consistency }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </details>
+  </div>
+</div>

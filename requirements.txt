@@ -13,6 +13,8 @@ imagehash
 psycopg2-binary
 numpy
 opencv-python-headless
+PyWavelets
+scipy
 ExifRead
 lxml
 redis

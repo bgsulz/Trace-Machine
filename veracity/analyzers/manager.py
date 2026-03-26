@@ -10,6 +10,7 @@ from .c2pa import run_c2pa
 from .exif import run_exif_metadata
 from .human import run_human_consensus
 from .synthid import run_synthid
+from .synthid_spectral import run_synthid_spectral
 from .tineye import get_tineye_status
 
 logger = logging.getLogger(__name__)
@@ -42,6 +43,13 @@ ANALYZERS: Sequence[AnalyzerSpec] = (
         func=run_synthid,
         template="partials/analyzers/synthid.html",
         tooltip="Uses Google reverse image search to check for an invisible watermark.",
+    ),
+    AnalyzerSpec(
+        name="SynthID (Spectral)",
+        slug="synthid_spectral",
+        func=run_synthid_spectral,
+        template="partials/analyzers/synthid_spectral.html",
+        tooltip="Experimental: scans for Google's SynthID watermark using frequency-domain analysis.",
     ),
     AnalyzerSpec(
         name="TinEye Reverse Search",
