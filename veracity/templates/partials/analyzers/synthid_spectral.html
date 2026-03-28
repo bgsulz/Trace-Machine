@@ -26,6 +26,18 @@
       <summary><strong>Spectral Details</strong></summary>
       <table class="exif-raw-table">
         <tbody>
+          {% if row.data.profile_name %}
+          <tr>
+            <td><strong>Matched Profile</strong></td>
+            <td>{{ row.data.profile_name }}</td>
+          </tr>
+          {% endif %}
+          {% if row.data.detection_mode %}
+          <tr>
+            <td><strong>Detection Mode</strong></td>
+            <td>{{ row.data.detection_mode }}</td>
+          </tr>
+          {% endif %}
           <tr>
             <td><strong>Noise Correlation</strong></td>
             <td>{{ row.data.correlation }}</td>
