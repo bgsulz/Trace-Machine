@@ -115,6 +115,42 @@ def test_detected_state_high_confidence():
     assert result["data"]["score"] == 5.0
 
 
+def test_provider_rows_preserve_detector_breakdown():
+    """SynthID output keeps aggregate totals plus per-detector rows."""
+    synthid = SynthIDSnapshot(
+        detected=2,
+        not_detected=1,
+        by_detector={
+            "google_about_this_image": {
+                "provider": "google",
+                "detector": "google_about_this_image",
+                "detected": 1,
+                "not_detected": 0,
+                "total": 1,
+            },
+            "openai_verify": {
+                "provider": "openai",
+                "detector": "openai_verify",
+                "detected": 1,
+                "not_detected": 1,
+                "total": 2,
+            },
+        },
+    )
+    context = _make_context(neighbors=[_make_neighbor(id=1, synthid=synthid)])
+
+    result = run_synthid(context)
+
+    rows = {
+        row["detector"]: row
+        for row in result["data"]["checker_rows"]
+    }
+    assert result["data"]["totals"] == {"detected": 2, "not_detected": 1}
+    assert rows["google_about_this_image"]["detected"] == 1
+    assert rows["openai_verify"]["detected"] == 1
+    assert rows["openai_verify"]["not_detected"] == 1
+
+
 # --- Tier weighting tests ---
 
 
@@ -311,6 +347,66 @@ def test_synthid_report_change(client, app):
         assert reports[0].result == "not_detected"
 
 
+def test_synthid_report_records_provider_specific_rows(client, app):
+    """One user can report Google and OpenAI checker outcomes separately."""
+    analysis_id, phash = _upload_and_get_ids(client)
+
+    client.post(
+        "/synthid-report",
+        data={
+            "phash": phash,
+            "report": "detected",
+            "analysis_id": analysis_id,
+            "provider": "google",
+            "detector": "google_about_this_image",
+        },
+    )
+    client.post(
+        "/synthid-report",
+        data={
+            "phash": phash,
+            "report": "not_detected",
+            "analysis_id": analysis_id,
+            "provider": "openai",
+            "detector": "openai_verify",
+        },
+    )
+
+    from veracity.models import SynthIDReport
+
+    with app.app_context():
+        reports = sorted(SynthIDReport.query.all(), key=lambda row: row.detector)
+        assert len(reports) == 2
+        assert reports[0].detector == "google_about_this_image"
+        assert reports[0].provider == "google"
+        assert reports[0].result == "detected"
+        assert reports[1].detector == "openai_verify"
+        assert reports[1].provider == "openai"
+        assert reports[1].result == "not_detected"
+
+
+def test_synthid_report_invalid_detector_rejected(client, app):
+    analysis_id, phash = _upload_and_get_ids(client)
+
+    resp = client.post(
+        "/synthid-report",
+        data={
+            "phash": phash,
+            "report": "detected",
+            "analysis_id": analysis_id,
+            "provider": "openai",
+            "detector": "google_about_this_image",
+        },
+        follow_redirects=False,
+    )
+
+    from veracity.models import SynthIDReport
+
+    assert resp.status_code == 302
+    with app.app_context():
+        assert SynthIDReport.query.count() == 0
+
+
 def test_synthid_report_invalid_choice(client):
     """Invalid report choice redirects with error."""
     analysis_id, phash = _upload_and_get_ids(client)
@@ -367,7 +463,9 @@ def test_synthid_mini_fragment_includes_mini_flag_in_forms(client):
 
     fragment = client.get(f"/analysis/{analysis_id}/analyzers/synthid?mini=1")
     assert fragment.status_code == 200
-    assert fragment.data.count(b'name="mini" value="1"') == 2
+    assert fragment.data.count(b'name="mini" value="1"') == 4
+    assert b'name="detector" value="google_about_this_image"' in fragment.data
+    assert b'name="detector" value="openai_verify"' in fragment.data
 
 
 def test_htmx_synthid_report_mini_returns_mini_fragment(client, app):
