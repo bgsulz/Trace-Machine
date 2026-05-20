@@ -1,8 +1,7 @@
 """SynthID analyzer with community reporting.
 
-SynthID is Google's invisible watermarking technology for AI-generated images.
-There's no TOS-compliant way to automatically detect it, so this analyzer
-provides manual instructions for checking via Google reverse image search
+SynthID is invisible watermarking technology for AI-generated images. Public
+detectors are provider-specific, so this analyzer gives users manual check paths
 and aggregates community reports from users who checked.
 """
 
@@ -105,7 +104,7 @@ def run_synthid(context: AnalysisContext) -> dict[str, object]:
     if score == 0 and not any_reports:
         display_state = "manual"
         status = "MANUAL"
-        summary = "Check for Google's invisible AI watermark."
+        summary = "Check for invisible SynthID watermarking."
         caveat = None
     elif score == 0:
         display_state = "checked"
@@ -132,8 +131,8 @@ def run_synthid(context: AnalysisContext) -> dict[str, object]:
                 f"reported detecting SynthID."
             )
         caveat = (
-            "Verify this yourself \u2014 SynthID can be unreliable "
-            "across different copies of an image."
+            "Verify this yourself; SynthID checks are provider-specific "
+            "and can vary across different copies of an image."
         )
     else:
         display_state = "detected"

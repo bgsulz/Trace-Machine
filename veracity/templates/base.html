@@ -195,7 +195,7 @@
 
       document.body.addEventListener("click", (event) => {
         const link = event.target.closest?.(
-          '#analyzer-row-synthid .header-action[href*="lens.google"]'
+          '#analyzer-row-synthid .header-action[href*="lens.google"], #analyzer-row-synthid .synthid-check-action'
         );
         if (!link) return;
         const voteArea = document.getElementById("synthid-vote-area");

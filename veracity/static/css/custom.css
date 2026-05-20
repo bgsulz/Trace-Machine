@@ -1107,6 +1107,21 @@ html:not([data-tech-mode="on"])
   margin-top: 0.5rem;
   padding-left: 1.25rem;
 }
+.synthid-check-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+.synthid-check-actions a {
+  display: inline-flex;
+  align-items: center;
+  width: auto;
+  margin: 0;
+  padding: 0.4rem 0.8rem;
+  font-size: 0.8rem;
+  text-decoration: none;
+}
 .synthid-voting-area {
   margin-top: 1rem;
 }

@@ -1,11 +1,11 @@
 <p>
-  Uses Google reverse image search to check the image for <strong>SynthID</strong>. This is an invisible watermark embedded in anything generated or edited by Google's AI models. It's not metadata, unlike C2PA/EXIF data -- it's basically an invisible pattern in the image's actual pixels.
+  <strong>SynthID</strong> is an invisible watermark embedded in the pixels of some AI-generated or AI-edited images. It is not metadata, unlike C2PA/Content Credentials or EXIF data, so it usually has to be checked with a provider-specific detector.
 </p>
 <p>
-  SynthID is impossible to add after the fact -- it gets embedded into the image as it's being generated -- and it's very hard to remove. When SynthID is detected, it's very, very strong evidence that the image was generated or edited by one of Google's AI models.
+  Google exposes SynthID checks through Google reverse image search and <strong>About this image</strong>. OpenAI exposes checks through <strong>OpenAI Verify</strong>. These tools are not interchangeable: Google's tooling may only recognize Google-origin watermarks, while OpenAI Verify reports OpenAI-origin SynthID.
 </p>
 <div class="flash-warning">
-  <strong>Important limitation:</strong> SynthID can be removed through very aggressive editing, and sometimes fails to register if the image is too small or compressed. Also, there's no automated way to check for a SynthID watermark -- the easiest way is to use Google reverse image search.
+  <strong>Important limitation:</strong> SynthID can be removed or degraded through aggressive editing, resizing, or compression. A negative result from one provider's checker does not rule out another provider's watermark.
 </div>
 <br/>
 <p>
@@ -13,7 +13,12 @@
   <ul>
     <li>
       <a href="https://deepmind.google/technologies/synthid/" target="_blank" rel="noopener noreferrer">
-        SynthID Overview
+        Google DeepMind SynthID Overview
+      </a>
+    </li>
+    <li>
+      <a href="https://openai.com/research/verify/" target="_blank" rel="noopener noreferrer">
+        OpenAI Verify
       </a>
     </li>
     <li>

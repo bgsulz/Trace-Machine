@@ -37,11 +37,11 @@ ANALYZERS: Sequence[AnalyzerSpec] = (
         tooltip="Looks for authenticated Content Credentials.",
     ),
     AnalyzerSpec(
-        name="SynthID (Google)",
+        name="SynthID Watermark",
         slug="synthid",
         func=run_synthid,
         template="partials/analyzers/synthid.html",
-        tooltip="Uses Google reverse image search to check for an invisible watermark.",
+        tooltip="Collects manual reports from public provider-specific SynthID checkers.",
     ),
     AnalyzerSpec(
         name="TinEye Reverse Search",

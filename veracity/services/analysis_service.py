@@ -333,6 +333,7 @@ def _prepare_row_for_render(
         "link_target": link_target,
         "analysis_id": analysis_id,
         "lens_link": lens_link,
+        "raw_image_filename": _build_raw_image_filename(metadata),
     }
 
     slug = row.get("slug")
@@ -500,3 +501,17 @@ def _build_google_lens_link(metadata: dict[str, Any] | None, analysis_id: str | 
 
     encoded = quote_plus(target_url)
     return f"https://lens.google.com/upload?url={encoded}"
+
+
+def _build_raw_image_filename(metadata: dict[str, Any] | None) -> str:
+    mime_type = str((metadata or {}).get("mime_type") or "").lower()
+    extension = {
+        "image/jpeg": "jpg",
+        "image/jpg": "jpg",
+        "image/png": "png",
+        "image/gif": "gif",
+        "image/webp": "webp",
+        "image/bmp": "bmp",
+        "image/tiff": "tif",
+    }.get(mime_type, "img")
+    return f"veracity-analysis-image.{extension}"
