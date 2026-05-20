@@ -194,12 +194,19 @@
       });
 
       document.body.addEventListener("click", (event) => {
-        const link = event.target.closest?.(
-          '#analyzer-row-synthid .header-action[href*="lens.google"], #analyzer-row-synthid .synthid-check-action'
+        const action = event.target.closest?.(
+          '#analyzer-row-synthid .header-action, #analyzer-row-synthid .synthid-check-action'
         );
-        if (!link) return;
+        if (!action) return;
         const voteArea = document.getElementById("synthid-vote-area");
         if (voteArea) voteArea.removeAttribute("hidden");
+        const openAll = action.closest(".synthid-open-all");
+        if (!openAll) return;
+        event.preventDefault();
+        const googleUrl = openAll.dataset.googleUrl;
+        const openaiUrl = openAll.dataset.openaiUrl;
+        if (googleUrl) window.open(googleUrl, "_blank", "noopener");
+        if (openaiUrl) window.open(openaiUrl, "_blank", "noopener");
       }, true);
     </script>
     {% block body_scripts %}{% endblock %}

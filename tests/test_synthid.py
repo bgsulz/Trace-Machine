@@ -468,6 +468,18 @@ def test_synthid_mini_fragment_includes_mini_flag_in_forms(client):
     assert b'name="detector" value="openai_verify"' in fragment.data
 
 
+def test_synthid_fragment_uses_open_all_action(client):
+    analysis_id, _ = _upload_and_get_ids(client)
+
+    fragment = client.get(f"/analysis/{analysis_id}/analyzers/synthid")
+
+    assert fragment.status_code == 200
+    assert b"Open All" in fragment.data
+    assert b"OpenAI Verify" in fragment.data
+    assert b"Check Google" in fragment.data
+    assert b"Download exact image" not in fragment.data
+
+
 def test_htmx_synthid_report_mini_returns_mini_fragment(client, app):
     analysis_id, phash = _upload_and_get_ids(client)
     data = {

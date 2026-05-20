@@ -1113,7 +1113,8 @@ html:not([data-tech-mode="on"])
   gap: 0.5rem;
   margin-top: 0.75rem;
 }
-.synthid-check-actions a {
+.synthid-check-actions a,
+.synthid-check-actions button {
   display: inline-flex;
   align-items: center;
   width: auto;
@@ -1588,7 +1589,8 @@ html:not([data-tech-mode="on"])
 }
 
 .header-action button,
-a.header-action[role="button"] {
+a.header-action[role="button"],
+button.header-action {
   margin: 0;
   padding: 0.35rem 0.75rem;
   font-size: 0.75rem;

@@ -5,8 +5,6 @@
 {% set current_reports = row.data.current_reports or {} %}
 {% set checker_rows = row.data.checker_rows or [] %}
 {% set lens_link = row.context.lens_link if row.context else None %}
-{% set raw_image_link = url_for('main.serve_analysis_image', analysis_id=row.context.analysis_id) if row.context else None %}
-{% set raw_image_filename = row.context.raw_image_filename if row.context else "veracity-analysis-image.img" %}
 
 <div class="mini-card-content" data-status="{{ row.status }}">
   <div class="mini-card-title">
@@ -15,9 +13,6 @@
     <a href="{{ lens_link }}" target="_blank" rel="noopener noreferrer" class="mini-check-link">Check Google</a>
     {% endif %}
     <a href="https://openai.com/research/verify/" target="_blank" rel="noopener noreferrer" class="mini-check-link">OpenAI</a>
-    {% if raw_image_link %}
-    <a href="{{ raw_image_link }}" download="{{ raw_image_filename }}" class="mini-check-link">Image</a>
-    {% endif %}
   </div>
 
   {% if display_state == "detected" %}

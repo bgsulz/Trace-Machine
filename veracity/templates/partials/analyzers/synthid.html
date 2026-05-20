@@ -9,8 +9,6 @@
 {% set checker_rows = row.data.checker_rows or [] %}
 {% set link_target = row.context.link_target if row.context else None %}
 {% set lens_link = row.context.lens_link if row.context else "https://images.google.com/" %}
-{% set raw_image_link = url_for('main.serve_analysis_image', analysis_id=row.context.analysis_id) if row.context else None %}
-{% set raw_image_filename = row.context.raw_image_filename if row.context else "veracity-analysis-image.img" %}
 
 <div class="analyzer-detail-block" id="synthid-detail">
   {# Instructions — always shown #}
@@ -25,20 +23,21 @@
       href="{{ lens_link }}"
       target="_blank"
       rel="noopener noreferrer"
+      role="button"
     >Check Google</a>
     <a
       class="secondary synthid-check-action"
       href="https://openai.com/research/verify/"
       target="_blank"
       rel="noopener noreferrer"
+      role="button"
     >OpenAI Verify</a>
-    {% if raw_image_link %}
-    <a
-      class="secondary"
-      href="{{ raw_image_link }}"
-      download="{{ raw_image_filename }}"
-    >Download exact image</a>
-    {% endif %}
+    <button
+      type="button"
+      class="secondary synthid-check-action synthid-open-all"
+      data-google-url="{{ lens_link }}"
+      data-openai-url="https://openai.com/research/verify/"
+    >Open All</button>
   </div>
   <p class="analyzer-note">
     SynthID detectors are provider-specific. A Google result does not rule out OpenAI SynthID, and an OpenAI result does not rule out Google SynthID.
