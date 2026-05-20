@@ -155,7 +155,7 @@ def run_synthid(context: AnalysisContext) -> dict[str, object]:
         "status": status,
         "summary": summary,
         "data": {
-            "header_action": {"type": "open_all", "label": "Open All"},
+            "header_action": {"type": "synthid_checkers"},
             "display_state": display_state,
             "contested": contested,
             "this_image": this_image,

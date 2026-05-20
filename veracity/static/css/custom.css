@@ -1587,6 +1587,12 @@ html:not([data-tech-mode="on"])
   align-items: center;
   margin: 0;
 }
+.header-action-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
 
 .header-action button,
 a.header-action[role="button"],

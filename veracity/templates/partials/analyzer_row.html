@@ -43,15 +43,26 @@
     {% set action = row.data.header_action %}
     {% if action.type == "htmx" and row.slug == "tineye" %}
     {{ tineye_action(action.label, "outline", row.context.analysis_id, form_class="header-action", onclick="event.stopPropagation()") }}
-    {% elif action.type == "open_all" and row.slug == "synthid" %}
+    {% elif action.type == "synthid_checkers" and row.slug == "synthid" %}
     {% set lens_link = row.context.lens_link if row.context else "https://images.google.com/" %}
-    <button
-      type="button"
-      class="header-action synthid-open-all"
-      data-google-url="{{ lens_link }}"
-      data-openai-url="https://openai.com/research/verify/"
-      onclick="event.stopPropagation(); this.closest('details').open = true;"
-    >{{ action.label }}</button>
+    <div class="header-action-group">
+      <a
+        class="header-action"
+        href="{{ lens_link }}"
+        target="_blank"
+        rel="noopener noreferrer"
+        role="button"
+        onclick="event.stopPropagation(); this.closest('details').open = true;"
+      >Check Google</a>
+      <a
+        class="header-action"
+        href="https://openai.com/research/verify/"
+        target="_blank"
+        rel="noopener noreferrer"
+        role="button"
+        onclick="event.stopPropagation(); this.closest('details').open = true;"
+      >OpenAI Verify</a>
+    </div>
     {% endif %}
     {% endif %}
     <span class="badge {{ status_class }}">{{ row.status }}</span>
