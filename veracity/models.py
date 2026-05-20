@@ -99,11 +99,24 @@ class VoteHistory(db.Model):
 
 class SynthIDReport(db.Model):
     __table_args__ = (
-        db.UniqueConstraint("image_id", "voter_id", name="uq_synthid_report"),
+        db.UniqueConstraint(
+            "image_id",
+            "voter_id",
+            "provider",
+            "detector",
+            name="uq_synthid_report_detector",
+        ),
     )
     id = db.Column(db.Integer, primary_key=True)
     image_id = db.Column(db.Integer, db.ForeignKey("image_registry.id"), nullable=False)
     voter_id = db.Column(db.String(64), nullable=False)
+    provider = db.Column(db.String(32), nullable=False, default="google")
+    detector = db.Column(
+        db.String(64), nullable=False, default="google_about_this_image"
+    )
+    source_kind = db.Column(
+        db.String(32), nullable=False, default="manual_user_report"
+    )
     result = db.Column(db.String(16), nullable=False)  # "detected" or "not_detected"
 
 

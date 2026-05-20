@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from io import BytesIO
 
 from flask import current_app
@@ -55,6 +55,7 @@ class FactSnapshot:
 class SynthIDSnapshot:
     detected: int
     not_detected: int
+    by_detector: dict[str, dict[str, object]] = field(default_factory=dict)
 
 
 @dataclass(slots=True)
@@ -256,7 +257,12 @@ def _serialize_neighbor(
     if synthid_reports:
         detected = sum(1 for r in synthid_reports if r.result == "detected")
         not_detected = sum(1 for r in synthid_reports if r.result == "not_detected")
-        synthid_snapshot = SynthIDSnapshot(detected=detected, not_detected=not_detected)
+        by_detector = _summarize_synthid_reports_by_detector(synthid_reports)
+        synthid_snapshot = SynthIDSnapshot(
+            detected=detected,
+            not_detected=not_detected,
+            by_detector=by_detector,
+        )
 
     return NeighborSnapshot(
         id=getattr(registry_obj, "id", None),
@@ -270,6 +276,30 @@ def _serialize_neighbor(
         match_method=match_method,
         local_match=local_match,
     )
+
+
+def _summarize_synthid_reports_by_detector(reports) -> dict[str, dict[str, object]]:
+    by_detector: dict[str, dict[str, object]] = {}
+    for report in reports:
+        detector = str(getattr(report, "detector", "") or "google_about_this_image")
+        provider = str(getattr(report, "provider", "") or "google")
+        row = by_detector.setdefault(
+            detector,
+            {
+                "provider": provider,
+                "detector": detector,
+                "detected": 0,
+                "not_detected": 0,
+                "total": 0,
+            },
+        )
+        result = getattr(report, "result", None)
+        if result == "detected":
+            row["detected"] = int(row["detected"]) + 1
+        elif result == "not_detected":
+            row["not_detected"] = int(row["not_detected"]) + 1
+        row["total"] = int(row["detected"]) + int(row["not_detected"])
+    return by_detector
 
 
 def _is_hash_match(base_phash, base_whash, candidate: ImageRegistry) -> bool:

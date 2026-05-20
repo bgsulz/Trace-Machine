@@ -84,6 +84,10 @@ def register_community_routes(
     @bp.route("/synthid-report", methods=["POST"])
     def synthid_report():
         report = (request.form.get("report") or "").strip().lower()
+        provider = (request.form.get("provider") or "google").strip().lower()
+        detector = (
+            request.form.get("detector") or "google_about_this_image"
+        ).strip().lower()
         analysis_id = (request.form.get("analysis_id") or "").strip()
         mini = request.form.get("mini") == "1"
         if not analysis_id:
@@ -103,7 +107,13 @@ def register_community_routes(
             return redirect(url_for("main.index"))
 
         voter_id = get_voter_id()
-        success, status = apply_synthid_report(phash, report, voter_id)
+        success, status = apply_synthid_report(
+            phash,
+            report,
+            voter_id,
+            provider=provider,
+            detector=detector,
+        )
         if not success:
             flash("Reporting is temporarily unavailable. Please try again.")
             return redirect(url_for("main.index"))

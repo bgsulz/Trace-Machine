@@ -92,6 +92,7 @@ def _build_direct_items(
         )
         total_reports = detected + not_detected
         if total_reports > 0:
+            by_detector = _summarize_synthid_reports_by_detector(synthid_reports)
             items.append(
                 {
                     "kind": "synthid",
@@ -100,7 +101,7 @@ def _build_direct_items(
                         f"{total_reports} report{'s' if total_reports != 1 else ''}: "
                         f"{detected} detected / {not_detected} not detected."
                     ),
-                    "details": [],
+                    "details": _format_synthid_detector_details(by_detector),
                 }
             )
 
@@ -218,7 +219,43 @@ def _extract_synthid_counts(neighbor) -> dict[str, int] | None:
     total = detected + not_detected
     if total <= 0:
         return None
-    return {"detected": detected, "not_detected": not_detected, "total": total}
+    return {
+        "detected": detected,
+        "not_detected": not_detected,
+        "total": total,
+        "by_detector": getattr(synthid, "by_detector", {}) or {},
+    }
+
+
+def _summarize_synthid_reports_by_detector(reports) -> dict[str, dict[str, int]]:
+    by_detector: dict[str, dict[str, int]] = {}
+    for report in reports:
+        detector = str(getattr(report, "detector", "") or "google_about_this_image")
+        row = by_detector.setdefault(detector, {"detected": 0, "not_detected": 0})
+        if getattr(report, "result", None) == "detected":
+            row["detected"] += 1
+        elif getattr(report, "result", None) == "not_detected":
+            row["not_detected"] += 1
+    return by_detector
+
+
+def _format_synthid_detector_details(
+    by_detector: dict[str, dict[str, int]]
+) -> list[str]:
+    labels = {
+        "google_about_this_image": "Google",
+        "openai_verify": "OpenAI",
+    }
+    details = []
+    for detector, counts in by_detector.items():
+        detected = int(counts.get("detected") or 0)
+        not_detected = int(counts.get("not_detected") or 0)
+        total = detected + not_detected
+        if total <= 0:
+            continue
+        label = labels.get(detector, detector.replace("_", " "))
+        details.append(f"{label}: {detected} detected / {not_detected} not detected")
+    return details
 
 
 def _find_analyzer_row(

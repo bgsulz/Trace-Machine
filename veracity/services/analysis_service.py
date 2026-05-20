@@ -31,6 +31,7 @@ from ..registry import prepare_analysis_context
 from .trace_service import build_direct_and_distant_traces
 from ..tools import generate_external_tools
 from . import voting_service
+from .synthid_service import SYNTHID_DETECTORS
 from ..analyzers.human import _build_vote_breakdown
 
 
@@ -339,6 +340,7 @@ def _prepare_row_for_render(
     slug = row.get("slug")
 
     if slug == "synthid":
+        _ensure_synthid_detector_defaults(row_data)
         registry_id = metadata.get("registry_id")
         if registry_id is not None:
             _attach_synthid_report(row, registry_id)
@@ -373,14 +375,54 @@ def _attach_synthid_report(row: dict[str, Any], registry_id: int) -> None:
     if row is None:
         return
 
-    report = SynthIDReport.query.filter_by(
+    reports = SynthIDReport.query.filter_by(
         image_id=registry_id,
         voter_id=voting_service.get_voter_id(),
-    ).first()
+    ).all()
 
     data = row.get("data") or {}
-    data["current_report"] = report.result if report else None
+    current_reports = {
+        str(report.detector): report.result
+        for report in reports
+        if getattr(report, "detector", None)
+    }
+    data["current_reports"] = current_reports
+    data["current_report"] = current_reports.get("google_about_this_image")
     row["data"] = data
+
+
+def _ensure_synthid_detector_defaults(row_data: dict[str, Any]) -> None:
+    by_detector = row_data.get("by_detector")
+    if not isinstance(by_detector, dict):
+        by_detector = {}
+    normalized = {}
+    for detector, spec in SYNTHID_DETECTORS.items():
+        counts = by_detector.get(detector) if isinstance(by_detector, dict) else {}
+        if not isinstance(counts, dict):
+            counts = {}
+        detected = int(counts.get("detected") or 0)
+        not_detected = int(counts.get("not_detected") or 0)
+        normalized[detector] = {
+            "provider": spec["provider"],
+            "detector": detector,
+            "detected": detected,
+            "not_detected": not_detected,
+            "total": detected + not_detected,
+        }
+    row_data["by_detector"] = normalized
+    row_data["checker_rows"] = [
+        {
+            "provider": spec["provider"],
+            "detector": detector,
+            "label": spec["label"],
+            "short_label": spec["short_label"],
+            "check_label": spec["check_label"],
+            "detected": normalized[detector]["detected"],
+            "not_detected": normalized[detector]["not_detected"],
+            "total": normalized[detector]["total"],
+        }
+        for detector, spec in SYNTHID_DETECTORS.items()
+    ]
 
 
 def _ensure_human_vote_defaults(row_data: dict[str, Any]) -> None:

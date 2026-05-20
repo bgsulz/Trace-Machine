@@ -11,6 +11,7 @@ from .context import AnalysisContext
 from .hash_utils import (
     iter_neighbor_views,
 )
+from ..services.synthid_service import SYNTHID_DETECTORS
 
 
 # Tier weights for gating score
@@ -27,8 +28,9 @@ _CONTRADICTION_RATIO = 3
 
 def run_synthid(context: AnalysisContext) -> dict[str, object]:
     """Scan neighbors for SynthID reports and compute gating score."""
-    this_image = {"detected": 0, "not_detected": 0}
+    this_image = _empty_counts()
     similar_images: list[dict[str, object]] = []
+    totals_by_detector = _empty_detector_counts()
     score = 0.0
     any_reports = False
     tier_a_detected = 0
@@ -42,10 +44,12 @@ def run_synthid(context: AnalysisContext) -> dict[str, object]:
 
         detected = synthid.detected
         not_detected = synthid.not_detected
+        by_detector = getattr(synthid, "by_detector", {}) or {}
         if detected == 0 and not_detected == 0:
             continue
 
         any_reports = True
+        _add_detector_counts(totals_by_detector, by_detector)
         phash_dist = neighbor_view["phash_distance"]
         whash_dist = neighbor_view["whash_distance"]
 
@@ -58,6 +62,7 @@ def run_synthid(context: AnalysisContext) -> dict[str, object]:
             tier_a_not_detected += not_detected
             this_image["detected"] += detected
             this_image["not_detected"] += not_detected
+            _add_detector_counts(this_image["by_detector"], by_detector)
 
             # Tier A contradiction rule
             contribution = detected
@@ -73,6 +78,7 @@ def run_synthid(context: AnalysisContext) -> dict[str, object]:
                 neighbor_view,
                 detected,
                 not_detected,
+                by_detector,
             )
         else:
             # Tier C: similar (within neighbor threshold)
@@ -83,6 +89,7 @@ def run_synthid(context: AnalysisContext) -> dict[str, object]:
                 neighbor_view,
                 detected,
                 not_detected,
+                by_detector,
             )
 
     # Determine contested flag
@@ -100,6 +107,7 @@ def run_synthid(context: AnalysisContext) -> dict[str, object]:
         s["not_detected"] for s in similar_images
     )
     totals = {"detected": total_detected, "not_detected": total_not_detected}
+    checker_rows = _build_checker_rows(totals_by_detector)
 
     if score == 0 and not any_reports:
         display_state = "manual"
@@ -154,6 +162,8 @@ def run_synthid(context: AnalysisContext) -> dict[str, object]:
             "similar_images": similar_images,
             "has_distant_matches": bool(similar_images),
             "totals": totals,
+            "by_detector": totals_by_detector,
+            "checker_rows": checker_rows,
             "score": score,
             "caveat": caveat,
         },
@@ -171,6 +181,7 @@ def _append_similar(
     neighbor_view: dict[str, object],
     detected: int,
     not_detected: int,
+    by_detector: dict[str, dict[str, object]],
 ) -> None:
     similar_images.append({
         "phash": neighbor_view["phash"],
@@ -179,5 +190,73 @@ def _append_similar(
         "distance": neighbor_view["display_distance"],
         "detected": detected,
         "not_detected": not_detected,
+        "by_detector": by_detector,
         "sources": neighbor_view["sources"],
     })
+
+
+def _empty_counts() -> dict[str, object]:
+    return {
+        "detected": 0,
+        "not_detected": 0,
+        "by_detector": _empty_detector_counts(),
+    }
+
+
+def _empty_detector_counts() -> dict[str, dict[str, object]]:
+    return {
+        detector: {
+            "provider": spec["provider"],
+            "detector": detector,
+            "detected": 0,
+            "not_detected": 0,
+            "total": 0,
+        }
+        for detector, spec in SYNTHID_DETECTORS.items()
+    }
+
+
+def _add_detector_counts(
+    target: dict[str, dict[str, object]],
+    source: dict[str, dict[str, object]],
+) -> None:
+    for detector, counts in source.items():
+        spec = SYNTHID_DETECTORS.get(detector, {})
+        row = target.setdefault(
+            detector,
+            {
+                "provider": counts.get("provider") or spec.get("provider") or "unknown",
+                "detector": detector,
+                "detected": 0,
+                "not_detected": 0,
+                "total": 0,
+            },
+        )
+        row["detected"] = int(row.get("detected") or 0) + int(counts.get("detected") or 0)
+        row["not_detected"] = int(row.get("not_detected") or 0) + int(
+            counts.get("not_detected") or 0
+        )
+        row["total"] = int(row["detected"]) + int(row["not_detected"])
+
+
+def _build_checker_rows(
+    by_detector: dict[str, dict[str, object]]
+) -> list[dict[str, object]]:
+    rows: list[dict[str, object]] = []
+    for detector, spec in SYNTHID_DETECTORS.items():
+        counts = by_detector.get(detector) or {}
+        detected = int(counts.get("detected") or 0)
+        not_detected = int(counts.get("not_detected") or 0)
+        rows.append(
+            {
+                "provider": spec["provider"],
+                "detector": detector,
+                "label": spec["label"],
+                "short_label": spec["short_label"],
+                "check_label": spec["check_label"],
+                "detected": detected,
+                "not_detected": not_detected,
+                "total": detected + not_detected,
+            }
+        )
+    return rows
