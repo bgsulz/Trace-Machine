@@ -194,6 +194,11 @@
                 <strong>SynthID:</strong>
                 {{ match.synthid.detected }} detected /
                 {{ match.synthid.not_detected }} not detected
+                {% for detector, counts in (match.synthid.by_detector or {}).items() %}
+                  {% if counts.total %}
+                  <br /><small>{{ counts.provider|title }}: {{ counts.detected }} detected / {{ counts.not_detected }} not detected</small>
+                  {% endif %}
+                {% endfor %}
               </div>
               {% endif %}
             </td>

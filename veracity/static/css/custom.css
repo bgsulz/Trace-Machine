@@ -1128,6 +1128,24 @@ html:not([data-tech-mode="on"])
 .synthid-voting-area[hidden] {
   display: none;
 }
+.synthid-provider-list {
+  display: grid;
+  gap: 0.75rem;
+}
+.synthid-provider-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+.synthid-provider-meta {
+  display: grid;
+  gap: 0.15rem;
+}
+.synthid-provider-meta small {
+  color: var(--pico-muted-color);
+}
 
 /* Shared Analyzer Patterns */
 .analyzer-match-callout {

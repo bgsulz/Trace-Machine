@@ -2,7 +2,8 @@
 {% set totals = row.data.totals or {} %}
 {% set total_detected = totals.detected|default(0) %}
 {% set total_not_detected = totals.not_detected|default(0) %}
-{% set current_report = row.data.current_report %}
+{% set current_reports = row.data.current_reports or {} %}
+{% set checker_rows = row.data.checker_rows or [] %}
 {% set lens_link = row.context.lens_link if row.context else None %}
 {% set raw_image_link = url_for('main.serve_analysis_image', analysis_id=row.context.analysis_id) if row.context else None %}
 {% set raw_image_filename = row.context.raw_image_filename if row.context else "veracity-analysis-image.img" %}
@@ -47,6 +48,9 @@
 
   {% if row.data.phash %}
   <div class="mini-vote-buttons">
+    {% for checker in checker_rows %}
+    {% set current_report = current_reports.get(checker.detector) %}
+    <small class="mini-vote-label">{{ checker.short_label }}</small>
     <form action="{{ url_for('main.synthid_report') }}" method="post"
           hx-post="{{ url_for('main.synthid_report') }}"
           hx-target="closest .mini-card"
@@ -54,6 +58,8 @@
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
       <input type="hidden" name="analysis_id" value="{{ row.context.analysis_id }}" />
       <input type="hidden" name="mini" value="1" />
+      <input type="hidden" name="provider" value="{{ checker.provider }}" />
+      <input type="hidden" name="detector" value="{{ checker.detector }}" />
       <input type="hidden" name="report" value="detected" />
       <button type="submit" class="mini-vote-btn ai{% if current_report == 'detected' %} active{% endif %}">Detected</button>
     </form>
@@ -64,9 +70,12 @@
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
       <input type="hidden" name="analysis_id" value="{{ row.context.analysis_id }}" />
       <input type="hidden" name="mini" value="1" />
+      <input type="hidden" name="provider" value="{{ checker.provider }}" />
+      <input type="hidden" name="detector" value="{{ checker.detector }}" />
       <input type="hidden" name="report" value="not_detected" />
       <button type="submit" class="mini-vote-btn real{% if current_report == 'not_detected' %} active{% endif %}">Not Detected</button>
     </form>
+    {% endfor %}
   </div>
   {% endif %}
 </div>

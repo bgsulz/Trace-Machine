@@ -5,7 +5,8 @@
 {% set similar_images = row.data.similar_images or [] %}
 {% set totals = row.data.totals or {} %}
 {% set caveat = row.data.caveat %}
-{% set current_report = row.data.current_report %}
+{% set current_reports = row.data.current_reports or {} %}
+{% set checker_rows = row.data.checker_rows or [] %}
 {% set link_target = row.context.link_target if row.context else None %}
 {% set lens_link = row.context.lens_link if row.context else "https://images.google.com/" %}
 {% set raw_image_link = url_for('main.serve_analysis_image', analysis_id=row.context.analysis_id) if row.context else None %}
@@ -76,7 +77,15 @@
 <div class="synthid-voting-area" id="synthid-vote-area" hidden>
   <hr />
   <small class="vote-prompt"><strong>Did you find SynthID?</strong></small>
-  <div class="vote-buttons">
+  <div class="synthid-provider-list">
+    {% for checker in checker_rows %}
+    {% set current_report = current_reports.get(checker.detector) %}
+    <div class="synthid-provider-row">
+      <div class="synthid-provider-meta">
+        <strong>{{ checker.label }}</strong>
+        <small>{{ checker.detected }} detected / {{ checker.not_detected }} not detected</small>
+      </div>
+      <div class="vote-buttons">
     <form
       action="{{ url_for('main.synthid_report') }}"
       method="post"
@@ -86,6 +95,8 @@
     >
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
       <input type="hidden" name="analysis_id" value="{{ row.context.analysis_id }}" />
+      <input type="hidden" name="provider" value="{{ checker.provider }}" />
+      <input type="hidden" name="detector" value="{{ checker.detector }}" />
       <input type="hidden" name="report" value="detected" />
       <button
         type="submit"
@@ -102,12 +113,17 @@
     >
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
       <input type="hidden" name="analysis_id" value="{{ row.context.analysis_id }}" />
+      <input type="hidden" name="provider" value="{{ checker.provider }}" />
+      <input type="hidden" name="detector" value="{{ checker.detector }}" />
       <input type="hidden" name="report" value="not_detected" />
       <button
         type="submit"
         class="vote-btn-real{% if current_report and current_report != 'not_detected' %} vote-btn-muted{% endif %}"
       >Not Detected</button>
     </form>
+      </div>
+    </div>
+    {% endfor %}
   </div>
 </div>
 {% endif %}

@@ -237,6 +237,14 @@ body {
   display: flex;
   gap: 0.25rem;
   margin-top: auto;
+  flex-wrap: wrap;
+}
+
+.mini-vote-label {
+  flex-basis: 100%;
+  color: var(--pico-muted-color);
+  font-size: 0.65rem;
+  font-weight: 600;
 }
 
 .mini-vote-buttons form {
