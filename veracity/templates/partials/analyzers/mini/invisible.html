@@ -1,0 +1,24 @@
+<div class="mini-card-content" data-status="{{ row.status }}">
+  <div class="mini-card-title">Invisible</div>
+
+  {% if row.status == "FOUND" %}
+  <div class="mini-card-status found">
+    <span class="mini-icon">&#9888;</span> Watermark
+  </div>
+  {% set first = (row.data.findings or [])[0] %}
+  <div class="mini-card-detail">{{ first.scheme or first.label }}</div>
+
+  {% elif row.status == "NOT FOUND" %}
+  <div class="mini-card-status not-found">No local hit</div>
+  <div class="mini-card-detail">Inconclusive</div>
+
+  {% elif row.status == "NOT AVAILABLE" %}
+  <div class="mini-card-status not-found">Not available</div>
+
+  {% elif row.status == "ERROR" %}
+  <div class="mini-card-status error">Error</div>
+
+  {% else %}
+  <div class="mini-card-status unknown">{{ row.status }}</div>
+  {% endif %}
+</div>

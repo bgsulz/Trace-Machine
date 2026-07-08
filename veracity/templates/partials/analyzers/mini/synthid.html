@@ -1,35 +1,39 @@
 {% set display_state = row.data.display_state or "manual" %}
 {% set totals = row.data.totals or {} %}
-{% set total_detected = totals.detected|default(0) %}
-{% set total_not_detected = totals.not_detected|default(0) %}
-{% set current_reports = row.data.current_reports or {} %}
+{% set current_report = row.data.current_report %}
 {% set checker_rows = row.data.checker_rows or [] %}
 {% set lens_link = row.context.lens_link if row.context else None %}
 
 <div class="mini-card-content" data-status="{{ row.status }}">
   <div class="mini-card-title">
-    SynthID
+    Portals
     {% if lens_link %}
-    <a href="{{ lens_link }}" target="_blank" rel="noopener noreferrer" class="mini-check-link">Check Google</a>
+    <a href="{{ lens_link }}" target="_blank" rel="noopener noreferrer" class="mini-check-link">Google</a>
     {% endif %}
     <a href="https://openai.com/research/verify/" target="_blank" rel="noopener noreferrer" class="mini-check-link">OpenAI</a>
   </div>
 
   {% if display_state == "detected" %}
   <div class="mini-card-status found">
-    <span class="mini-icon">&#9888;</span> Detected
+    <span class="mini-icon">&#9888;</span> Positive
   </div>
-  <div class="mini-card-detail">{{ total_detected }} report{{ 's' if total_detected != 1 else '' }}</div>
+  <div class="mini-card-detail">G {{ totals.google_positive|default(0) }} / O {{ totals.openai_positive|default(0) }} / N {{ totals.negative|default(0) }}</div>
 
   {% elif display_state == "reported" %}
   <div class="mini-card-status similar">
     <span class="mini-icon">&#128269;</span> Reported
   </div>
-  <div class="mini-card-detail">{{ total_detected }} detected / {{ total_not_detected }} not</div>
+  <div class="mini-card-detail">G {{ totals.google_positive|default(0) }} / O {{ totals.openai_positive|default(0) }} / N {{ totals.negative|default(0) }}</div>
+
+  {% elif display_state == "contested" %}
+  <div class="mini-card-status similar">
+    <span class="mini-icon">&#9888;</span> Contested
+  </div>
+  <div class="mini-card-detail">G {{ totals.google_positive|default(0) }} / O {{ totals.openai_positive|default(0) }}</div>
 
   {% elif display_state == "checked" %}
-  <div class="mini-card-status not-found">Not detected</div>
-  <div class="mini-card-detail">Checked by {{ total_detected + total_not_detected }}</div>
+  <div class="mini-card-status not-found">Negative</div>
+  <div class="mini-card-detail">Checked by {{ totals.negative|default(0) }}</div>
 
   {% elif display_state == "manual" %}
   <div class="mini-card-status not-found">Not checked</div>
@@ -44,8 +48,6 @@
   {% if row.data.phash %}
   <div class="mini-vote-buttons">
     {% for checker in checker_rows %}
-    {% set current_report = current_reports.get(checker.detector) %}
-    <small class="mini-vote-label">{{ checker.short_label }}</small>
     <form action="{{ url_for('main.synthid_report') }}" method="post"
           hx-post="{{ url_for('main.synthid_report') }}"
           hx-target="closest .mini-card"
@@ -53,22 +55,11 @@
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
       <input type="hidden" name="analysis_id" value="{{ row.context.analysis_id }}" />
       <input type="hidden" name="mini" value="1" />
-      <input type="hidden" name="provider" value="{{ checker.provider }}" />
-      <input type="hidden" name="detector" value="{{ checker.detector }}" />
-      <input type="hidden" name="report" value="detected" />
-      <button type="submit" class="mini-vote-btn ai{% if current_report == 'detected' %} active{% endif %}">Detected</button>
-    </form>
-    <form action="{{ url_for('main.synthid_report') }}" method="post"
-          hx-post="{{ url_for('main.synthid_report') }}"
-          hx-target="closest .mini-card"
-          hx-swap="innerHTML">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
-      <input type="hidden" name="analysis_id" value="{{ row.context.analysis_id }}" />
-      <input type="hidden" name="mini" value="1" />
-      <input type="hidden" name="provider" value="{{ checker.provider }}" />
-      <input type="hidden" name="detector" value="{{ checker.detector }}" />
-      <input type="hidden" name="report" value="not_detected" />
-      <button type="submit" class="mini-vote-btn real{% if current_report == 'not_detected' %} active{% endif %}">Not Detected</button>
+      <input type="hidden" name="report" value="{{ checker.result }}" />
+      <button
+        type="submit"
+        class="mini-vote-btn {% if checker.result == 'negative' %}real{% else %}ai{% endif %}{% if current_report == checker.result %} active{% endif %}"
+      >{{ checker.short_label }}</button>
     </form>
     {% endfor %}
   </div>

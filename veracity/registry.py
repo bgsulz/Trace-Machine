@@ -24,6 +24,12 @@ from .matching import (
     verify_local_match,
 )
 from .models import ImageLocalFeatures, ImageRegistry
+from .services.synthid_service import (
+    GOOGLE_POSITIVE,
+    NEGATIVE,
+    OPENAI_POSITIVE,
+    portal_counts_from_reports,
+)
 
 
 logger = logging.getLogger(__name__)
@@ -53,9 +59,18 @@ class FactSnapshot:
 
 @dataclass(slots=True)
 class SynthIDSnapshot:
-    detected: int
-    not_detected: int
-    by_detector: dict[str, dict[str, object]] = field(default_factory=dict)
+    google_positive: int
+    openai_positive: int
+    negative: int
+    by_result: dict[str, dict[str, object]] = field(default_factory=dict)
+
+    @property
+    def detected(self) -> int:
+        return self.google_positive + self.openai_positive
+
+    @property
+    def not_detected(self) -> int:
+        return self.negative
 
 
 @dataclass(slots=True)
@@ -255,13 +270,13 @@ def _serialize_neighbor(
     synthid_snapshot = None
     synthid_reports = getattr(registry_obj, "synthid_reports", None) or []
     if synthid_reports:
-        detected = sum(1 for r in synthid_reports if r.result == "detected")
-        not_detected = sum(1 for r in synthid_reports if r.result == "not_detected")
-        by_detector = _summarize_synthid_reports_by_detector(synthid_reports)
+        counts = portal_counts_from_reports(synthid_reports)
+        by_result = _summarize_synthid_reports_by_result(synthid_reports)
         synthid_snapshot = SynthIDSnapshot(
-            detected=detected,
-            not_detected=not_detected,
-            by_detector=by_detector,
+            google_positive=counts[GOOGLE_POSITIVE],
+            openai_positive=counts[OPENAI_POSITIVE],
+            negative=counts[NEGATIVE],
+            by_result=by_result,
         )
 
     return NeighborSnapshot(
@@ -278,28 +293,25 @@ def _serialize_neighbor(
     )
 
 
-def _summarize_synthid_reports_by_detector(reports) -> dict[str, dict[str, object]]:
-    by_detector: dict[str, dict[str, object]] = {}
-    for report in reports:
-        detector = str(getattr(report, "detector", "") or "google_about_this_image")
-        provider = str(getattr(report, "provider", "") or "google")
-        row = by_detector.setdefault(
-            detector,
-            {
-                "provider": provider,
-                "detector": detector,
-                "detected": 0,
-                "not_detected": 0,
-                "total": 0,
-            },
-        )
-        result = getattr(report, "result", None)
-        if result == "detected":
-            row["detected"] = int(row["detected"]) + 1
-        elif result == "not_detected":
-            row["not_detected"] = int(row["not_detected"]) + 1
-        row["total"] = int(row["detected"]) + int(row["not_detected"])
-    return by_detector
+def _summarize_synthid_reports_by_result(reports) -> dict[str, dict[str, object]]:
+    counts = portal_counts_from_reports(reports)
+    return {
+        GOOGLE_POSITIVE: {
+            "result": GOOGLE_POSITIVE,
+            "label": "Google Positive",
+            "count": counts[GOOGLE_POSITIVE],
+        },
+        OPENAI_POSITIVE: {
+            "result": OPENAI_POSITIVE,
+            "label": "OpenAI Positive",
+            "count": counts[OPENAI_POSITIVE],
+        },
+        NEGATIVE: {
+            "result": NEGATIVE,
+            "label": "Negative",
+            "count": counts[NEGATIVE],
+        },
+    }
 
 
 def _is_hash_match(base_phash, base_whash, candidate: ImageRegistry) -> bool:

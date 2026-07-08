@@ -5,12 +5,13 @@
   {% if direct_distant and direct_distant.distant_matches %}
   {% set matches = direct_distant.distant_matches %}
   {% set match_count = matches|length %}
-  {# Aggregate SynthID verdict across all matches #}
-  {% set ns = namespace(synthid_detected=0, synthid_not_detected=0) %}
+  {# Aggregate verification-portal verdict across all matches #}
+  {% set ns = namespace(portal_google=0, portal_openai=0, portal_negative=0) %}
   {% for m in matches %}
-    {% if m.synthid %}
-      {% set ns.synthid_detected = ns.synthid_detected + m.synthid.detected %}
-      {% set ns.synthid_not_detected = ns.synthid_not_detected + m.synthid.not_detected %}
+    {% if m.verification_portals %}
+      {% set ns.portal_google = ns.portal_google + m.verification_portals.google_positive %}
+      {% set ns.portal_openai = ns.portal_openai + m.verification_portals.openai_positive %}
+      {% set ns.portal_negative = ns.portal_negative + m.verification_portals.negative %}
     {% endif %}
   {% endfor %}
   <details class="analyzer-item" id="direct-distant-traces" open>
@@ -22,17 +23,17 @@
     </summary>
     <div class="analyzer-content">
       {# -- Verdict line -- #}
-      {% if ns.synthid_detected > 0 %}
+      {% if ns.portal_google > 0 or ns.portal_openai > 0 %}
       <div class="dt-verdict dt-verdict--detected">
         <span class="dt-verdict__dot"></span>
-        <strong>SynthID detected on matched copy</strong>
-        <span class="tech-only dt-verdict__counts">{{ ns.synthid_detected }} detected / {{ ns.synthid_not_detected }} not detected</span>
+        <strong>Portal-positive report on matched copy</strong>
+        <span class="tech-only dt-verdict__counts">Google {{ ns.portal_google }} / OpenAI {{ ns.portal_openai }} / negative {{ ns.portal_negative }}</span>
       </div>
-      {% elif ns.synthid_not_detected > 0 %}
+      {% elif ns.portal_negative > 0 %}
       <div class="dt-verdict dt-verdict--clear">
         <span class="dt-verdict__dot dt-verdict__dot--clear"></span>
-        <strong>No SynthID detected on matched copies</strong>
-        <span class="tech-only dt-verdict__counts">0 detected / {{ ns.synthid_not_detected }} not detected</span>
+        <strong>Negative portal reports on matched copies</strong>
+        <span class="tech-only dt-verdict__counts">0 positive / {{ ns.portal_negative }} negative</span>
       </div>
       {% endif %}
 
@@ -59,13 +60,8 @@
 
           {# Carried traces summary (normal mode) #}
           <div class="dt-card__traces friendly-only">
-            {% if match.synthid %}
-            <small>SynthID: {{ match.synthid.detected }} detected / {{ match.synthid.not_detected }} not detected</small>
-            {% for detector, counts in (match.synthid.by_detector or {}).items() %}
-              {% if counts.total %}
-              <small>{{ counts.provider|title }}: {{ counts.detected }} detected / {{ counts.not_detected }} not detected</small>
-              {% endif %}
-            {% endfor %}
+            {% if match.verification_portals %}
+            <small>Portals: G {{ match.verification_portals.google_positive }} / O {{ match.verification_portals.openai_positive }} / N {{ match.verification_portals.negative }}</small>
             {% endif %}
             {% if match.c2pa_facts %}
             <small>C2PA: {{ match.c2pa_facts|join("; ") }}</small>
@@ -76,19 +72,14 @@
           </div>
 
           {# Technical detail block #}
-          {% if match.local or match.votes or match.c2pa_facts or match.synthid %}
+          {% if match.local or match.votes or match.c2pa_facts or match.verification_portals %}
           <div class="dt-card__tech tech-only">
             {% if match.local %}
             <code class="dt-card__tech-block">{{ match.local.extractor|upper }}: {{ match.local.inliers }} inliers / {{ match.local.good_matches }} good ({{ "%.1f"|format(match.local.inlier_ratio * 100) }}%){% if match.local.crop_box %}
 Region: [{{ "%.3f"|format(match.local.crop_box[0]) }}, {{ "%.3f"|format(match.local.crop_box[1]) }}, {{ "%.3f"|format(match.local.crop_box[2]) }}, {{ "%.3f"|format(match.local.crop_box[3]) }}]{% endif %}</code>
             {% endif %}
-            {% if match.synthid %}
-            <small>SynthID: {{ match.synthid.detected }} detected / {{ match.synthid.not_detected }} not detected</small>
-            {% for detector, counts in (match.synthid.by_detector or {}).items() %}
-              {% if counts.total %}
-              <small>{{ counts.provider|title }}: {{ counts.detected }} detected / {{ counts.not_detected }} not detected</small>
-              {% endif %}
-            {% endfor %}
+            {% if match.verification_portals %}
+            <small>Verification portals: Google {{ match.verification_portals.google_positive }} / OpenAI {{ match.verification_portals.openai_positive }} / negative {{ match.verification_portals.negative }}</small>
             {% endif %}
             {% if match.c2pa_facts %}
             <small>C2PA: {{ match.c2pa_facts|join("; ") }}</small>

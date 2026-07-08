@@ -4,6 +4,7 @@ from types import SimpleNamespace
 
 import pytest
 import imagehash
+from flask import current_app
 from PIL import Image, PngImagePlugin
 
 from veracity import db
@@ -14,6 +15,7 @@ from veracity.analyzers.human import (
     run_human_consensus,
 )
 from veracity.analyzers.exif import run_exif_metadata, _collect_text_chunks
+from veracity.analyzers.invisible import DecoderUnavailable, run_invisible_watermarks
 from veracity.analyzers.manager import AnalysisContext
 from veracity.analyzers import c2pa as c2pa_analyzer
 from veracity.analyzers.c2pa import _detect_mime_type, _run_c2pa_tool
@@ -573,6 +575,71 @@ def _make_png_with_text(chunks: dict[str, str]) -> bytes:
     return buf.getvalue()
 
 
+def _make_png_with_suffix(suffix: bytes) -> bytes:
+    buf = BytesIO()
+    Image.new("RGB", (12, 12), color=(0, 128, 255)).save(buf, format="PNG")
+    return buf.getvalue() + suffix
+
+
+def _make_jpeg_with_exif(tags: dict[int, str]) -> bytes:
+    exif = Image.Exif()
+    for key, value in tags.items():
+        exif[key] = value
+    buf = BytesIO()
+    Image.new("RGB", (12, 12), color=(0, 128, 255)).save(
+        buf, format="JPEG", exif=exif
+    )
+    return buf.getvalue()
+
+
+def _make_analysis_context(image_bytes: bytes) -> AnalysisContext:
+    return AnalysisContext(
+        image_bytes=image_bytes,
+        phash="deadbeefdeadbeef",
+        whash="deadbeefdeadbeef",
+        registry_id=1,
+        neighbors=[],
+        width=12,
+        height=12,
+    )
+
+
+def _finding_tools(result: dict[str, object]) -> set[str]:
+    return {
+        finding["tool"]
+        for finding in result["data"]["findings"]  # type: ignore[index]
+    }
+
+
+def test_exif_analyzer_renamed_but_slug_is_stable():
+    from veracity.analyzers.manager import get_analyzer_spec
+
+    spec = get_analyzer_spec("exif")
+
+    assert spec is not None
+    assert spec.slug == "exif"
+    assert spec.name == "AI Metadata (EXIF/XMP/IPTC)"
+
+
+def test_portal_analyzer_renamed_but_slug_is_stable():
+    from veracity.analyzers.manager import get_analyzer_spec
+
+    spec = get_analyzer_spec("synthid")
+
+    assert spec is not None
+    assert spec.slug == "synthid"
+    assert spec.name == "Verification Portals"
+
+
+def test_invisible_analyzer_registered():
+    from veracity.analyzers.manager import get_analyzer_spec
+
+    spec = get_analyzer_spec("invisible")
+
+    assert spec is not None
+    assert spec.name == "Invisible Watermarks"
+
+
 def test_exif_detects_automatic1111_metadata():
     sample = (
         "Astronaut in a jungle, cold color palette, muted colors, detailed, 8k "
@@ -683,6 +750,296 @@ def test_collect_text_chunks_includes_numeric_and_exif_values():
     assert chunks["BitDepth"] == "8"
     assert chunks["ExtraTuple"] == "1, 2, 3"
     assert chunks["BinaryPayload"] == "abc"
+
+
+def test_collect_text_chunks_normalizes_top_level_exif_tags():
+    image_bytes = _make_jpeg_with_exif(
+        {
+            270: "Signature: " + "A" * 90,  # ImageDescription
+            271: "Ideogram AI",  # Make
+            305: "Adobe Firefly",  # Software
+            315: "123e4567-e89b-12d3-a456-426614174000",  # Artist
+        }
+    )
+
+    with Image.open(BytesIO(image_bytes)) as img:
+        chunks = _collect_text_chunks(img, image_bytes)
+
+    assert chunks["ImageDescription"].startswith("Signature:")
+    assert chunks["Make"] == "Ideogram AI"
+    assert chunks["Software"] == "Adobe Firefly"
+    assert chunks["Artist"] == "123e4567-e89b-12d3-a456-426614174000"
+    assert "270" not in chunks
+    assert "271" not in chunks
+    assert "305" not in chunks
+    assert "315" not in chunks
+
+
+def test_exif_detects_generator_software_and_ignores_plain_editor():
+    ai_result = run_exif_metadata(
+        _make_analysis_context(_make_jpeg_with_exif({305: "Adobe Firefly"}))
+    )
+    editor_result = run_exif_metadata(
+        _make_analysis_context(_make_jpeg_with_exif({305: "Adobe Photoshop 25.0"}))
+    )
+
+    assert ai_result["status"] == "FOUND"
+    assert "Embedded generator tag" in _finding_tools(ai_result)
+    assert editor_result["status"] == "NOT FOUND"
+
+
+def test_exif_detects_generator_make_and_ignores_camera_make():
+    ai_result = run_exif_metadata(
+        _make_analysis_context(_make_jpeg_with_exif({271: "Ideogram AI"}))
+    )
+    camera_result = run_exif_metadata(
+        _make_analysis_context(_make_jpeg_with_exif({271: "Apple"}))
+    )
+
+    assert ai_result["status"] == "FOUND"
+    assert "Embedded generator tag" in _finding_tools(ai_result)
+    assert camera_result["status"] == "NOT FOUND"
+
+
+def test_exif_detects_novelai_png_text_chunks():
+    image_bytes = _make_png_with_text(
+        {
+            "Software": "NovelAI",
+            "Source": "NovelAI Diffusion V4.5 C02D4F98",
+            "Title": "NovelAI generated image",
+        }
+    )
+
+    result = run_exif_metadata(_make_analysis_context(image_bytes))
+
+    assert result["status"] == "FOUND"
+    assert "Embedded generator tag" in _finding_tools(result)
+
+
+def test_exif_detects_tc260_aigc_png_chunk_and_xmp():
+    chunk_bytes = _make_png_with_text(
+        {
+            "AIGC": json.dumps(
+                {"Label": "1", "ContentProducer": "doubao", "ProduceID": "abc123"}
+            )
+        }
+    )
+    xmp = (
+        b'<x:xmpmeta xmlns:x="adobe:ns:meta/">'
+        b'<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">'
+        b'<rdf:Description xmlns:TC260="http://www.tc260.org.cn/ns/AIGC/1.0/">'
+        b"<TC260:AIGC>{&quot;Label&quot;:&quot;1&quot;,&quot;ContentProducer&quot;:&quot;BYTEDANCE001&quot;}</TC260:AIGC>"
+        b"</rdf:Description></rdf:RDF></x:xmpmeta>"
+    )
+    xmp_bytes = _make_png_with_suffix(xmp)
+
+    chunk_result = run_exif_metadata(_make_analysis_context(chunk_bytes))
+    xmp_result = run_exif_metadata(_make_analysis_context(xmp_bytes))
+
+    assert "China AIGC label (TC260)" in _finding_tools(chunk_result)
+    assert "China AIGC label (TC260)" in _finding_tools(xmp_result)
+
+
+def test_exif_detects_iptc_digital_source_and_ai_system():
+    xmp = (
+        b'<x:xmpmeta xmlns:x="adobe:ns:meta/">'
+        b'<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">'
+        b'<rdf:Description xmlns:Iptc4xmpExt="http://iptc.org/std/Iptc4xmpExt/2008-02-29/">'
+        b"<Iptc4xmpExt:DigitalSourceType>trainedAlgorithmicMedia</Iptc4xmpExt:DigitalSourceType>"
+        b"<Iptc4xmpExt:AISystemUsed>ChatGPT DALL-E</Iptc4xmpExt:AISystemUsed>"
+        b"</rdf:Description></rdf:RDF></x:xmpmeta>"
+    )
+    image_bytes = _make_png_with_suffix(xmp)
+
+    result = run_exif_metadata(_make_analysis_context(image_bytes))
+
+    assert result["status"] == "FOUND"
+    tools = _finding_tools(result)
+    assert "IPTC AI source" in tools
+    assert "IPTC AI disclosure" in tools
+
+
+def test_exif_detects_xai_signature_pair_and_requires_both_fields():
+    signature = "Signature: " + "A" * 120
+    uuid = "123e4567-e89b-12d3-a456-426614174000"
+
+    full_result = run_exif_metadata(
+        _make_analysis_context(_make_jpeg_with_exif({270: signature, 315: uuid}))
+    )
+    partial_result = run_exif_metadata(
+        _make_analysis_context(_make_jpeg_with_exif({270: signature}))
+    )
+
+    assert full_result["status"] == "FOUND"
+    assert "xAI/Grok signature" in _finding_tools(full_result)
+    assert partial_result["status"] == "NOT FOUND"
+
+
+def test_exif_detects_huggingface_job_id():
+    image_bytes = _make_png_with_text(
+        {"hf-job-id": "123e4567-e89b-12d3-a456-426614174000"}
+    )
+
+    result = run_exif_metadata(_make_analysis_context(image_bytes))
+
+    assert result["status"] == "FOUND"
+    assert "HuggingFace job marker" in _finding_tools(result)
+
+
+def test_exif_detects_samsung_genai_marker_with_container_gate():
+    marked = _make_png_with_suffix(
+        b' PhotoEditor_Re_Edit_Data {"genAIType": 4} '
+    )
+    ungated = _make_png_with_suffix(b' {"genAIType": 4} ')
+
+    marked_result = run_exif_metadata(_make_analysis_context(marked))
+    ungated_result = run_exif_metadata(_make_analysis_context(ungated))
+
+    assert marked_result["status"] == "FOUND"
+    assert "Samsung Galaxy AI marker" in _finding_tools(marked_result)
+    assert ungated_result["status"] == "NOT FOUND"
+
+
+def _enable_invisible_decoders(*decoders: str) -> None:
+    current_app.config["INVISIBLE_WATERMARK_DECODERS"] = set(decoders)
+
+
+def test_invisible_analyzer_default_disabled_even_if_decoders_exist(monkeypatch):
+    from veracity.analyzers import invisible
+
+    monkeypatch.setattr(
+        invisible,
+        "_detect_open_dwt_dct_watermark",
+        lambda *_: {
+            "label": "Open DWT-DCT watermark",
+            "scheme": "Stable Diffusion XL",
+        },
+    )
+    monkeypatch.setattr(
+        invisible,
+        "_detect_trustmark",
+        lambda *_: {
+            "label": "Adobe TrustMark",
+            "scheme": "Adobe TrustMark variant P, schema 0",
+        },
+    )
+
+    result = run_invisible_watermarks(_make_analysis_context(_make_test_image_bytes()))
+
+    assert result["status"] == "NOT AVAILABLE"
+    assert result["data"]["attempted_decoders"] == []
+    assert set(result["data"]["disabled_decoders"]) == {"open_dwt_dct", "adobe_trustmark"}
+    assert "decoders are enabled" in result["summary"]
+
+
+def test_invisible_analyzer_not_available_without_optional_decoders(monkeypatch):
+    from veracity.analyzers import invisible
+
+    _enable_invisible_decoders("open_dwt_dct", "adobe_trustmark")
+    monkeypatch.setattr(
+        invisible,
+        "_detect_open_dwt_dct_watermark",
+        lambda *_: (_ for _ in ()).throw(DecoderUnavailable()),
+    )
+    monkeypatch.setattr(
+        invisible,
+        "_detect_trustmark",
+        lambda *_: (_ for _ in ()).throw(DecoderUnavailable()),
+    )
+
+    result = run_invisible_watermarks(_make_analysis_context(_make_test_image_bytes()))
+
+    assert result["status"] == "NOT AVAILABLE"
+    assert result["data"]["attempted_decoders"] == []
+    assert set(result["data"]["unavailable_decoders"]) == {"open_dwt_dct", "adobe_trustmark"}
+
+
+def test_invisible_analyzer_not_found_after_decoder_runs(monkeypatch):
+    from veracity.analyzers import invisible
+
+    _enable_invisible_decoders("open_dwt_dct")
+    monkeypatch.setattr(invisible, "_detect_open_dwt_dct_watermark", lambda *_: None)
+    monkeypatch.setattr(
+        invisible,
+        "_detect_trustmark",
+        lambda *_: (_ for _ in ()).throw(DecoderUnavailable()),
+    )
+
+    result = run_invisible_watermarks(_make_analysis_context(_make_test_image_bytes()))
+
+    assert result["status"] == "NOT FOUND"
+    assert result["data"]["findings"] == []
+    assert result["data"]["attempted_decoders"] == ["open_dwt_dct"]
+    assert "inconclusive" in result["summary"].lower()
+
+
+def test_invisible_analyzer_reports_open_watermark_hit(monkeypatch):
+    from veracity.analyzers import invisible
+
+    _enable_invisible_decoders("open_dwt_dct")
+    monkeypatch.setattr(
+        invisible,
+        "_detect_open_dwt_dct_watermark",
+        lambda *_: {
+            "label": "Open DWT-DCT watermark",
+            "scheme": "Stable Diffusion XL",
+        },
+    )
+    monkeypatch.setattr(
+        invisible,
+        "_detect_trustmark",
+        lambda *_: (_ for _ in ()).throw(DecoderUnavailable()),
+    )
+
+    result = run_invisible_watermarks(_make_analysis_context(_make_test_image_bytes()))
+
+    assert result["status"] == "FOUND"
+    assert result["data"]["findings"][0]["scheme"] == "Stable Diffusion XL"
+
+
+def test_invisible_analyzer_reports_trustmark_hit(monkeypatch):
+    from veracity.analyzers import invisible
+
+    _enable_invisible_decoders("adobe_trustmark")
+    monkeypatch.setattr(
+        invisible,
+        "_detect_open_dwt_dct_watermark",
+        lambda *_: (_ for _ in ()).throw(DecoderUnavailable()),
+    )
+    monkeypatch.setattr(
+        invisible,
+        "_detect_trustmark",
+        lambda *_: {
+            "label": "Adobe TrustMark",
+            "scheme": "Adobe TrustMark variant P, schema 0",
+        },
+    )
+
+    result = run_invisible_watermarks(_make_analysis_context(_make_test_image_bytes()))
+
+    assert result["status"] == "FOUND"
+    assert result["data"]["findings"][0]["label"] == "Adobe TrustMark"
+
+
+def test_invisible_analyzer_decoder_failure_is_nonfatal(monkeypatch):
+    from veracity.analyzers import invisible
+
+    _enable_invisible_decoders("open_dwt_dct")
+    monkeypatch.setattr(
+        invisible,
+        "_detect_open_dwt_dct_watermark",
+        lambda *_: (_ for _ in ()).throw(RuntimeError("decoder exploded")),
+    )
+    monkeypatch.setattr(
+        invisible,
+        "_detect_trustmark",
+        lambda *_: (_ for _ in ()).throw(DecoderUnavailable()),
+    )
+
+    result = run_invisible_watermarks(_make_analysis_context(_make_test_image_bytes()))
+
+    assert result["status"] == "NOT AVAILABLE"
+    assert "decoder exploded" in result["data"]["errors"][0]
 
 
 def test_detect_mime_type_identifies_avif_signature():

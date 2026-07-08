@@ -102,22 +102,13 @@ class SynthIDReport(db.Model):
         db.UniqueConstraint(
             "image_id",
             "voter_id",
-            "provider",
-            "detector",
-            name="uq_synthid_report_detector",
+            name="uq_synthid_report",
         ),
     )
     id = db.Column(db.Integer, primary_key=True)
     image_id = db.Column(db.Integer, db.ForeignKey("image_registry.id"), nullable=False)
     voter_id = db.Column(db.String(64), nullable=False)
-    provider = db.Column(db.String(32), nullable=False, default="google")
-    detector = db.Column(
-        db.String(64), nullable=False, default="google_about_this_image"
-    )
-    source_kind = db.Column(
-        db.String(32), nullable=False, default="manual_user_report"
-    )
-    result = db.Column(db.String(16), nullable=False)  # "detected" or "not_detected"
+    result = db.Column(db.String(32), nullable=False)
 
 
 class GlobalConfig(db.Model):

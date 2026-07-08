@@ -21,7 +21,7 @@ def _seed_image(
     synthid_reports=(),
     created_at=None,
 ):
-    """Insert a registry entry with optional consensus, facts, and synthid reports."""
+    """Insert a registry entry with optional consensus, facts, and portal reports."""
     with app.app_context():
         reg = ImageRegistry(
             phash=phash,
@@ -206,46 +206,52 @@ def test_no_c2pa_fact(client, app):
     assert match["c2pa"] is False
 
 
-def test_synthid_detected_reflected(client, app):
-    """More detected than not_detected reports yields synthid=True."""
-    url = "https://example.com/synthid.jpg"
+def test_verification_portals_google_positive_reflected(client, app):
+    url = "https://example.com/google-positive.jpg"
     _seed_image(
         app,
         url=url,
         phash="e4e4e4e4e4e4e4e4",
-        synthid_reports=["detected", "detected", "not_detected"],
+        synthid_reports=["google_positive", "google_positive", "negative"],
     )
 
     match = _single_match(_lookup(client, [url]), url)
-    assert match["synthid"] is True
+    assert "synthid" not in match
+    assert match["verification_portals"] == {
+        "verdict": "google_positive",
+        "google_positive": 2,
+        "openai_positive": 0,
+        "negative": 1,
+        "contested": False,
+    }
 
 
-def test_synthid_not_detected_reflected(client, app):
-    """More not_detected than detected reports yields synthid=False."""
-    url = "https://example.com/nosynthid.jpg"
+def test_verification_portals_negative_reflected(client, app):
+    url = "https://example.com/portal-negative.jpg"
     _seed_image(
         app,
         url=url,
         phash="f5f5f5f5f5f5f5f5",
-        synthid_reports=["not_detected", "not_detected", "detected"],
+        synthid_reports=["negative", "negative", "google_positive"],
     )
 
     match = _single_match(_lookup(client, [url]), url)
-    assert match["synthid"] is False
+    assert match["verification_portals"]["verdict"] == "negative"
+    assert match["verification_portals"]["negative"] == 2
 
 
-def test_synthid_tied_reports_returns_null(client, app):
-    """Tied SynthID votes return null."""
-    url = "https://example.com/synthid-tie.jpg"
+def test_verification_portals_conflict_returns_contested(client, app):
+    url = "https://example.com/portal-contested.jpg"
     _seed_image(
         app,
         url=url,
         phash="abababababababab",
-        synthid_reports=["detected", "not_detected"],
+        synthid_reports=["google_positive", "openai_positive"],
     )
 
     match = _single_match(_lookup(client, [url]), url)
-    assert match["synthid"] is None
+    assert match["verification_portals"]["verdict"] == "contested"
+    assert match["verification_portals"]["contested"] is True
 
 
 def test_no_consensus_verdict_null(client, app):

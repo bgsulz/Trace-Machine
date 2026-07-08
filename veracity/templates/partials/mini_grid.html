@@ -41,7 +41,7 @@
       </div>
     </div>
 
-    {# Right column: EXIF + Community stacked #}
+    {# Right column: Metadata + watermarks + community stacked #}
     <div class="mini-right-column">
       <div
         class="mini-card"
@@ -51,7 +51,33 @@
         hx-swap="innerHTML"
       >
         <div class="mini-card-content">
-          <div class="mini-card-title">EXIF</div>
+          <div class="mini-card-title">Metadata</div>
+          <div class="mini-card-status loading">Loading...</div>
+        </div>
+      </div>
+
+      <div
+        class="mini-card"
+        id="mini-card-invisible"
+        hx-get="{{ url_for('main.analyzer_fragment', analysis_id=analysis_id, slug='invisible', mini=1) }}"
+        hx-trigger="load"
+        hx-swap="innerHTML"
+      >
+        <div class="mini-card-content">
+          <div class="mini-card-title">Invisible</div>
+          <div class="mini-card-status loading">Loading...</div>
+        </div>
+      </div>
+
+      <div
+        class="mini-card"
+        id="mini-card-synthid"
+        hx-get="{{ url_for('main.analyzer_fragment', analysis_id=analysis_id, slug='synthid', mini=1) }}"
+        hx-trigger="load"
+        hx-swap="innerHTML"
+      >
+        <div class="mini-card-content">
+          <div class="mini-card-title">Portals</div>
           <div class="mini-card-status loading">Loading...</div>
         </div>
       </div>

@@ -6,13 +6,7 @@ import imagehash
 from PIL import Image
 
 from conftest import _make_test_image_bytes
-from veracity.registry import (
-    ConsensusSnapshot,
-    FactSnapshot,
-    NeighborSnapshot,
-    SourceSnapshot,
-    SynthIDSnapshot,
-)
+from veracity.registry import NeighborSnapshot, SynthIDSnapshot
 from veracity.analyzers.context import AnalysisContext
 from veracity.analyzers.synthid import run_synthid
 
@@ -32,139 +26,120 @@ def _make_context(
     )
 
 
+def _snapshot(google=0, openai=0, negative=0):
+    return SynthIDSnapshot(
+        google_positive=google,
+        openai_positive=openai,
+        negative=negative,
+    )
+
+
 def _make_neighbor(
     id=1,
     phash="abcdef1234567890",
     whash="1234567890abcdef",
     synthid=None,
-    consensus=None,
-    sources=(),
-    facts=(),
-    created_at=None,
 ):
     return NeighborSnapshot(
         id=id,
         phash=phash,
         whash=whash,
-        created_at=created_at,
-        consensus=consensus,
-        sources=sources,
-        facts=facts,
+        created_at=None,
+        consensus=None,
+        sources=(),
+        facts=(),
         synthid=synthid,
     )
 
 
-# --- Display state tests ---
-
-
 def test_manual_state_no_reports():
-    """No reports at all -> MANUAL status."""
-    context = _make_context(neighbors=[
-        _make_neighbor(id=1, synthid=None),
-    ])
+    context = _make_context(neighbors=[_make_neighbor(id=1, synthid=None)])
+
     result = run_synthid(context)
+
     assert result["status"] == "MANUAL"
     assert result["data"]["display_state"] == "manual"
     assert result["data"]["score"] == 0
-    assert result["data"]["has_distant_matches"] is False
 
 
-def test_manual_state_empty_synthid():
-    """SynthID snapshot with zero counts -> MANUAL."""
-    context = _make_context(neighbors=[
-        _make_neighbor(id=1, synthid=SynthIDSnapshot(detected=0, not_detected=0)),
-    ])
+def test_manual_state_empty_portal_snapshot():
+    context = _make_context(neighbors=[_make_neighbor(id=1, synthid=_snapshot())])
+
     result = run_synthid(context)
+
     assert result["status"] == "MANUAL"
     assert result["data"]["display_state"] == "manual"
 
 
 def test_checked_state_only_negative():
-    """Only not_detected reports on same entry -> CHECKED."""
-    context = _make_context(neighbors=[
-        _make_neighbor(id=1, synthid=SynthIDSnapshot(detected=0, not_detected=3)),
-    ])
+    context = _make_context(neighbors=[_make_neighbor(id=1, synthid=_snapshot(negative=3))])
+
     result = run_synthid(context)
+
     assert result["status"] == "CHECKED"
     assert result["data"]["display_state"] == "checked"
+    assert result["data"]["totals"]["negative"] == 3
     assert "3 users" in result["summary"]
-    assert result["data"]["score"] == 0
 
 
-def test_reported_state_low_confidence():
-    """1-3 weighted positive reports -> REPORTED with caveat."""
-    context = _make_context(neighbors=[
-        _make_neighbor(id=1, synthid=SynthIDSnapshot(detected=2, not_detected=0)),
-    ])
+def test_reported_state_low_confidence_google_positive():
+    context = _make_context(neighbors=[_make_neighbor(id=1, synthid=_snapshot(google=2))])
+
     result = run_synthid(context)
+
     assert result["status"] == "REPORTED"
     assert result["data"]["display_state"] == "reported"
+    assert result["data"]["scores"]["google_positive"] == 2.0
     assert result["data"]["caveat"] is not None
-    assert result["data"]["score"] == 2.0
 
 
-def test_detected_state_high_confidence():
-    """4+ weighted positive reports -> DETECTED."""
-    context = _make_context(neighbors=[
-        _make_neighbor(id=1, synthid=SynthIDSnapshot(detected=5, not_detected=0)),
-    ])
+def test_detected_state_high_confidence_openai_positive():
+    context = _make_context(neighbors=[_make_neighbor(id=1, synthid=_snapshot(openai=5))])
+
     result = run_synthid(context)
+
     assert result["status"] == "DETECTED"
     assert result["data"]["display_state"] == "detected"
+    assert result["data"]["scores"]["openai_positive"] == 5.0
     assert result["data"]["caveat"] is None
-    assert result["data"]["score"] == 5.0
 
 
-def test_provider_rows_preserve_detector_breakdown():
-    """SynthID output keeps aggregate totals plus per-detector rows."""
-    synthid = SynthIDSnapshot(
-        detected=2,
-        not_detected=1,
-        by_detector={
-            "google_about_this_image": {
-                "provider": "google",
-                "detector": "google_about_this_image",
-                "detected": 1,
-                "not_detected": 0,
-                "total": 1,
-            },
-            "openai_verify": {
-                "provider": "openai",
-                "detector": "openai_verify",
-                "detected": 1,
-                "not_detected": 1,
-                "total": 2,
-            },
-        },
-    )
-    context = _make_context(neighbors=[_make_neighbor(id=1, synthid=synthid)])
+def test_contested_when_both_provider_positive_buckets_exist():
+    context = _make_context(neighbors=[_make_neighbor(id=1, synthid=_snapshot(google=1, openai=1))])
 
     result = run_synthid(context)
 
-    rows = {
-        row["detector"]: row
-        for row in result["data"]["checker_rows"]
+    assert result["status"] == "REPORTED"
+    assert result["data"]["display_state"] == "contested"
+    assert result["data"]["contested"] is True
+    assert result["data"]["verification_portals"]["verdict"] == "contested"
+
+
+def test_checker_rows_preserve_portal_counts():
+    context = _make_context(neighbors=[_make_neighbor(id=1, synthid=_snapshot(google=2, negative=1))])
+
+    result = run_synthid(context)
+
+    rows = {row["result"]: row for row in result["data"]["checker_rows"]}
+    assert result["data"]["totals"] == {
+        "google_positive": 2,
+        "openai_positive": 0,
+        "negative": 1,
     }
-    assert result["data"]["totals"] == {"detected": 2, "not_detected": 1}
-    assert rows["google_about_this_image"]["detected"] == 1
-    assert rows["openai_verify"]["detected"] == 1
-    assert rows["openai_verify"]["not_detected"] == 1
-
-
-# --- Tier weighting tests ---
+    assert rows["google_positive"]["count"] == 2
+    assert rows["openai_positive"]["count"] == 0
+    assert rows["negative"]["count"] == 1
 
 
 def test_tier_a_weight():
-    """Same entry (tier A) gets weight 1.0."""
-    context = _make_context(registry_id=1, neighbors=[
-        _make_neighbor(id=1, synthid=SynthIDSnapshot(detected=3, not_detected=0)),
-    ])
+    context = _make_context(registry_id=1, neighbors=[_make_neighbor(id=1, synthid=_snapshot(google=3))])
+
     result = run_synthid(context)
-    assert result["data"]["score"] == 3.0  # 3 * 1.0
+
+    assert result["data"]["scores"]["google_positive"] == 3.0
 
 
 def test_tier_b_weight():
-    """Same phash, different id (tier B) gets weight 0.75."""
     context = _make_context(
         registry_id=1,
         phash="abcdef1234567890",
@@ -174,18 +149,17 @@ def test_tier_b_weight():
                 id=2,
                 phash="abcdef1234567890",
                 whash="1234567890abcdef",
-                synthid=SynthIDSnapshot(detected=4, not_detected=0),
+                synthid=_snapshot(google=4),
             ),
         ],
     )
+
     result = run_synthid(context)
-    assert result["data"]["score"] == 3.0  # 4 * 0.75
+
+    assert result["data"]["scores"]["google_positive"] == 3.0
 
 
 def test_tier_c_weight():
-    """Similar hash, different id (tier C) gets weight 0.5."""
-    # Use a hash that differs by a small hamming distance (not 0)
-    # We need phash distance > 0 and whash distance > 0, but within threshold
     context = _make_context(
         registry_id=1,
         phash="abcdef1234567890",
@@ -193,106 +167,52 @@ def test_tier_c_weight():
         neighbors=[
             _make_neighbor(
                 id=3,
-                phash="abcdef1234567891",  # differs by 1 bit in last hex char
-                whash="1234567890abcdee",  # differs slightly
-                synthid=SynthIDSnapshot(detected=4, not_detected=0),
+                phash="abcdef1234567891",
+                whash="1234567890abcdee",
+                synthid=_snapshot(google=4),
             ),
         ],
     )
+
     result = run_synthid(context)
-    assert result["data"]["score"] == 2.0  # 4 * 0.5
+
+    assert result["data"]["scores"]["google_positive"] == 2.0
 
 
-# --- Tier A contradiction ---
+def test_tier_a_negative_contradiction_zeroes_positive_contribution():
+    context = _make_context(registry_id=1, neighbors=[_make_neighbor(id=1, synthid=_snapshot(google=1, negative=3))])
 
-
-def test_tier_a_contradiction_zeroes_contribution():
-    """When not_detected >= 3 * detected on same entry, contribution is zeroed."""
-    context = _make_context(registry_id=1, neighbors=[
-        _make_neighbor(id=1, synthid=SynthIDSnapshot(detected=1, not_detected=3)),
-    ])
     result = run_synthid(context)
+
     assert result["data"]["score"] == 0
-    # Should be CHECKED (score 0 with reports present)
     assert result["status"] == "CHECKED"
 
 
-def test_tier_a_no_contradiction_below_ratio():
-    """When not_detected < 3 * detected, contribution is NOT zeroed."""
-    context = _make_context(registry_id=1, neighbors=[
-        _make_neighbor(id=1, synthid=SynthIDSnapshot(detected=2, not_detected=5)),
-    ])
-    result = run_synthid(context)
-    # not_detected (5) < 3 * detected (6), so contribution = 2
-    assert result["data"]["score"] == 2.0
-
-
-# --- Contested flag ---
-
-
-def test_contested_flag_mixed_reports():
-    """Mixed reports on same entry within 1:1 to 3:1 ratio -> contested."""
-    context = _make_context(registry_id=1, neighbors=[
-        _make_neighbor(id=1, synthid=SynthIDSnapshot(detected=2, not_detected=4)),
-    ])
-    result = run_synthid(context)
-    assert result["data"]["contested"] is True
-
-
-def test_contested_flag_not_set_when_no_positives():
-    """No detected reports -> contested is False."""
-    context = _make_context(registry_id=1, neighbors=[
-        _make_neighbor(id=1, synthid=SynthIDSnapshot(detected=0, not_detected=5)),
-    ])
-    result = run_synthid(context)
-    assert result["data"]["contested"] is False
-
-
-def test_contested_flag_not_set_beyond_ratio():
-    """not_detected > 3 * detected -> NOT contested (it's a contradiction instead)."""
-    context = _make_context(registry_id=1, neighbors=[
-        _make_neighbor(id=1, synthid=SynthIDSnapshot(detected=1, not_detected=4)),
-    ])
-    result = run_synthid(context)
-    # ratio = 4/1 = 4.0, which is > 3, so contested is False
-    assert result["data"]["contested"] is False
-
-
-# --- Similar image propagation ---
-
-
 def test_similar_image_propagation():
-    """Positive on neighbor shows as similar match."""
     context = _make_context(
         registry_id=1,
         phash="abcdef1234567890",
         whash="1234567890abcdef",
         neighbors=[
-            # Same entry, no reports
             _make_neighbor(id=1, synthid=None),
-            # Similar image with positive reports
             _make_neighbor(
                 id=2,
                 phash="abcdef1234567890",
                 whash="1234567890abcdef",
-                synthid=SynthIDSnapshot(detected=2, not_detected=0),
+                synthid=_snapshot(google=2),
             ),
         ],
     )
+
     result = run_synthid(context)
+
     assert len(result["data"]["similar_images"]) == 1
-    assert result["data"]["has_distant_matches"] is True
-    assert result["data"]["similar_images"][0]["detected"] == 2
-    # Only from similar -> summary should mention "similar image"
-    assert result["data"]["this_image"]["detected"] == 0
+    assert result["data"]["similar_images"][0]["google_positive"] == 2
+    assert result["data"]["this_image"]["google_positive"] == 0
     assert "similar image" in result["summary"]
 
 
-# --- Vote endpoint tests ---
-
-
 def _upload_and_get_ids(client):
-    """Upload an image and extract analysis_id and phash."""
     image_bytes = _make_test_image_bytes()
     data = {
         "file": (io.BytesIO(image_bytes), "test.png"),
@@ -308,35 +228,33 @@ def _upload_and_get_ids(client):
 
     with Image.open(io.BytesIO(image_bytes)) as img:
         target_hash = imagehash.phash(img)
-    phash = str(target_hash)
-
-    return analysis_id, phash
+    return analysis_id, str(target_hash)
 
 
 def test_synthid_report_creates_record(client, app):
-    """POST /synthid-report creates SynthIDReport."""
     analysis_id, phash = _upload_and_get_ids(client)
 
-    data = {"phash": phash, "report": "detected", "analysis_id": analysis_id}
-    resp = client.post("/synthid-report", data=data, follow_redirects=False)
+    resp = client.post(
+        "/synthid-report",
+        data={"phash": phash, "report": "google_positive", "analysis_id": analysis_id},
+        follow_redirects=False,
+    )
+
+    from veracity.models import SynthIDReport
+
     assert resp.status_code == 302
-
-    from veracity.models import SynthIDReport
-
     with app.app_context():
         reports = SynthIDReport.query.all()
         assert len(reports) == 1
-        assert reports[0].result == "detected"
+        assert reports[0].result == "google_positive"
 
 
-def test_synthid_report_change(client, app):
-    """User changes from detected to not_detected."""
+def test_synthid_report_change_updates_single_row(client, app):
     analysis_id, phash = _upload_and_get_ids(client)
 
-    data = {"phash": phash, "report": "detected", "analysis_id": analysis_id}
+    data = {"phash": phash, "report": "google_positive", "analysis_id": analysis_id}
     client.post("/synthid-report", data=data)
-
-    data["report"] = "not_detected"
+    data["report"] = "negative"
     client.post("/synthid-report", data=data)
 
     from veracity.models import SynthIDReport
@@ -344,11 +262,10 @@ def test_synthid_report_change(client, app):
     with app.app_context():
         reports = SynthIDReport.query.all()
         assert len(reports) == 1
-        assert reports[0].result == "not_detected"
+        assert reports[0].result == "negative"
 
 
-def test_synthid_report_records_provider_specific_rows(client, app):
-    """One user can report Google and OpenAI checker outcomes separately."""
+def test_synthid_report_accepts_legacy_post_values(client, app):
     analysis_id, phash = _upload_and_get_ids(client)
 
     client.post(
@@ -357,8 +274,8 @@ def test_synthid_report_records_provider_specific_rows(client, app):
             "phash": phash,
             "report": "detected",
             "analysis_id": analysis_id,
-            "provider": "google",
-            "detector": "google_about_this_image",
+            "provider": "openai",
+            "detector": "openai_verify",
         },
     )
     client.post(
@@ -367,36 +284,23 @@ def test_synthid_report_records_provider_specific_rows(client, app):
             "phash": phash,
             "report": "not_detected",
             "analysis_id": analysis_id,
-            "provider": "openai",
-            "detector": "openai_verify",
         },
     )
 
     from veracity.models import SynthIDReport
 
     with app.app_context():
-        reports = sorted(SynthIDReport.query.all(), key=lambda row: row.detector)
-        assert len(reports) == 2
-        assert reports[0].detector == "google_about_this_image"
-        assert reports[0].provider == "google"
-        assert reports[0].result == "detected"
-        assert reports[1].detector == "openai_verify"
-        assert reports[1].provider == "openai"
-        assert reports[1].result == "not_detected"
+        reports = SynthIDReport.query.all()
+        assert len(reports) == 1
+        assert reports[0].result == "negative"
 
 
-def test_synthid_report_invalid_detector_rejected(client, app):
+def test_synthid_report_invalid_choice(client, app):
     analysis_id, phash = _upload_and_get_ids(client)
 
     resp = client.post(
         "/synthid-report",
-        data={
-            "phash": phash,
-            "report": "detected",
-            "analysis_id": analysis_id,
-            "provider": "openai",
-            "detector": "google_about_this_image",
-        },
+        data={"phash": phash, "report": "invalid", "analysis_id": analysis_id},
         follow_redirects=False,
     )
 
@@ -407,65 +311,44 @@ def test_synthid_report_invalid_detector_rejected(client, app):
         assert SynthIDReport.query.count() == 0
 
 
-def test_synthid_report_invalid_choice(client):
-    """Invalid report choice redirects with error."""
-    analysis_id, phash = _upload_and_get_ids(client)
-    data = {"phash": phash, "report": "invalid", "analysis_id": analysis_id}
-    resp = client.post("/synthid-report", data=data, follow_redirects=False)
-    assert resp.status_code == 302
-
-
-def test_htmx_synthid_report_returns_fragment(client, app):
-    """HTMX vote returns refreshed fragment with HX-Trigger."""
+def test_htmx_synthid_report_returns_fragment(client):
     analysis_id, phash = _upload_and_get_ids(client)
 
-    data = {"phash": phash, "report": "detected", "analysis_id": analysis_id}
     resp = client.post(
         "/synthid-report",
-        data=data,
+        data={"phash": phash, "report": "openai_positive", "analysis_id": analysis_id},
         headers={"HX-Request": "true"},
     )
 
     assert resp.status_code == 200
     assert "HX-Trigger" in resp.headers
     trigger = json.loads(resp.headers["HX-Trigger"])
-    assert "showToast" in trigger
     assert "recorded" in trigger["showToast"].lower()
-    # Should contain the synthid analyzer fragment
     assert b"synthid" in resp.data.lower()
 
 
-def test_htmx_synthid_report_unchanged(client, app):
-    """Submitting same report again returns 'unchanged' toast."""
+def test_htmx_synthid_report_unchanged(client):
     analysis_id, phash = _upload_and_get_ids(client)
+    data = {"phash": phash, "report": "openai_positive", "analysis_id": analysis_id}
 
-    data = {"phash": phash, "report": "detected", "analysis_id": analysis_id}
-    client.post(
-        "/synthid-report",
-        data=data,
-        headers={"HX-Request": "true"},
-    )
-
-    # Same report again
-    resp = client.post(
-        "/synthid-report",
-        data=data,
-        headers={"HX-Request": "true"},
-    )
+    client.post("/synthid-report", data=data, headers={"HX-Request": "true"})
+    resp = client.post("/synthid-report", data=data, headers={"HX-Request": "true"})
 
     assert resp.status_code == 200
     trigger = json.loads(resp.headers["HX-Trigger"])
     assert "already" in trigger["showToast"].lower()
 
 
-def test_synthid_mini_fragment_includes_mini_flag_in_forms(client):
+def test_synthid_mini_fragment_includes_three_portal_forms(client):
     analysis_id, _ = _upload_and_get_ids(client)
 
     fragment = client.get(f"/analysis/{analysis_id}/analyzers/synthid?mini=1")
+
     assert fragment.status_code == 200
-    assert fragment.data.count(b'name="mini" value="1"') == 4
-    assert b'name="detector" value="google_about_this_image"' in fragment.data
-    assert b'name="detector" value="openai_verify"' in fragment.data
+    assert fragment.data.count(b'name="mini" value="1"') == 3
+    assert b'name="report" value="google_positive"' in fragment.data
+    assert b'name="report" value="openai_positive"' in fragment.data
+    assert b'name="report" value="negative"' in fragment.data
 
 
 def test_synthid_fragment_includes_checker_actions(client):
@@ -476,21 +359,22 @@ def test_synthid_fragment_includes_checker_actions(client):
     assert fragment.status_code == 200
     assert b"OpenAI Verify" in fragment.data
     assert b"Check Google" in fragment.data
-    assert b"Open All" not in fragment.data
-    assert b"Download exact image" not in fragment.data
+    assert b"Google Positive" in fragment.data
+    assert b"OpenAI Positive" in fragment.data
+    assert b"Negative" in fragment.data
 
 
-def test_htmx_synthid_report_mini_returns_mini_fragment(client, app):
+def test_htmx_synthid_report_mini_returns_mini_fragment(client):
     analysis_id, phash = _upload_and_get_ids(client)
-    data = {
-        "phash": phash,
-        "report": "detected",
-        "analysis_id": analysis_id,
-        "mini": "1",
-    }
+
     resp = client.post(
         "/synthid-report",
-        data=data,
+        data={
+            "phash": phash,
+            "report": "google_positive",
+            "analysis_id": analysis_id,
+            "mini": "1",
+        },
         headers={"HX-Request": "true"},
     )
 

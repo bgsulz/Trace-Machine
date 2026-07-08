@@ -43,7 +43,7 @@
     {% set action = row.data.header_action %}
     {% if action.type == "htmx" and row.slug == "tineye" %}
     {{ tineye_action(action.label, "outline", row.context.analysis_id, form_class="header-action", onclick="event.stopPropagation()") }}
-    {% elif action.type == "synthid_checkers" and row.slug == "synthid" %}
+    {% elif action.type in ["synthid_checkers", "verification_portals"] and row.slug == "synthid" %}
     {% set lens_link = row.context.lens_link if row.context else "https://images.google.com/" %}
     <div class="header-action-group">
       <a

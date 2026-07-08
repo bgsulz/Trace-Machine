@@ -9,6 +9,7 @@ from .context import AnalysisContext
 from .c2pa import run_c2pa
 from .exif import run_exif_metadata
 from .human import run_human_consensus
+from .invisible import run_invisible_watermarks
 from .synthid import run_synthid
 from .tineye import get_tineye_status
 
@@ -37,11 +38,25 @@ ANALYZERS: Sequence[AnalyzerSpec] = (
         tooltip="Looks for authenticated Content Credentials.",
     ),
     AnalyzerSpec(
-        name="SynthID Watermark",
+        name="AI Metadata (EXIF/XMP/IPTC)",
+        slug="exif",
+        func=run_exif_metadata,
+        template="partials/analyzers/exif.html",
+        tooltip="Scans image metadata for hints that common AI tools leave behind.",
+    ),
+    AnalyzerSpec(
+        name="Invisible Watermarks",
+        slug="invisible",
+        func=run_invisible_watermarks,
+        template="partials/analyzers/invisible.html",
+        tooltip="Runs optional local pixel-watermark decoders when available.",
+    ),
+    AnalyzerSpec(
+        name="Verification Portals",
         slug="synthid",
         func=run_synthid,
         template="partials/analyzers/synthid.html",
-        tooltip="Collects manual reports from public provider-specific SynthID checkers.",
+        tooltip="Collects manual reports from public provider-specific verification portals.",
     ),
     AnalyzerSpec(
         name="TinEye Reverse Search",
@@ -49,13 +64,6 @@ ANALYZERS: Sequence[AnalyzerSpec] = (
         func=get_tineye_status,
         template="partials/analyzers/tineye.html",
         tooltip="Uses TinEye to find where the image exists on the internet and when it first appeared.",
-    ),
-    AnalyzerSpec(
-        name="AI Metadata (EXIF)",
-        slug="exif",
-        func=run_exif_metadata,
-        template="partials/analyzers/exif.html",
-        tooltip="Scans metadata for hints that common AI tools leave behind.",
     ),
     AnalyzerSpec(
         name="Human Consensus",

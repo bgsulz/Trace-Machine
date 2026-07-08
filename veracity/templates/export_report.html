@@ -189,16 +189,15 @@
                 ({{ match.votes.vote_real }} / {{ match.votes.vote_edited }} / {{ match.votes.vote_ai }})
               </div>
               {% endif %}
-              {% if match.synthid %}
+              {% if match.verification_portals %}
               <div>
-                <strong>SynthID:</strong>
-                {{ match.synthid.detected }} detected /
-                {{ match.synthid.not_detected }} not detected
-                {% for detector, counts in (match.synthid.by_detector or {}).items() %}
-                  {% if counts.total %}
-                  <br /><small>{{ counts.provider|title }}: {{ counts.detected }} detected / {{ counts.not_detected }} not detected</small>
-                  {% endif %}
-                {% endfor %}
+                <strong>Verification Portals:</strong>
+                Google {{ match.verification_portals.google_positive }} /
+                OpenAI {{ match.verification_portals.openai_positive }} /
+                negative {{ match.verification_portals.negative }}
+                {% if match.verification_portals.verdict %}
+                <br /><small>Verdict: {{ match.verification_portals.verdict }}</small>
+                {% endif %}
               </div>
               {% endif %}
             </td>

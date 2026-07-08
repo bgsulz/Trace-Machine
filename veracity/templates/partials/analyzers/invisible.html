@@ -1,0 +1,48 @@
+{% set findings = row.data.findings or [] %}
+{% set attempted = row.data.attempted_decoders or [] %}
+{% set unavailable = row.data.unavailable_decoders or [] %}
+{% set disabled = row.data.disabled_decoders or [] %}
+{% set errors = row.data.errors or [] %}
+
+<div class="analyzer-detail-block">
+  <div class="flash-warning">
+    <strong>Important limitation:</strong>
+    Local invisible-watermark detection is positive-only. A hit is useful evidence;
+    a miss does not prove the image is clean.
+  </div>
+
+  {% if findings %}
+  {% for finding in findings %}
+  <details class="exif-finding" open>
+    <summary>
+      <strong>{{ finding.label }}</strong>
+      {% if finding.scheme %}<span class="exif-finding-key">({{ finding.scheme }})</span>{% endif %}
+    </summary>
+    <div class="exif-finding-body">
+      {% if finding.match %}<p><strong>Match:</strong> {{ finding.match }}</p>{% endif %}
+      {% if finding.note %}<p class="analyzer-note">{{ finding.note }}</p>{% endif %}
+    </div>
+  </details>
+  {% endfor %}
+  {% endif %}
+
+  <dl class="exif-summary">
+    <dt>Ran locally</dt>
+    <dd>{{ attempted|join(", ") if attempted else "No optional decoders installed" }}</dd>
+    <dt>Disabled</dt>
+    <dd>{{ disabled|join(", ") if disabled else "None" }}</dd>
+    <dt>Unavailable</dt>
+    <dd>{{ unavailable|join(", ") if unavailable else "None" }}</dd>
+  </dl>
+
+  {% if errors %}
+  <details class="tech-only">
+    <summary><strong>Decoder Errors</strong></summary>
+    <ul>
+      {% for error in errors %}
+      <li>{{ error }}</li>
+      {% endfor %}
+    </ul>
+  </details>
+  {% endif %}
+</div>

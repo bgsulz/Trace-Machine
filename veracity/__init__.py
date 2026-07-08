@@ -72,6 +72,10 @@ def create_app(test_config=None):
             tineye_persistence_mode,
         )
         tineye_persistence_mode = "none"
+    invisible_watermark_decoders = _parse_invisible_watermark_decoders(
+        os.environ.get("INVISIBLE_WATERMARK_DECODERS", ""),
+        logger=app.logger,
+    )
     app.config.from_mapping(
         SECRET_KEY=secret_key,
         SQLALCHEMY_DATABASE_URI=db_url,
@@ -86,6 +90,7 @@ def create_app(test_config=None):
         LOCAL_MATCHING_ENABLED=local_matching_enabled,
         LOCAL_MATCH_MAX_CANDIDATES=local_match_max_candidates,
         TINEYE_PERSISTENCE_MODE=tineye_persistence_mode,
+        INVISIBLE_WATERMARK_DECODERS=invisible_watermark_decoders,
     )
 
     # Trust upstream proxy headers only when explicitly enabled.
@@ -114,3 +119,34 @@ def create_app(test_config=None):
     app.register_blueprint(main_bp)
 
     return app
+
+
+def _parse_invisible_watermark_decoders(raw_value: str, *, logger) -> set[str]:
+    aliases = {
+        "imwatermark": "open_dwt_dct",
+        "open_dwt_dct": "open_dwt_dct",
+        "dwt_dct": "open_dwt_dct",
+        "trustmark": "adobe_trustmark",
+        "adobe_trustmark": "adobe_trustmark",
+    }
+    enabled: set[str] = set()
+    raw_items = [
+        item.strip().lower()
+        for item in (raw_value or "").replace(";", ",").split(",")
+        if item.strip()
+    ]
+    if not raw_items:
+        return enabled
+    if "all" in raw_items:
+        return {"open_dwt_dct", "adobe_trustmark"}
+
+    for item in raw_items:
+        normalized = aliases.get(item)
+        if normalized is None:
+            logger.warning(
+                "Ignoring unknown INVISIBLE_WATERMARK_DECODERS entry %r",
+                item,
+            )
+            continue
+        enabled.add(normalized)
+    return enabled

@@ -5,6 +5,7 @@ from sqlalchemy.orm import joinedload
 
 from ..dethumbnail import get_full_res_url
 from ..models import ImageConsensus, ImageRegistry, ImageSource
+from .synthid_service import portal_counts_from_reports, portal_payload_from_counts
 
 
 def lookup_urls(urls: list[str]) -> dict[str, dict[str, Any]]:
@@ -114,23 +115,10 @@ def _build_match_payload(registry: ImageRegistry) -> dict[str, Any]:
 
     has_c2pa = any(fact.analyzer == "c2pa" for fact in (registry.facts or []))
 
-    synthid = None
     reports = registry.synthid_reports or []
-    if reports:
-        detected = sum(
-            1
-            for report in reports
-            if report.result == "detected"
-        )
-        not_detected = sum(
-            1
-            for report in reports
-            if report.result == "not_detected"
-        )
-        if detected > not_detected:
-            synthid = True
-        elif not_detected > detected:
-            synthid = False
+    verification_portals = portal_payload_from_counts(
+        portal_counts_from_reports(reports)
+    )
 
     created_at = getattr(registry, "created_at", None)
     return {
@@ -144,5 +132,5 @@ def _build_match_payload(registry: ImageRegistry) -> dict[str, Any]:
         "total_votes": total_votes,
         "verdict": verdict,
         "c2pa": has_c2pa,
-        "synthid": synthid,
+        "verification_portals": verification_portals,
     }

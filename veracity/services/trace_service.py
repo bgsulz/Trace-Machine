@@ -10,6 +10,13 @@ from ..analyzers.hash_utils import (
     iter_neighbor_views,
 )
 from ..models import ImageRegistry
+from .synthid_service import (
+    GOOGLE_POSITIVE,
+    NEGATIVE,
+    OPENAI_POSITIVE,
+    portal_counts_from_reports,
+    portal_payload_from_counts,
+)
 
 
 _MATCH_METHOD_PRIORITY = {"hybrid": 0, "local": 1, "hash": 2}
@@ -86,22 +93,20 @@ def _build_direct_items(
 
     synthid_reports = getattr(current_image, "synthid_reports", None) or []
     if synthid_reports:
-        detected = sum(1 for report in synthid_reports if report.result == "detected")
-        not_detected = sum(
-            1 for report in synthid_reports if report.result == "not_detected"
-        )
-        total_reports = detected + not_detected
+        counts = portal_counts_from_reports(synthid_reports)
+        total_reports = sum(counts.values())
         if total_reports > 0:
-            by_detector = _summarize_synthid_reports_by_detector(synthid_reports)
             items.append(
                 {
-                    "kind": "synthid",
-                    "title": "Direct SynthID Reports",
+                    "kind": "verification_portals",
+                    "title": "Direct Verification Portal Reports",
                     "summary": (
                         f"{total_reports} report{'s' if total_reports != 1 else ''}: "
-                        f"{detected} detected / {not_detected} not detected."
+                        f"{counts[GOOGLE_POSITIVE]} Google positive / "
+                        f"{counts[OPENAI_POSITIVE]} OpenAI positive / "
+                        f"{counts[NEGATIVE]} negative."
                     ),
-                    "details": _format_synthid_detector_details(by_detector),
+                    "details": _format_portal_details(counts),
                 }
             )
 
@@ -130,11 +135,11 @@ def _build_distant_matches(context: AnalysisContext) -> list[dict[str, Any]]:
         neighbor = neighbor_view["neighbor"]
         c2pa_facts = _extract_c2pa_facts(neighbor)
         vote_counts = _extract_vote_counts(neighbor)
-        synthid_counts = _extract_synthid_counts(neighbor)
+        verification_portals = _extract_verification_portals(neighbor)
 
         carried_type_count = sum(
             1
-            for value in (c2pa_facts, vote_counts, synthid_counts)
+            for value in (c2pa_facts, vote_counts, verification_portals)
             if value is not None and value != []
         )
         if carried_type_count == 0:
@@ -161,7 +166,7 @@ def _build_distant_matches(context: AnalysisContext) -> list[dict[str, Any]]:
                 "local": neighbor_view["local"],
                 "c2pa_facts": c2pa_facts,
                 "votes": vote_counts,
-                "synthid": synthid_counts,
+                "verification_portals": verification_portals,
                 "sources": neighbor_view["sources"],
                 "created_at": _iso_datetime(created_at),
                 "_sort_method": _MATCH_METHOD_PRIORITY.get(method, 99),
@@ -210,52 +215,29 @@ def _extract_vote_counts(neighbor) -> dict[str, int] | None:
     }
 
 
-def _extract_synthid_counts(neighbor) -> dict[str, int] | None:
+def _extract_verification_portals(neighbor) -> dict[str, object] | None:
     synthid = getattr(neighbor, "synthid", None)
     if synthid is None:
         return None
-    detected = int(getattr(synthid, "detected", 0) or 0)
-    not_detected = int(getattr(synthid, "not_detected", 0) or 0)
-    total = detected + not_detected
+    counts = {
+        GOOGLE_POSITIVE: int(getattr(synthid, GOOGLE_POSITIVE, 0) or 0),
+        OPENAI_POSITIVE: int(getattr(synthid, OPENAI_POSITIVE, 0) or 0),
+        NEGATIVE: int(getattr(synthid, NEGATIVE, 0) or 0),
+    }
+    total = sum(counts.values())
     if total <= 0:
         return None
-    return {
-        "detected": detected,
-        "not_detected": not_detected,
-        "total": total,
-        "by_detector": getattr(synthid, "by_detector", {}) or {},
-    }
+    payload = portal_payload_from_counts(counts)
+    payload["total"] = total
+    return payload
 
 
-def _summarize_synthid_reports_by_detector(reports) -> dict[str, dict[str, int]]:
-    by_detector: dict[str, dict[str, int]] = {}
-    for report in reports:
-        detector = str(getattr(report, "detector", "") or "google_about_this_image")
-        row = by_detector.setdefault(detector, {"detected": 0, "not_detected": 0})
-        if getattr(report, "result", None) == "detected":
-            row["detected"] += 1
-        elif getattr(report, "result", None) == "not_detected":
-            row["not_detected"] += 1
-    return by_detector
-
-
-def _format_synthid_detector_details(
-    by_detector: dict[str, dict[str, int]]
-) -> list[str]:
-    labels = {
-        "google_about_this_image": "Google",
-        "openai_verify": "OpenAI",
-    }
-    details = []
-    for detector, counts in by_detector.items():
-        detected = int(counts.get("detected") or 0)
-        not_detected = int(counts.get("not_detected") or 0)
-        total = detected + not_detected
-        if total <= 0:
-            continue
-        label = labels.get(detector, detector.replace("_", " "))
-        details.append(f"{label}: {detected} detected / {not_detected} not detected")
-    return details
+def _format_portal_details(counts: dict[str, int]) -> list[str]:
+    return [
+        f"Google positive: {counts[GOOGLE_POSITIVE]}",
+        f"OpenAI positive: {counts[OPENAI_POSITIVE]}",
+        f"Negative: {counts[NEGATIVE]}",
+    ]
 
 
 def _find_analyzer_row(

@@ -4,6 +4,7 @@ import json
 import logging
 import re
 import xml.etree.ElementTree as ET
+from html import unescape
 from io import BytesIO
 from typing import Any
 
@@ -18,6 +19,56 @@ logger = logging.getLogger(__name__)
 _AUTOMATIC_KEYS = {"parameters"}
 _COMFY_PROMPT_KEYS = {"prompt"}
 _COMFY_WORKFLOW_KEYS = {"workflow", "workflow_json"}
+# Taxonomy reference: wiltodelta/remove-ai-watermarks at
+# 3c6cfd3a9beffc3a45c9eaeccaebc338ea0ced3d.
+_LOCAL_GENERATION_KEYS = {
+    "negative_prompt",
+    "sd-metadata",
+    "invokeai_metadata",
+    "generation_data",
+    "ai_metadata",
+    "dream",
+    "sd:prompt",
+    "sd:negative_prompt",
+    "sd:seed",
+    "sd:steps",
+    "sd:sampler",
+    "sd:cfg_scale",
+    "sd:model_hash",
+}
+_GENERATOR_VALUE_FIELDS = {
+    "software",
+    "make",
+    "artist",
+    "imagedescription",
+    "source",
+    "title",
+    "description",
+    "xmp:xmp:creatortool",
+}
+_GENERATOR_TOKENS = (
+    "firefly",
+    "dall-e",
+    "dall e",
+    "dalle",
+    "midjourney",
+    "stable diffusion",
+    "stable-diffusion",
+    "stablediffusion",
+    "comfyui",
+    "automatic1111",
+    "invokeai",
+    "imagen",
+    "gpt-image",
+    "nightcafe",
+    "ideogram",
+    "leonardo",
+    "flux",
+    "dreamstudio",
+    "novelai",
+    "reve.com",
+    "aphrodite ai",
+)
 _PREVIEW_LIMIT = 200
 _BASIC_METADATA_KEYS = {"FileType", "ImageSize", "ColorMode", "BitDepth"}
 
@@ -54,6 +105,38 @@ _EXIF_TAG_ALIASES = {
     40962: "PixelXDimension",
     40963: "PixelYDimension",
 }
+_IPTC_AI_MARKERS = (
+    "trainedAlgorithmicMedia",
+    "compositeSynthetic",
+    "algorithmicMedia",
+    "compositeWithTrainedAlgorithmicMedia",
+)
+_IPTC_AI_FIELDS = (
+    "AISystemUsed",
+    "AISystemVersionUsed",
+    "AIPromptInformation",
+    "AIPromptWriterName",
+)
+_AIGC_MARKERS = (
+    b"tc260.org.cn/ns/AIGC",
+    b"TC260:AIGC",
+)
+_TC260_FIELDS = {
+    "Label",
+    "ContentProducer",
+    "ProduceID",
+    "ContentPropagator",
+    "PropagateID",
+    "ReservedCode1",
+    "ReservedCode2",
+}
+_XAI_SIGNATURE_RE = re.compile(r"Signature:\s*[A-Za-z0-9+/=]{64,}")
+_UUID_RE = re.compile(
+    r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}",
+    re.IGNORECASE,
+)
+_SAMSUNG_EDITOR_MARKER = b"PhotoEditor_Re_Edit_Data"
+_SAMSUNG_GENAI_RE = re.compile(rb'genAIType"\s*:\s*(-?\d+)')
 
 
 def run_exif_metadata(context: AnalysisContext) -> dict[str, object]:
@@ -71,31 +154,7 @@ def run_exif_metadata(context: AnalysisContext) -> dict[str, object]:
             "data": {},
         }
 
-    findings: list[dict[str, Any]] = []
-
-    for key, value in textual_chunks.items():
-        normalized_key = key.lower()
-        if not value:
-            continue
-
-        # Check for Automatic1111 / Stable Diffusion
-        if normalized_key in _AUTOMATIC_KEYS:
-            findings.append(_build_automatic1111_finding(key, value))
-            continue
-
-        # Check for ComfyUI
-        if normalized_key in _COMFY_PROMPT_KEYS:
-            findings.append(_build_comfyui_finding(key, value, kind="prompt"))
-            continue
-        if normalized_key in _COMFY_WORKFLOW_KEYS:
-            findings.append(_build_comfyui_finding(key, value, kind="workflow"))
-            continue
-
-    # Check XMP fields for known AI-tool indicators
-    for xmp_key, pattern in _AI_XMP_INDICATORS.items():
-        xmp_value = textual_chunks.get(xmp_key, "")
-        if xmp_value and pattern.search(xmp_value):
-            findings.append(_build_xmp_ai_finding(xmp_key, xmp_value))
+    findings = _detect_ai_metadata(textual_chunks, context.image_bytes)
 
     # Build friendly summary (always-visible key facts)
     friendly_summary = _build_friendly_summary(textual_chunks)
@@ -117,7 +176,7 @@ def run_exif_metadata(context: AnalysisContext) -> dict[str, object]:
     if not findings:
         return {
             "status": "NOT FOUND",
-            "summary": "No AI EXIF metadata detected.",
+            "summary": "No AI metadata detected.",
             "data": data,
         }
 
@@ -184,11 +243,8 @@ def _collect_text_chunks(
     if image_bytes is None:
         image_bytes = b""
 
-    # If Pillow found an EXIF blob (common in PNGs), use that.
-    if "exif" in info and isinstance(info["exif"], bytes):
-        exif_bytes = info["exif"]
-    # Otherwise, if it's a JPEG/TIFF, use the whole file.
-    elif fmt in ("JPEG", "TIFF", "WEBP"):
+    # ExifRead expects a full file stream. Pillow handles isolated EXIF blobs.
+    if fmt in ("JPEG", "TIFF", "WEBP"):
         exif_bytes = image_bytes
 
     if exif_bytes:
@@ -244,6 +300,8 @@ def _stringify_metadata_value(value: Any) -> str:
 def _normalize_exif_key(tag: Any) -> str:
     if tag in _EXIF_TAG_ALIASES:
         return _EXIF_TAG_ALIASES[tag]
+    if isinstance(tag, int):
+        return TAGS.get(tag) or str(tag)
     clean_key = str(tag)
     if clean_key.startswith("EXIF "):
         return clean_key[5:]
@@ -340,6 +398,8 @@ _XMP_NS_MAP: dict[str, str] = {
     "http://ns.adobe.com/xap/1.0/rights/": "xmpRights",
     "http://ns.adobe.com/camera-raw-settings/1.0/": "crs",
     "http://ns.adobe.com/adobeillustrator/10.0/": "ai",
+    "http://iptc.org/std/Iptc4xmpExt/2008-02-29/": "Iptc4xmpExt",
+    "http://www.tc260.org.cn/ns/AIGC/1.0/": "TC260",
 }
 
 # rdf namespace
@@ -424,11 +484,6 @@ def _split_ns(tag: str) -> tuple[str, str]:
 
 # Known AI tool identifiers that may appear in XMP fields
 _AI_XMP_INDICATORS: dict[str, re.Pattern[str]] = {
-    "XMP:xmp:CreatorTool": re.compile(
-        r"(firefly|midjourney|dall[·\-\s]?e|stable.?diffusion|"
-        r"comfyui|invoke.?ai|novelai|leonardo\.ai|ideogram|flux)",
-        re.IGNORECASE,
-    ),
     "XMP:photoshop:Credit": re.compile(
         r"(ai[- ]generated|made.?with.?ai)", re.IGNORECASE
     ),
@@ -436,6 +491,202 @@ _AI_XMP_INDICATORS: dict[str, re.Pattern[str]] = {
         r"(firefly|midjourney|dall[·\-\s]?e|stable.?diffusion)", re.IGNORECASE
     ),
 }
+
+
+def _detect_ai_metadata(
+    chunks: dict[str, str], image_bytes: bytes
+) -> list[dict[str, Any]]:
+    findings: list[dict[str, Any]] = []
+    has_comfy_workflow = any(
+        key.lower() in _COMFY_WORKFLOW_KEYS for key in chunks.keys()
+    )
+
+    for key, value in chunks.items():
+        normalized_key = key.lower()
+        if not value:
+            continue
+
+        if normalized_key in _AUTOMATIC_KEYS:
+            findings.append(_build_automatic1111_finding(key, value))
+            continue
+
+        if normalized_key in _COMFY_WORKFLOW_KEYS:
+            findings.append(_build_comfyui_finding(key, value, kind="workflow"))
+            continue
+
+        if normalized_key in _COMFY_PROMPT_KEYS:
+            if has_comfy_workflow or _looks_like_json_object(value):
+                findings.append(_build_comfyui_finding(key, value, kind="prompt"))
+            else:
+                findings.append(_build_local_metadata_finding(key, value))
+            continue
+
+        if normalized_key in _LOCAL_GENERATION_KEYS:
+            findings.append(_build_local_metadata_finding(key, value))
+            continue
+
+        if normalized_key in _GENERATOR_VALUE_FIELDS and _matches_generator_token(value):
+            findings.append(_build_generator_tag_finding(key, value))
+
+    for xmp_key, pattern in _AI_XMP_INDICATORS.items():
+        xmp_value = chunks.get(xmp_key, "")
+        if xmp_value and pattern.search(xmp_value):
+            findings.append(_build_xmp_ai_finding(xmp_key, xmp_value))
+
+    findings.extend(_detect_iptc_findings(chunks, image_bytes))
+    if aigc := _extract_aigc_label(chunks, image_bytes):
+        findings.append(_build_aigc_finding(aigc))
+    if _is_xai_signature_pair(
+        chunks.get("ImageDescription", ""), chunks.get("Artist", "")
+    ):
+        findings.append(_build_xai_signature_finding(chunks))
+    if hf_job := chunks.get("hf-job-id", "").strip():
+        findings.append(_build_huggingface_job_finding(hf_job))
+    if samsung_genai := _extract_samsung_genai(image_bytes):
+        findings.append(_build_samsung_genai_finding(samsung_genai))
+
+    return _dedupe_findings(findings)
+
+
+def _looks_like_json_object(value: str) -> bool:
+    return value.strip().startswith("{")
+
+
+def _matches_generator_token(value: str) -> bool:
+    normalized = value.lower().replace("·", "-")
+    return any(token in normalized for token in _GENERATOR_TOKENS)
+
+
+def _detect_iptc_findings(
+    chunks: dict[str, str], image_bytes: bytes
+) -> list[dict[str, Any]]:
+    findings: list[dict[str, Any]] = []
+    xmp_context = _has_iptc_xmp_context(chunks, image_bytes)
+    if not xmp_context:
+        return findings
+
+    text = image_bytes.decode("latin-1", errors="ignore")
+    field_values = " ".join(
+        f"{key} {value}" for key, value in chunks.items() if key.startswith("XMP:")
+    )
+    haystack = f"{field_values} {text}"
+
+    for marker in _IPTC_AI_MARKERS:
+        if marker in haystack:
+            findings.append(_build_iptc_source_finding(marker))
+            break
+
+    ai_system = _extract_iptc_ai_system(haystack)
+    if ai_system:
+        findings.append(_build_iptc_ai_system_finding(ai_system))
+    elif any(field in haystack for field in _IPTC_AI_FIELDS):
+        findings.append(_build_iptc_ai_system_finding("fields present"))
+
+    return findings
+
+
+def _has_iptc_xmp_context(chunks: dict[str, str], image_bytes: bytes) -> bool:
+    if any("Iptc4xmp" in key for key in chunks):
+        return True
+    return b"Iptc4xmp" in image_bytes
+
+
+def _extract_iptc_ai_system(text: str) -> str:
+    match = re.search(r"AISystemUsed[=:\s]*[\"'>]\s*([^<\"']{1,120})", text)
+    if match:
+        return match.group(1).strip()
+    return ""
+
+
+def _extract_aigc_label(
+    chunks: dict[str, str], image_bytes: bytes
+) -> dict[str, str] | None:
+    if result := _parse_tc260_json(chunks.get("AIGC", ""), require_tc260_field=True):
+        return result
+
+    text = image_bytes.decode("latin-1", errors="ignore")
+    match = re.search(
+        r"<TC260:AIGC>(.*?)</TC260:AIGC>|TC260:AIGC\s*=\s*\"(.*?)\"",
+        text,
+        re.DOTALL,
+    )
+    if match:
+        body = match.group(1) if match.group(1) is not None else match.group(2)
+        parsed = _parse_tc260_json(unescape(body), require_tc260_field=False)
+        return parsed or {"Label": "1"}
+
+    for marker in _AIGC_MARKERS:
+        if marker in image_bytes:
+            return {"Label": "1"}
+
+    for needle in ('"AIGC"', "AIGC{"):
+        start = text.find(needle)
+        if start == -1:
+            continue
+        brace = text.find("{", start)
+        if brace == -1:
+            continue
+        try:
+            parsed, end = json.JSONDecoder().raw_decode(text[brace:])
+        except ValueError:
+            continue
+        candidate = text[brace : brace + end]
+        if result := _parse_tc260_json(candidate, require_tc260_field=True):
+            return result
+        if isinstance(parsed, dict) and "AIGC" in parsed:
+            nested = parsed.get("AIGC")
+            if isinstance(nested, dict):
+                fields = {str(k): str(v) for k, v in nested.items()}
+                if _TC260_FIELDS & fields.keys():
+                    return fields
+
+    return None
+
+
+def _parse_tc260_json(
+    value: str, *, require_tc260_field: bool
+) -> dict[str, str] | None:
+    if not value:
+        return None
+    try:
+        parsed = json.loads(value)
+    except (TypeError, ValueError):
+        return None
+    if not isinstance(parsed, dict):
+        return None
+    fields = {str(k): str(v) for k, v in parsed.items()}
+    if require_tc260_field and not (_TC260_FIELDS & fields.keys()):
+        return None
+    return fields
+
+
+def _is_xai_signature_pair(description: str, artist: str) -> bool:
+    return (
+        _XAI_SIGNATURE_RE.match(description.strip()) is not None
+        and _UUID_RE.fullmatch(artist.strip()) is not None
+    )
+
+
+def _extract_samsung_genai(image_bytes: bytes) -> int | None:
+    if _SAMSUNG_EDITOR_MARKER not in image_bytes:
+        return None
+    match = _SAMSUNG_GENAI_RE.search(image_bytes)
+    if not match:
+        return None
+    value = int(match.group(1))
+    return value or None
+
+
+def _dedupe_findings(findings: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    seen: set[tuple[str, str]] = set()
+    result: list[dict[str, Any]] = []
+    for finding in findings:
+        marker = (str(finding.get("key", "")), str(finding.get("full_text", "")))
+        if marker in seen:
+            continue
+        seen.add(marker)
+        result.append(finding)
+    return result
 
 
 def _build_automatic1111_finding(key: str, raw_value: str) -> dict[str, Any]:
@@ -450,7 +701,7 @@ def _build_automatic1111_finding(key: str, raw_value: str) -> dict[str, Any]:
         "key": key,
         "preview": _make_preview(raw_value),
         "full_text": raw_value,
-        "metadata": metadata,
+        "metadata": {"category": "generation_parameters", **metadata},
     }
 
 
@@ -493,7 +744,31 @@ def _build_comfyui_finding(key: str, raw_value: str, *, kind: str) -> dict[str, 
         "key": key,
         "preview": _make_preview(raw_value),
         "full_text": raw_value,
-        "metadata": metadata,
+        "metadata": {"category": "generation_parameters", **metadata},
+    }
+
+
+def _build_local_metadata_finding(key: str, value: str) -> dict[str, Any]:
+    return {
+        "tool": "Embedded AI metadata",
+        "key": key,
+        "preview": _make_preview(value),
+        "full_text": value,
+        "metadata": {"category": "generation_parameters", "field": key},
+    }
+
+
+def _build_generator_tag_finding(key: str, value: str) -> dict[str, Any]:
+    return {
+        "tool": "Embedded generator tag",
+        "key": key,
+        "preview": _make_preview(value),
+        "full_text": value,
+        "metadata": {
+            "category": "generator_tag",
+            "field": key,
+            "value": value,
+        },
     }
 
 
@@ -503,7 +778,96 @@ def _build_xmp_ai_finding(key: str, value: str) -> dict[str, Any]:
         "key": key,
         "preview": _make_preview(value),
         "full_text": value,
-        "metadata": {"field": key, "value": value},
+        "metadata": {"category": "xmp_indicator", "field": key, "value": value},
+    }
+
+
+def _build_iptc_source_finding(marker: str) -> dict[str, Any]:
+    return {
+        "tool": "IPTC AI source",
+        "key": "Iptc4xmpExt:DigitalSourceType",
+        "preview": marker,
+        "full_text": marker,
+        "metadata": {
+            "category": "iptc",
+            "field": "DigitalSourceType",
+            "value": marker,
+        },
+    }
+
+
+def _build_iptc_ai_system_finding(system: str) -> dict[str, Any]:
+    preview = "IPTC AI disclosure fields" if system == "fields present" else system
+    return {
+        "tool": "IPTC AI disclosure",
+        "key": "Iptc4xmpExt:AISystemUsed",
+        "preview": preview,
+        "full_text": preview,
+        "metadata": {
+            "category": "iptc",
+            "field": "AISystemUsed",
+            "value": system,
+        },
+    }
+
+
+def _build_aigc_finding(fields: dict[str, str]) -> dict[str, Any]:
+    full_text = json.dumps(fields, ensure_ascii=False)
+    producer = fields.get("ContentProducer", "")
+    preview = "China AIGC label (TC260)"
+    if producer:
+        preview = f"{preview}; producer {producer}"
+    return {
+        "tool": "China AIGC label (TC260)",
+        "key": "AIGC",
+        "preview": preview,
+        "full_text": full_text,
+        "metadata": {"category": "tc260", **fields},
+    }
+
+
+def _build_xai_signature_finding(chunks: dict[str, str]) -> dict[str, Any]:
+    full_text = "\n".join(
+        [
+            f"ImageDescription: {chunks.get('ImageDescription', '')}",
+            f"Artist: {chunks.get('Artist', '')}",
+        ]
+    )
+    return {
+        "tool": "xAI/Grok signature",
+        "key": "ImageDescription + Artist",
+        "preview": "EXIF Signature blob with UUID Artist",
+        "full_text": full_text,
+        "metadata": {"category": "xai_signature", "confidence": "high"},
+    }
+
+
+def _build_huggingface_job_finding(job_id: str) -> dict[str, Any]:
+    return {
+        "tool": "HuggingFace job marker",
+        "key": "hf-job-id",
+        "preview": job_id,
+        "full_text": job_id,
+        "metadata": {
+            "category": "hosting_job",
+            "confidence": "medium",
+            "job_id": job_id,
+        },
+    }
+
+
+def _build_samsung_genai_finding(genai_type: int) -> dict[str, Any]:
+    text = f"genAIType={genai_type}"
+    return {
+        "tool": "Samsung Galaxy AI marker",
+        "key": "PhotoEditor_Re_Edit_Data",
+        "preview": text,
+        "full_text": text,
+        "metadata": {
+            "category": "samsung_genai",
+            "confidence": "medium",
+            "genAIType": genai_type,
+        },
     }
 
 

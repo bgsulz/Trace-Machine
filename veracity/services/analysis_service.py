@@ -31,7 +31,7 @@ from ..registry import prepare_analysis_context
 from .trace_service import build_direct_and_distant_traces
 from ..tools import generate_external_tools
 from . import voting_service
-from .synthid_service import SYNTHID_DETECTORS
+from .synthid_service import PORTAL_RESULTS
 from ..analyzers.human import _build_vote_breakdown
 
 
@@ -193,7 +193,7 @@ def perform_analysis(
     )
 
 
-_MINI_TEMPLATES = {"c2pa", "exif", "human", "synthid"}
+_MINI_TEMPLATES = {"c2pa", "exif", "human", "invisible", "synthid"}
 
 
 def _should_persist_analyzer_row(slug: str) -> bool:
@@ -380,47 +380,30 @@ def _attach_synthid_report(row: dict[str, Any], registry_id: int) -> None:
     ).all()
 
     data = row.get("data") or {}
-    current_reports = {
-        str(report.detector): report.result
-        for report in reports
-        if getattr(report, "detector", None)
-    }
-    data["current_reports"] = current_reports
-    data["current_report"] = current_reports.get("google_about_this_image")
+    current_report = reports[0].result if reports else None
+    data["current_report"] = current_report
     row["data"] = data
 
 
 def _ensure_synthid_detector_defaults(row_data: dict[str, Any]) -> None:
-    by_detector = row_data.get("by_detector")
-    if not isinstance(by_detector, dict):
-        by_detector = {}
-    normalized = {}
-    for detector, spec in SYNTHID_DETECTORS.items():
-        counts = by_detector.get(detector) if isinstance(by_detector, dict) else {}
-        if not isinstance(counts, dict):
-            counts = {}
-        detected = int(counts.get("detected") or 0)
-        not_detected = int(counts.get("not_detected") or 0)
-        normalized[detector] = {
-            "provider": spec["provider"],
-            "detector": detector,
-            "detected": detected,
-            "not_detected": not_detected,
-            "total": detected + not_detected,
-        }
-    row_data["by_detector"] = normalized
+    totals = row_data.get("totals")
+    if not isinstance(totals, dict):
+        totals = {}
+    normalized_totals = {
+        result: int(totals.get(result) or 0)
+        for result in PORTAL_RESULTS
+    }
+    row_data["totals"] = normalized_totals
     row_data["checker_rows"] = [
         {
+            "result": result,
             "provider": spec["provider"],
-            "detector": detector,
             "label": spec["label"],
             "short_label": spec["short_label"],
             "check_label": spec["check_label"],
-            "detected": normalized[detector]["detected"],
-            "not_detected": normalized[detector]["not_detected"],
-            "total": normalized[detector]["total"],
+            "count": normalized_totals[result],
         }
-        for detector, spec in SYNTHID_DETECTORS.items()
+        for result, spec in PORTAL_RESULTS.items()
     ]
 
 
@@ -471,6 +454,10 @@ def _ensure_distant_match_flags(row: dict[str, Any], metadata: dict[str, Any] | 
 
     if slug == "synthid":
         row_data["has_distant_matches"] = bool(row_data.get("similar_images") or [])
+        return
+
+    if slug == "invisible":
+        row_data["has_distant_matches"] = False
         return
 
     if slug == "exif":

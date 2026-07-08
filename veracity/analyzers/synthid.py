@@ -1,40 +1,38 @@
-"""SynthID analyzer with community reporting.
+"""Verification portal analyzer with community reporting.
 
-SynthID is invisible watermarking technology for AI-generated images. Public
-detectors are provider-specific, so this analyzer gives users manual check paths
-and aggregates community reports from users who checked.
+The internal slug remains ``synthid`` for compatibility, but this analyzer now
+tracks user reports from provider verification portals rather than claiming to
+decode SynthID locally.
 """
 
 from __future__ import annotations
 
 from .context import AnalysisContext
-from .hash_utils import (
-    iter_neighbor_views,
+from .hash_utils import iter_neighbor_views
+from ..services.synthid_service import (
+    GOOGLE_POSITIVE,
+    NEGATIVE,
+    OPENAI_POSITIVE,
+    PORTAL_RESULTS,
+    portal_payload_from_counts,
 )
-from ..services.synthid_service import SYNTHID_DETECTORS
 
 
-# Tier weights for gating score
 _WEIGHT_SAME_ENTRY = 1.0
 _WEIGHT_SAME_HASH = 0.75
 _WEIGHT_SIMILAR = 0.5
-
-# Gating threshold for DETECTED state
 _DETECTED_THRESHOLD = 4
-
-# Tier A contradiction ratio: not_detected >= 3 * detected zeroes contribution
 _CONTRADICTION_RATIO = 3
 
 
 def run_synthid(context: AnalysisContext) -> dict[str, object]:
-    """Scan neighbors for SynthID reports and compute gating score."""
     this_image = _empty_counts()
     similar_images: list[dict[str, object]] = []
-    totals_by_detector = _empty_detector_counts()
-    score = 0.0
+    totals = _empty_counts()
+    score_by_result = {GOOGLE_POSITIVE: 0.0, OPENAI_POSITIVE: 0.0}
     any_reports = False
-    tier_a_detected = 0
-    tier_a_not_detected = 0
+    tier_a_positive = 0
+    tier_a_negative = 0
 
     for neighbor_view in iter_neighbor_views(context):
         neighbor = neighbor_view["neighbor"]
@@ -42,132 +40,142 @@ def run_synthid(context: AnalysisContext) -> dict[str, object]:
         if synthid is None:
             continue
 
-        detected = synthid.detected
-        not_detected = synthid.not_detected
-        by_detector = getattr(synthid, "by_detector", {}) or {}
-        if detected == 0 and not_detected == 0:
+        counts = _counts_from_snapshot(synthid)
+        if _total_reports(counts) == 0:
             continue
 
         any_reports = True
-        _add_detector_counts(totals_by_detector, by_detector)
+        _add_counts(totals, counts)
         phash_dist = neighbor_view["phash_distance"]
         whash_dist = neighbor_view["whash_distance"]
+        weight = _weight_for_neighbor(neighbor_view, phash_dist, whash_dist)
 
-        # Classify tier
-        min_dist = _min_distance(phash_dist, whash_dist)
         if neighbor_view["is_self_match"]:
-            # Tier A: same entry
-            weight = _WEIGHT_SAME_ENTRY
-            tier_a_detected += detected
-            tier_a_not_detected += not_detected
-            this_image["detected"] += detected
-            this_image["not_detected"] += not_detected
-            _add_detector_counts(this_image["by_detector"], by_detector)
-
-            # Tier A contradiction rule
-            contribution = detected
-            if not_detected >= _CONTRADICTION_RATIO * detected and detected > 0:
-                contribution = 0
-            score += weight * contribution
-        elif min_dist == 0:
-            # Tier B: same perceptual hash, different entry
-            weight = _WEIGHT_SAME_HASH
-            score += weight * detected
-            _append_similar(
-                similar_images,
-                neighbor_view,
-                detected,
-                not_detected,
-                by_detector,
-            )
+            _add_counts(this_image, counts)
+            tier_a_positive += counts[GOOGLE_POSITIVE] + counts[OPENAI_POSITIVE]
+            tier_a_negative += counts[NEGATIVE]
+            contribution = counts
+            if (
+                tier_a_positive > 0
+                and tier_a_negative >= _CONTRADICTION_RATIO * tier_a_positive
+            ):
+                contribution = {**counts, GOOGLE_POSITIVE: 0, OPENAI_POSITIVE: 0}
+            _add_weighted_scores(score_by_result, contribution, weight)
         else:
-            # Tier C: similar (within neighbor threshold)
-            weight = _WEIGHT_SIMILAR
-            score += weight * detected
-            _append_similar(
-                similar_images,
-                neighbor_view,
-                detected,
-                not_detected,
-                by_detector,
-            )
+            _add_weighted_scores(score_by_result, counts, weight)
+            _append_similar(similar_images, neighbor_view, counts)
 
-    # Determine contested flag
-    contested = False
-    if tier_a_detected > 0 and tier_a_not_detected > 0:
-        ratio = tier_a_not_detected / tier_a_detected
-        if 1.0 <= ratio <= _CONTRADICTION_RATIO:
-            contested = True
+    positive_results = [
+        result
+        for result, score in score_by_result.items()
+        if score > 0
+    ]
+    contested = len(positive_results) > 1
+    portal_payload = portal_payload_from_counts(totals)
+    checker_rows = _build_checker_rows(totals)
 
-    # Determine display state and build output
-    total_detected = this_image["detected"] + sum(
-        s["detected"] for s in similar_images
-    )
-    total_not_detected = this_image["not_detected"] + sum(
-        s["not_detected"] for s in similar_images
-    )
-    totals = {"detected": total_detected, "not_detected": total_not_detected}
-    checker_rows = _build_checker_rows(totals_by_detector)
-
-    if score == 0 and not any_reports:
+    if not any_reports:
         display_state = "manual"
         status = "MANUAL"
-        summary = "Check for invisible SynthID watermarking."
+        summary = "Check external verification portals."
         caveat = None
-    elif score == 0:
+    elif contested:
+        display_state = "contested"
+        status = "REPORTED"
+        summary = "Conflicting Google-positive and OpenAI-positive portal reports."
+        caveat = (
+            "A single image should not be positive for more than one provider "
+            "portal. Treat this as conflicting community evidence."
+        )
+    elif not positive_results:
         display_state = "checked"
         status = "CHECKED"
-        total_reporters = total_detected + total_not_detected
+        total_reporters = _total_reports(totals)
         summary = (
             f"Checked by {total_reporters} "
             f"user{'s' if total_reporters != 1 else ''}, "
-            f"not detected on this version."
+            "with no portal-positive reports on this version."
         )
         caveat = None
-    elif score < _DETECTED_THRESHOLD:
-        display_state = "reported"
-        status = "REPORTED"
-        only_similar = this_image["detected"] == 0 and total_detected > 0
-        if only_similar:
-            summary = (
-                f"{total_detected} user{'s' if total_detected != 1 else ''} "
-                f"reported detecting SynthID on a similar image."
-            )
-        else:
-            summary = (
-                f"{total_detected} user{'s' if total_detected != 1 else ''} "
-                f"reported detecting SynthID."
-            )
-        caveat = (
-            "Verify this yourself; SynthID checks are provider-specific "
-            "and can vary across different copies of an image."
-        )
     else:
-        display_state = "detected"
-        status = "DETECTED"
+        result = positive_results[0]
+        score = score_by_result[result]
+        label = PORTAL_RESULTS[result]["short_label"]
+        display_state = "detected" if score >= _DETECTED_THRESHOLD else "reported"
+        status = "DETECTED" if score >= _DETECTED_THRESHOLD else "REPORTED"
+        total = totals[result]
+        only_similar = this_image[result] == 0 and total > 0
+        source = " on a similar image" if only_similar else ""
         summary = (
-            f"SynthID detected by {total_detected} "
-            f"user{'s' if total_detected != 1 else ''}."
+            f"{total} user{'s' if total != 1 else ''} "
+            f"reported {label} portal positive{source}."
         )
-        caveat = None
+        caveat = None if status == "DETECTED" else (
+            "Verify this yourself; portal checks are provider-specific and can "
+            "vary across different copies of an image."
+        )
 
     return {
         "status": status,
         "summary": summary,
         "data": {
-            "header_action": {"type": "synthid_checkers"},
+            "header_action": {"type": "verification_portals"},
             "display_state": display_state,
             "contested": contested,
             "this_image": this_image,
             "similar_images": similar_images,
             "has_distant_matches": bool(similar_images),
             "totals": totals,
-            "by_detector": totals_by_detector,
+            "verification_portals": portal_payload,
             "checker_rows": checker_rows,
-            "score": score,
+            "scores": score_by_result,
+            "score": max(score_by_result.values(), default=0.0),
             "caveat": caveat,
         },
     }
+
+
+def _empty_counts() -> dict[str, int]:
+    return {GOOGLE_POSITIVE: 0, OPENAI_POSITIVE: 0, NEGATIVE: 0}
+
+
+def _counts_from_snapshot(synthid) -> dict[str, int]:
+    return {
+        GOOGLE_POSITIVE: int(getattr(synthid, GOOGLE_POSITIVE, 0) or 0),
+        OPENAI_POSITIVE: int(getattr(synthid, OPENAI_POSITIVE, 0) or 0),
+        NEGATIVE: int(getattr(synthid, NEGATIVE, 0) or 0),
+    }
+
+
+def _total_reports(counts: dict[str, int]) -> int:
+    return sum(int(value or 0) for value in counts.values())
+
+
+def _add_counts(target: dict[str, int], source: dict[str, int]) -> None:
+    for key in target:
+        target[key] += int(source.get(key) or 0)
+
+
+def _add_weighted_scores(
+    scores: dict[str, float],
+    counts: dict[str, int],
+    weight: float,
+) -> None:
+    scores[GOOGLE_POSITIVE] += weight * int(counts.get(GOOGLE_POSITIVE) or 0)
+    scores[OPENAI_POSITIVE] += weight * int(counts.get(OPENAI_POSITIVE) or 0)
+
+
+def _weight_for_neighbor(
+    neighbor_view: dict[str, object],
+    phash_dist: int | None,
+    whash_dist: int | None,
+) -> float:
+    if neighbor_view["is_self_match"]:
+        return _WEIGHT_SAME_ENTRY
+    min_dist = _min_distance(phash_dist, whash_dist)
+    if min_dist == 0:
+        return _WEIGHT_SAME_HASH
+    return _WEIGHT_SIMILAR
 
 
 def _min_distance(phash_dist: int | None, whash_dist: int | None) -> int | None:
@@ -179,84 +187,31 @@ def _min_distance(phash_dist: int | None, whash_dist: int | None) -> int | None:
 def _append_similar(
     similar_images: list[dict[str, object]],
     neighbor_view: dict[str, object],
-    detected: int,
-    not_detected: int,
-    by_detector: dict[str, dict[str, object]],
+    counts: dict[str, int],
 ) -> None:
     similar_images.append({
         "phash": neighbor_view["phash"],
         "whash": neighbor_view["whash"],
         "hash_display": neighbor_view["hash_display"],
         "distance": neighbor_view["display_distance"],
-        "detected": detected,
-        "not_detected": not_detected,
-        "by_detector": by_detector,
+        "google_positive": counts[GOOGLE_POSITIVE],
+        "openai_positive": counts[OPENAI_POSITIVE],
+        "negative": counts[NEGATIVE],
+        "total": _total_reports(counts),
+        "verification_portals": portal_payload_from_counts(counts),
         "sources": neighbor_view["sources"],
     })
 
 
-def _empty_counts() -> dict[str, object]:
-    return {
-        "detected": 0,
-        "not_detected": 0,
-        "by_detector": _empty_detector_counts(),
-    }
-
-
-def _empty_detector_counts() -> dict[str, dict[str, object]]:
-    return {
-        detector: {
+def _build_checker_rows(counts: dict[str, int]) -> list[dict[str, object]]:
+    return [
+        {
+            "result": result,
             "provider": spec["provider"],
-            "detector": detector,
-            "detected": 0,
-            "not_detected": 0,
-            "total": 0,
+            "label": spec["label"],
+            "short_label": spec["short_label"],
+            "check_label": spec["check_label"],
+            "count": int(counts.get(result) or 0),
         }
-        for detector, spec in SYNTHID_DETECTORS.items()
-    }
-
-
-def _add_detector_counts(
-    target: dict[str, dict[str, object]],
-    source: dict[str, dict[str, object]],
-) -> None:
-    for detector, counts in source.items():
-        spec = SYNTHID_DETECTORS.get(detector, {})
-        row = target.setdefault(
-            detector,
-            {
-                "provider": counts.get("provider") or spec.get("provider") or "unknown",
-                "detector": detector,
-                "detected": 0,
-                "not_detected": 0,
-                "total": 0,
-            },
-        )
-        row["detected"] = int(row.get("detected") or 0) + int(counts.get("detected") or 0)
-        row["not_detected"] = int(row.get("not_detected") or 0) + int(
-            counts.get("not_detected") or 0
-        )
-        row["total"] = int(row["detected"]) + int(row["not_detected"])
-
-
-def _build_checker_rows(
-    by_detector: dict[str, dict[str, object]]
-) -> list[dict[str, object]]:
-    rows: list[dict[str, object]] = []
-    for detector, spec in SYNTHID_DETECTORS.items():
-        counts = by_detector.get(detector) or {}
-        detected = int(counts.get("detected") or 0)
-        not_detected = int(counts.get("not_detected") or 0)
-        rows.append(
-            {
-                "provider": spec["provider"],
-                "detector": detector,
-                "label": spec["label"],
-                "short_label": spec["short_label"],
-                "check_label": spec["check_label"],
-                "detected": detected,
-                "not_detected": not_detected,
-                "total": detected + not_detected,
-            }
-        )
-    return rows
+        for result, spec in PORTAL_RESULTS.items()
+    ]

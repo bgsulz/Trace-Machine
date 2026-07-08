@@ -1,0 +1,21 @@
+<p>
+  <strong>Invisible Watermarks</strong> runs local pixel-watermark decoders when
+  optional decoder packages are installed. It does not call Google, OpenAI, AWS,
+  or other external portals.
+</p>
+<p>
+  The first supported local checks are open DWT-DCT watermarks used by some
+  Stable Diffusion / SDXL / FLUX pipelines and Adobe TrustMark. TrustMark marks
+  Content Credentials provenance, not AI generation by itself.
+</p>
+<p>
+  Optional decoders are disabled by default. A server operator must set
+  <code>INVISIBLE_WATERMARK_DECODERS=imwatermark,trustmark</code> or
+  <code>INVISIBLE_WATERMARK_DECODERS=all</code> after installing the matching
+  packages.
+</p>
+<div class="flash-warning">
+  <strong>Important limitation:</strong> These checks are positive-only. A local
+  hit is useful evidence, but a miss does not mean the image is clean; many
+  invisible watermarks are proprietary, fragile, or unavailable to local decoders.
+</div>

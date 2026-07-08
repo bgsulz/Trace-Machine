@@ -1,11 +1,18 @@
 <p>
-  <strong>SynthID</strong> is an invisible watermark embedded in the pixels of some AI-generated or AI-edited images. It is not metadata, unlike C2PA/Content Credentials or EXIF data, so it usually has to be checked with a provider-specific detector.
+  <strong>Verification Portals</strong> records manual reports from external
+  provider checkers. These portals can see proprietary signals that Veracity
+  cannot decode locally.
 </p>
 <p>
-  Google exposes SynthID checks through Google reverse image search and <strong>About this image</strong>. OpenAI exposes checks through <strong>OpenAI Verify</strong>. These tools are not interchangeable: Google's tooling may only recognize Google-origin watermarks, while OpenAI Verify reports OpenAI-origin SynthID.
+  Google exposes checks through Google reverse image search and
+  <strong>About this image</strong>. OpenAI exposes checks through
+  <strong>OpenAI Verify</strong>. These tools are provider-specific: a negative
+  result from one portal does not rule out a watermark from another provider.
 </p>
 <div class="flash-warning">
-  <strong>Important limitation:</strong> SynthID can be removed or degraded through aggressive editing, resizing, or compression. A negative result from one provider's checker does not rule out another provider's watermark.
+  <strong>Important limitation:</strong> Portal reports are community evidence.
+  A negative report means a user did not get a positive result from the portals
+  they checked; it is not proof that no invisible watermark exists.
 </div>
 <br/>
 <p>
@@ -20,12 +27,6 @@
       <a href="https://openai.com/research/verify/" target="_blank" rel="noopener noreferrer">
         OpenAI Verify
       </a>
-    </li>
-    <li>
-      <a href="https://www.nature.com/articles/s41586-024-08025-4" target="_blank" rel="noopener noreferrer">
-        Technical Deep Dive
-      </a>
-      <span style="font-size: 0.85em; color: var(--text-secondary);">(Note: this is for SynthID-Text, not the image implementation. Techniques are likely shared.)</span>
     </li>
   </ul>
 </p>

@@ -5,17 +5,16 @@
 {% set similar_images = row.data.similar_images or [] %}
 {% set totals = row.data.totals or {} %}
 {% set caveat = row.data.caveat %}
-{% set current_reports = row.data.current_reports or {} %}
+{% set current_report = row.data.current_report %}
 {% set checker_rows = row.data.checker_rows or [] %}
 {% set link_target = row.context.link_target if row.context else None %}
 {% set lens_link = row.context.lens_link if row.context else "https://images.google.com/" %}
 
 <div class="analyzer-detail-block" id="synthid-detail">
-  {# Instructions — always shown #}
-  <p><strong>How to check for SynthID:</strong></p>
+  <p><strong>How to check external portals:</strong></p>
   <ol class="synthid-steps">
     <li>Use the Google check for images that may come from Google tools; open <strong>About this image</strong> and look for <strong>Made with Google AI</strong>.</li>
-    <li>Use OpenAI Verify for images that may come from OpenAI tools; upload the same image and look for <strong>SynthID detected</strong>.</li>
+    <li>Use OpenAI Verify for images that may come from OpenAI tools; upload the same image and look for a positive OpenAI signal.</li>
   </ol>
   <div class="synthid-check-actions">
     <a
@@ -34,88 +33,57 @@
     >OpenAI Verify</a>
   </div>
   <p class="analyzer-note">
-    SynthID detectors are provider-specific. A Google result does not rule out OpenAI SynthID, and an OpenAI result does not rule out Google SynthID.
+    Portal checks are provider-specific. A negative report does not rule out an unsupported provider or a different copy of the image.
   </p>
 
-  {# Community report details — only extra info not already in row.summary #}
-  {% if display_state == "reported" %}
+  {% if display_state in ["reported", "detected", "contested", "checked"] %}
   <hr />
   {% if caveat %}
   <p class="analyzer-note">{{ caveat }}</p>
   {% endif %}
   <p class="synthid-counts">
-    Detected: {{ totals.detected }} / Not detected: {{ totals.not_detected }}
-  </p>
-  {% elif display_state == "detected" %}
-  <hr />
-  <p class="synthid-counts">
-    Detected: {{ totals.detected }} / Not detected: {{ totals.not_detected }}
+    Google positive: {{ totals.google_positive|default(0) }} /
+    OpenAI positive: {{ totals.openai_positive|default(0) }} /
+    Negative: {{ totals.negative|default(0) }}
   </p>
   {% endif %}
 
   {% if contested %}
   <p class="synthid-contested">
-    <strong>Conflicting reports on this image</strong> &mdash;
-    {{ this_image.detected }} detected, {{ this_image.not_detected }} not detected.
+    <strong>Conflicting portal reports</strong> &mdash;
+    Google positive: {{ this_image.google_positive|default(0) }},
+    OpenAI positive: {{ this_image.openai_positive|default(0) }},
+    negative: {{ this_image.negative|default(0) }}.
   </p>
   {% endif %}
 
   {% if row.data.has_distant_matches %}
-  {{ distant_match_callout(similar_images|length, "SynthID reports") }}
+  {{ distant_match_callout(similar_images|length, "verification portal reports") }}
   {% endif %}
 </div>
 
-{# Vote buttons — hidden until a SynthID checker is opened #}
 {% if row.data.phash %}
 <div class="synthid-voting-area" id="synthid-vote-area" hidden>
   <hr />
-  <small class="vote-prompt"><strong>Did you find SynthID?</strong></small>
+  <small class="vote-prompt"><strong>What did the portals show?</strong></small>
   <div class="synthid-provider-list">
     {% for checker in checker_rows %}
-    {% set current_report = current_reports.get(checker.detector) %}
-    <div class="synthid-provider-row">
-      <div class="synthid-provider-meta">
-        <strong>{{ checker.label }}</strong>
-        <small>{{ checker.detected }} detected / {{ checker.not_detected }} not detected</small>
-      </div>
-      <div class="vote-buttons">
     <form
       action="{{ url_for('main.synthid_report') }}"
       method="post"
       hx-post="{{ url_for('main.synthid_report') }}"
       hx-target="#analyzer-row-synthid"
       hx-swap="outerHTML"
+      class="synthid-provider-row"
     >
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
       <input type="hidden" name="analysis_id" value="{{ row.context.analysis_id }}" />
-      <input type="hidden" name="provider" value="{{ checker.provider }}" />
-      <input type="hidden" name="detector" value="{{ checker.detector }}" />
-      <input type="hidden" name="report" value="detected" />
+      <input type="hidden" name="report" value="{{ checker.result }}" />
       <button
         type="submit"
-        class="vote-btn-ai{% if current_report and current_report != 'detected' %} vote-btn-muted{% endif %}"
-      >SynthID Detected</button>
+        class="{% if checker.result == 'negative' %}vote-btn-real{% else %}vote-btn-ai{% endif %}{% if current_report and current_report != checker.result %} vote-btn-muted{% endif %}"
+      >{{ checker.label }}</button>
     </form>
-
-    <form
-      action="{{ url_for('main.synthid_report') }}"
-      method="post"
-      hx-post="{{ url_for('main.synthid_report') }}"
-      hx-target="#analyzer-row-synthid"
-      hx-swap="outerHTML"
-    >
-      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
-      <input type="hidden" name="analysis_id" value="{{ row.context.analysis_id }}" />
-      <input type="hidden" name="provider" value="{{ checker.provider }}" />
-      <input type="hidden" name="detector" value="{{ checker.detector }}" />
-      <input type="hidden" name="report" value="not_detected" />
-      <button
-        type="submit"
-        class="vote-btn-real{% if current_report and current_report != 'not_detected' %} vote-btn-muted{% endif %}"
-      >Not Detected</button>
-    </form>
-      </div>
-    </div>
     {% endfor %}
   </div>
 </div>

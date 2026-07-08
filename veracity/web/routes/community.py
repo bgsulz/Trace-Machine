@@ -9,7 +9,7 @@ from ... import csrf
 from ...analysis_cache import load_analysis_payload
 from ...services.analysis_service import render_analyzer_fragment_html, render_evidence_summary_oob
 from ...services.config_service import increment_total_donated, parse_amount_to_cents
-from ...services.synthid_service import SYNTHID_CHOICES, apply_synthid_report
+from ...services.synthid_service import apply_synthid_report, normalize_portal_result
 from ...services.voting_service import VOTE_CHOICES, apply_vote, get_voter_id
 
 
@@ -102,14 +102,19 @@ def register_community_routes(
         _, metadata = payload
         phash = (metadata.get("phash") or "").strip()
 
-        if not phash or report not in SYNTHID_CHOICES:
+        normalized_report = normalize_portal_result(
+            report,
+            provider=provider,
+            detector=detector,
+        )
+        if not phash or normalized_report is None:
             flash("Invalid report request.")
             return redirect(url_for("main.index"))
 
         voter_id = get_voter_id()
         success, status = apply_synthid_report(
             phash,
-            report,
+            normalized_report,
             voter_id,
             provider=provider,
             detector=detector,
@@ -126,7 +131,7 @@ def register_community_routes(
                 link_target="_blank" if mini else None,
             )
             html += render_evidence_summary_oob(analysis_id)
-            msg = "SynthID report recorded." if status == "recorded" else "SynthID report updated."
+            msg = "Portal report recorded." if status == "recorded" else "Portal report updated."
             if status == "unchanged":
                 msg = "You already submitted this report."
             return _toast_response(html, msg)

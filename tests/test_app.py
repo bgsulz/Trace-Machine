@@ -142,6 +142,8 @@ def test_analyze_mini_renders_compact_report(client, monkeypatch):
     assert b"mini-grid" in resp.data
     assert b"mini-card-c2pa" in resp.data
     assert b"mini-card-exif" in resp.data
+    assert b"mini-card-invisible" in resp.data
+    assert b"mini-card-synthid" in resp.data
     assert b"mini-card-human" in resp.data
     assert b"hx-get" in resp.data
 

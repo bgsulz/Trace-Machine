@@ -1,5 +1,6 @@
 <div class="batch-strip">
-  {% set batch_slugs = ["c2pa", "synthid", "exif", "human"] %}
+  {% set batch_slugs = ["c2pa", "exif", "invisible", "synthid", "human"] %}
+  {% set batch_titles = {"c2pa": "C2PA", "exif": "Metadata", "invisible": "Invisible", "synthid": "Portals", "human": "Community"} %}
   {% for slug in batch_slugs %}
   <div
     class="mini-card batch-strip__card"
@@ -8,7 +9,7 @@
     hx-swap="innerHTML"
   >
     <div class="mini-card-content">
-      <div class="mini-card-title">{{ slug|upper if slug != 'human' else 'Community' }}</div>
+      <div class="mini-card-title">{{ batch_titles[slug] }}</div>
       <div class="mini-card-status loading">Loading...</div>
     </div>
   </div>
