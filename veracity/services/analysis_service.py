@@ -17,8 +17,8 @@ from ..analysis_cache import (
     update_analysis_metadata,
 )
 from ..analyzers.manager import (
-    ANALYZERS,
     DEFAULT_ANALYZER_TEMPLATE,
+    get_active_analyzers,
     get_analyzer_spec,
     run_all_analyzers,
     run_single_analyzer,
@@ -62,13 +62,13 @@ def _build_analyzer_summary(
     return summary
 
 
-_EVIDENCE_SLUGS = [s.slug for s in ANALYZERS if s.slug != "tineye"]
-
-
 def render_evidence_summary_oob(analysis_id: str) -> str:
     """Return an OOB-swappable evidence summary fragment for *analysis_id*."""
     rows: list[dict[str, Any]] = []
-    for slug in _EVIDENCE_SLUGS:
+    for spec in get_active_analyzers():
+        if spec.slug == "tineye":
+            continue
+        slug = spec.slug
         cached = load_cached_analyzer_row(analysis_id, slug)
         if cached is not None:
             rows.append(cached)
@@ -155,7 +155,8 @@ def perform_analysis(
     }
     analysis_id = store_analysis_payload(None, image_bytes, metadata)
     tool_results = generate_external_tools(public_url, analysis_id=analysis_id)
-    analyzer_rows = _prime_analyzer_rows(analysis_id, context)
+    active_analyzers = get_active_analyzers()
+    analyzer_rows = _prime_analyzer_rows(analysis_id, context, active_analyzers)
     direct_distant = build_direct_and_distant_traces(
         context,
         analyzer_rows=analyzer_rows,
@@ -174,7 +175,10 @@ def perform_analysis(
         template_name,
         image_url=image_data_url,
         source=source,
-        analyzers=ANALYZERS,
+        analyzers=active_analyzers,
+        invisible_watermarks_enabled=any(
+            spec.slug == "invisible" for spec in active_analyzers
+        ),
         tools=tool_results,
         analysis_link=analysis_link,
         analysis_id=analysis_id,
@@ -214,6 +218,8 @@ def render_analyzer_fragment_html(
     spec = get_analyzer_spec(slug)
     if spec is None:
         abort(404)
+    if slug == "invisible" and spec not in get_active_analyzers():
+        abort(404)
 
     payload = load_analysis_payload(analysis_id)
     metadata: dict[str, Any] | None = None
@@ -237,8 +243,12 @@ def render_analyzer_fragment_html(
     return render_template("partials/analyzer_row.html", row=row)
 
 
-def _prime_analyzer_rows(analysis_id: str, context) -> list[dict[str, Any]]:
-    rows = run_all_analyzers(context)
+def _prime_analyzer_rows(
+    analysis_id: str,
+    context,
+    analyzers=None,
+) -> list[dict[str, Any]]:
+    rows = run_all_analyzers(context, analyzers=analyzers)
     for row in rows:
         slug = row.get("slug")
         if not slug:

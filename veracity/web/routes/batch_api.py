@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from flask import Blueprint, flash, jsonify, redirect, render_template, request, url_for
+from flask import Blueprint, current_app, flash, jsonify, redirect, render_template, request, url_for
 
 from ... import csrf, limiter
 from ...services.batch_service import MAX_BATCH_URLS, process_batch_urls
@@ -62,7 +62,13 @@ def register_batch_api_routes(bp: Blueprint) -> None:
 
         results = [results_by_index[idx] for idx in range(len(urls)) if idx in results_by_index]
 
-        return render_template("batch_results.html", results=results)
+        return render_template(
+            "batch_results.html",
+            results=results,
+            invisible_watermarks_enabled=bool(
+                current_app.config.get("INVISIBLE_WATERMARK_DECODERS")
+            ),
+        )
 
     @bp.route("/api/lookup", methods=["POST"])
     @csrf.exempt

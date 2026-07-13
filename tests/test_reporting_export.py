@@ -8,7 +8,7 @@ from veracity.analysis_cache import (
     store_analysis_payload,
     store_cached_analyzer_row,
 )
-from veracity.analyzers.manager import ANALYZERS
+from veracity.analyzers.manager import ANALYZERS, get_active_analyzers
 
 
 def _extract_analysis_id(html: str) -> str:
@@ -94,8 +94,12 @@ def test_export_json_has_expected_shape_and_types(client, app):
 
     analyzers = payload.get("analyzers")
     assert isinstance(analyzers, list)
-    assert len(analyzers) == len(ANALYZERS)
-    assert [row["slug"] for row in analyzers] == [spec.slug for spec in ANALYZERS]
+    with app.app_context():
+        active_analyzers = get_active_analyzers()
+    assert len(analyzers) == len(active_analyzers)
+    assert [row["slug"] for row in analyzers] == [
+        spec.slug for spec in active_analyzers
+    ]
     for row in analyzers:
         assert set(row.keys()) == {"name", "slug", "status", "summary", "data", "template"}
         assert isinstance(row["name"], str)

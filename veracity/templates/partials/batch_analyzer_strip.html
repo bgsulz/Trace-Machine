@@ -1,5 +1,5 @@
 <div class="batch-strip">
-  {% set batch_slugs = ["c2pa", "exif", "invisible", "synthid", "human"] %}
+  {% set batch_slugs = ["c2pa", "exif"] + (["invisible"] if invisible_watermarks_enabled else []) + ["synthid", "human"] %}
   {% set batch_titles = {"c2pa": "C2PA", "exif": "Metadata", "invisible": "Invisible", "synthid": "Portals", "human": "Community"} %}
   {% for slug in batch_slugs %}
   <div

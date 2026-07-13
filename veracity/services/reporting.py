@@ -6,7 +6,7 @@ from typing import Any
 from flask import current_app
 
 from ..analysis_cache import load_analysis_payload, load_cached_analyzer_row
-from ..analyzers.manager import ANALYZERS
+from ..analyzers.manager import get_active_analyzers
 from ..registry import prepare_analysis_context
 from .trace_service import build_direct_and_distant_traces
 from ..tools import generate_external_tools
@@ -62,7 +62,7 @@ def build_report_payload(analysis_id: str) -> dict[str, Any]:
 
 def _build_analyzer_rows(analysis_id: str) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
-    for spec in ANALYZERS:
+    for spec in get_active_analyzers():
         raw_row = load_cached_analyzer_row(analysis_id, spec.slug)
         if raw_row is None:
             rows.append(

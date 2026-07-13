@@ -8,14 +8,13 @@ from flask import current_app
 
 from ..analysis_cache import store_analysis_payload, store_cached_analyzer_row
 from .analysis_service import _format_public_url
-from ..analyzers.manager import ANALYZERS, run_all_analyzers
+from ..analyzers.manager import get_active_analyzers, run_all_analyzers
 from .remote_image_service import fetch_remote_image
 from ..registry import prepare_analysis_context
 from . import voting_service
 
 logger = logging.getLogger(__name__)
 
-BATCH_ANALYZERS = tuple(spec for spec in ANALYZERS if spec.slug != "tineye")
 MAX_BATCH_URLS = 10
 
 
@@ -92,7 +91,10 @@ def _do_process_url(url: str) -> dict:
     analysis_id = store_analysis_payload(None, image_bytes, metadata)
 
     # Prime analyzer cache (excluding TinEye)
-    rows = run_all_analyzers(context, analyzers=BATCH_ANALYZERS)
+    batch_analyzers = tuple(
+        spec for spec in get_active_analyzers() if spec.slug != "tineye"
+    )
+    rows = run_all_analyzers(context, analyzers=batch_analyzers)
     for row in rows:
         slug = row.get("slug")
         if slug:

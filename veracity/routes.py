@@ -10,7 +10,7 @@ from flask import (
     url_for,
 )
 
-from .analyzers.manager import ANALYZERS, get_analyzer_spec
+from .analyzers.manager import get_active_analyzers, get_analyzer_spec
 from .services.config_service import DONATION_GOAL_CENTS, get_global_config
 from .web.routes.analysis import register_analysis_routes
 from .web.routes.batch_api import register_batch_api_routes
@@ -75,7 +75,7 @@ def index():
 
 @bp.route("/info")
 def analyzer_info():
-    return render_template("info.html", analyzers=ANALYZERS)
+    return render_template("info.html", analyzers=get_active_analyzers())
 
 
 register_analysis_routes(bp, _expired_analysis_response)

@@ -77,6 +77,18 @@ ANALYZERS: Sequence[AnalyzerSpec] = (
 _ANALYZER_BY_SLUG = {spec.slug: spec for spec in ANALYZERS}
 
 
+def get_active_analyzers() -> tuple[AnalyzerSpec, ...]:
+    """Return analyzers enabled for this deployment."""
+    invisible_enabled = bool(
+        current_app.config.get("INVISIBLE_WATERMARK_DECODERS")
+    )
+    return tuple(
+        spec
+        for spec in ANALYZERS
+        if spec.slug != "invisible" or invisible_enabled
+    )
+
+
 def run_all_analyzers(
     context: AnalysisContext,
     analyzers: Iterable[AnalyzerSpec] | None = None,
@@ -84,7 +96,7 @@ def run_all_analyzers(
     """Execute all analyzers in parallel and normalize their outputs."""
     specs: Sequence[AnalyzerSpec]
     if analyzers is None:
-        specs = tuple(ANALYZERS)
+        specs = get_active_analyzers()
     else:
         specs = tuple(analyzers)
 

@@ -640,6 +640,17 @@ def test_invisible_analyzer_registered():
     assert spec.name == "Invisible Watermarks"
 
 
+def test_invisible_analyzer_only_active_when_configured(app):
+    from veracity.analyzers.manager import get_active_analyzers
+
+    with app.app_context():
+        assert "invisible" not in {spec.slug for spec in get_active_analyzers()}
+
+        app.config["INVISIBLE_WATERMARK_DECODERS"] = {"open_dwt_dct"}
+
+        assert "invisible" in {spec.slug for spec in get_active_analyzers()}
+
+
 def test_exif_detects_automatic1111_metadata():
     sample = (
         "Astronaut in a jungle, cold color palette, muted colors, detailed, 8k "

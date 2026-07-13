@@ -142,10 +142,33 @@ def test_analyze_mini_renders_compact_report(client, monkeypatch):
     assert b"mini-grid" in resp.data
     assert b"mini-card-c2pa" in resp.data
     assert b"mini-card-exif" in resp.data
-    assert b"mini-card-invisible" in resp.data
+    assert b"mini-card-invisible" not in resp.data
     assert b"mini-card-synthid" in resp.data
     assert b"mini-card-human" in resp.data
     assert b"hx-get" in resp.data
+
+
+def test_analyze_mini_shows_enabled_invisible_analyzer(client, app, monkeypatch):
+    import veracity.ingestion as ingestion_module
+
+    monkeypatch.setattr(
+        ingestion_module,
+        "fetch_image_bytes",
+        lambda _url: (_make_test_image_bytes(), "image/png"),
+    )
+    app.config["INVISIBLE_WATERMARK_DECODERS"] = {"open_dwt_dct"}
+
+    resp = client.get("/analyze-mini?url=https://example.com/mini-enabled.png")
+
+    assert resp.status_code == 200
+    assert b"mini-card-invisible" in resp.data
+
+
+def test_disabled_invisible_analyzer_is_hidden_and_not_routable(client):
+    info = client.get("/info")
+
+    assert info.status_code == 200
+    assert b"Invisible Watermarks" not in info.data
 
 
 def test_file_upload_does_not_create_image_source(client, app):
