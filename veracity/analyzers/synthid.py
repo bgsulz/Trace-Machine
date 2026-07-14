@@ -11,6 +11,7 @@ from .context import AnalysisContext
 from .hash_utils import iter_neighbor_views
 from ..services.synthid_service import (
     GOOGLE_POSITIVE,
+    META_POSITIVE,
     NEGATIVE,
     OPENAI_POSITIVE,
     PORTAL_RESULTS,
@@ -29,7 +30,11 @@ def run_synthid(context: AnalysisContext) -> dict[str, object]:
     this_image = _empty_counts()
     similar_images: list[dict[str, object]] = []
     totals = _empty_counts()
-    score_by_result = {GOOGLE_POSITIVE: 0.0, OPENAI_POSITIVE: 0.0}
+    score_by_result = {
+        GOOGLE_POSITIVE: 0.0,
+        OPENAI_POSITIVE: 0.0,
+        META_POSITIVE: 0.0,
+    }
     any_reports = False
     tier_a_positive = 0
     tier_a_negative = 0
@@ -52,14 +57,21 @@ def run_synthid(context: AnalysisContext) -> dict[str, object]:
 
         if neighbor_view["is_self_match"]:
             _add_counts(this_image, counts)
-            tier_a_positive += counts[GOOGLE_POSITIVE] + counts[OPENAI_POSITIVE]
+            tier_a_positive += sum(
+                counts[result] for result in score_by_result
+            )
             tier_a_negative += counts[NEGATIVE]
             contribution = counts
             if (
                 tier_a_positive > 0
                 and tier_a_negative >= _CONTRADICTION_RATIO * tier_a_positive
             ):
-                contribution = {**counts, GOOGLE_POSITIVE: 0, OPENAI_POSITIVE: 0}
+                contribution = {
+                    **counts,
+                    GOOGLE_POSITIVE: 0,
+                    OPENAI_POSITIVE: 0,
+                    META_POSITIVE: 0,
+                }
             _add_weighted_scores(score_by_result, contribution, weight)
         else:
             _add_weighted_scores(score_by_result, counts, weight)
@@ -82,7 +94,7 @@ def run_synthid(context: AnalysisContext) -> dict[str, object]:
     elif contested:
         display_state = "contested"
         status = "REPORTED"
-        summary = "Conflicting Google-positive and OpenAI-positive portal reports."
+        summary = "Conflicting provider-positive portal reports."
         caveat = (
             "A single image should not be positive for more than one provider "
             "portal. Treat this as conflicting community evidence."
@@ -136,13 +148,19 @@ def run_synthid(context: AnalysisContext) -> dict[str, object]:
 
 
 def _empty_counts() -> dict[str, int]:
-    return {GOOGLE_POSITIVE: 0, OPENAI_POSITIVE: 0, NEGATIVE: 0}
+    return {
+        GOOGLE_POSITIVE: 0,
+        OPENAI_POSITIVE: 0,
+        META_POSITIVE: 0,
+        NEGATIVE: 0,
+    }
 
 
 def _counts_from_snapshot(synthid) -> dict[str, int]:
     return {
         GOOGLE_POSITIVE: int(getattr(synthid, GOOGLE_POSITIVE, 0) or 0),
         OPENAI_POSITIVE: int(getattr(synthid, OPENAI_POSITIVE, 0) or 0),
+        META_POSITIVE: int(getattr(synthid, META_POSITIVE, 0) or 0),
         NEGATIVE: int(getattr(synthid, NEGATIVE, 0) or 0),
     }
 
@@ -163,6 +181,7 @@ def _add_weighted_scores(
 ) -> None:
     scores[GOOGLE_POSITIVE] += weight * int(counts.get(GOOGLE_POSITIVE) or 0)
     scores[OPENAI_POSITIVE] += weight * int(counts.get(OPENAI_POSITIVE) or 0)
+    scores[META_POSITIVE] += weight * int(counts.get(META_POSITIVE) or 0)
 
 
 def _weight_for_neighbor(
@@ -196,6 +215,7 @@ def _append_similar(
         "distance": neighbor_view["display_distance"],
         "google_positive": counts[GOOGLE_POSITIVE],
         "openai_positive": counts[OPENAI_POSITIVE],
+        "meta_positive": counts[META_POSITIVE],
         "negative": counts[NEGATIVE],
         "total": _total_reports(counts),
         "verification_portals": portal_payload_from_counts(counts),

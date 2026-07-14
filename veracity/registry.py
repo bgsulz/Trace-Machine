@@ -26,6 +26,7 @@ from .matching import (
 from .models import ImageLocalFeatures, ImageRegistry
 from .services.synthid_service import (
     GOOGLE_POSITIVE,
+    META_POSITIVE,
     NEGATIVE,
     OPENAI_POSITIVE,
     portal_counts_from_reports,
@@ -61,12 +62,13 @@ class FactSnapshot:
 class SynthIDSnapshot:
     google_positive: int
     openai_positive: int
+    meta_positive: int
     negative: int
     by_result: dict[str, dict[str, object]] = field(default_factory=dict)
 
     @property
     def detected(self) -> int:
-        return self.google_positive + self.openai_positive
+        return self.google_positive + self.openai_positive + self.meta_positive
 
     @property
     def not_detected(self) -> int:
@@ -275,6 +277,7 @@ def _serialize_neighbor(
         synthid_snapshot = SynthIDSnapshot(
             google_positive=counts[GOOGLE_POSITIVE],
             openai_positive=counts[OPENAI_POSITIVE],
+            meta_positive=counts[META_POSITIVE],
             negative=counts[NEGATIVE],
             by_result=by_result,
         )

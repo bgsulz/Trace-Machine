@@ -11,25 +11,26 @@
     <a href="{{ lens_link }}" target="_blank" rel="noopener noreferrer" class="mini-check-link">Google</a>
     {% endif %}
     <a href="https://openai.com/research/verify/" target="_blank" rel="noopener noreferrer" class="mini-check-link">OpenAI</a>
+    <a href="https://meta.ai/identification" target="_blank" rel="noopener noreferrer" class="mini-check-link">Meta</a>
   </div>
 
   {% if display_state == "detected" %}
   <div class="mini-card-status found">
     <span class="mini-icon">&#9888;</span> Positive
   </div>
-  <div class="mini-card-detail">G {{ totals.google_positive|default(0) }} / O {{ totals.openai_positive|default(0) }} / N {{ totals.negative|default(0) }}</div>
+  <div class="mini-card-detail">G {{ totals.google_positive|default(0) }} / O {{ totals.openai_positive|default(0) }} / M {{ totals.meta_positive|default(0) }} / N {{ totals.negative|default(0) }}</div>
 
   {% elif display_state == "reported" %}
   <div class="mini-card-status similar">
     <span class="mini-icon">&#128269;</span> Reported
   </div>
-  <div class="mini-card-detail">G {{ totals.google_positive|default(0) }} / O {{ totals.openai_positive|default(0) }} / N {{ totals.negative|default(0) }}</div>
+  <div class="mini-card-detail">G {{ totals.google_positive|default(0) }} / O {{ totals.openai_positive|default(0) }} / M {{ totals.meta_positive|default(0) }} / N {{ totals.negative|default(0) }}</div>
 
   {% elif display_state == "contested" %}
   <div class="mini-card-status similar">
     <span class="mini-icon">&#9888;</span> Contested
   </div>
-  <div class="mini-card-detail">G {{ totals.google_positive|default(0) }} / O {{ totals.openai_positive|default(0) }}</div>
+  <div class="mini-card-detail">G {{ totals.google_positive|default(0) }} / O {{ totals.openai_positive|default(0) }} / M {{ totals.meta_positive|default(0) }}</div>
 
   {% elif display_state == "checked" %}
   <div class="mini-card-status not-found">Negative</div>
@@ -58,8 +59,10 @@
       <input type="hidden" name="report" value="{{ checker.result }}" />
       <button
         type="submit"
-        class="mini-vote-btn {% if checker.result == 'negative' %}real{% else %}ai{% endif %}{% if current_report == checker.result %} active{% endif %}"
-      >{{ checker.short_label }}</button>
+        class="mini-vote-btn portal-mini-vote portal-mini-vote--{{ checker.provider }}{% if current_report == checker.result %} active{% endif %}"
+        aria-label="Report {{ checker.label }}"
+        title="{{ checker.label }}"
+      >{% if checker.result == 'negative' %}&times;{% else %}<img src="{{ url_for('static', filename='icons/portal-' ~ checker.provider ~ '.svg') }}" alt="" />{% endif %}</button>
     </form>
     {% endfor %}
   </div>

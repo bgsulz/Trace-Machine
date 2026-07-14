@@ -6,11 +6,12 @@
   {% set matches = direct_distant.distant_matches %}
   {% set match_count = matches|length %}
   {# Aggregate verification-portal verdict across all matches #}
-  {% set ns = namespace(portal_google=0, portal_openai=0, portal_negative=0) %}
+  {% set ns = namespace(portal_google=0, portal_openai=0, portal_meta=0, portal_negative=0) %}
   {% for m in matches %}
     {% if m.verification_portals %}
       {% set ns.portal_google = ns.portal_google + m.verification_portals.google_positive %}
       {% set ns.portal_openai = ns.portal_openai + m.verification_portals.openai_positive %}
+      {% set ns.portal_meta = ns.portal_meta + m.verification_portals.meta_positive %}
       {% set ns.portal_negative = ns.portal_negative + m.verification_portals.negative %}
     {% endif %}
   {% endfor %}
@@ -23,7 +24,7 @@
     </summary>
     <div class="analyzer-content">
       {# -- Verdict line -- #}
-      {% if ns.portal_google > 0 or ns.portal_openai > 0 %}
+      {% if ns.portal_google > 0 or ns.portal_openai > 0 or ns.portal_meta > 0 %}
       <div class="dt-verdict dt-verdict--detected">
         <span class="dt-verdict__dot"></span>
         <strong>Portal-positive report on matched copy</strong>
@@ -61,7 +62,7 @@
           {# Carried traces summary (normal mode) #}
           <div class="dt-card__traces friendly-only">
             {% if match.verification_portals %}
-            <small>Portals: G {{ match.verification_portals.google_positive }} / O {{ match.verification_portals.openai_positive }} / N {{ match.verification_portals.negative }}</small>
+            <small>Portals: G {{ match.verification_portals.google_positive }} / O {{ match.verification_portals.openai_positive }} / M {{ match.verification_portals.meta_positive }} / N {{ match.verification_portals.negative }}</small>
             {% endif %}
             {% if match.c2pa_facts %}
             <small>C2PA: {{ match.c2pa_facts|join("; ") }}</small>
@@ -79,7 +80,7 @@
 Region: [{{ "%.3f"|format(match.local.crop_box[0]) }}, {{ "%.3f"|format(match.local.crop_box[1]) }}, {{ "%.3f"|format(match.local.crop_box[2]) }}, {{ "%.3f"|format(match.local.crop_box[3]) }}]{% endif %}</code>
             {% endif %}
             {% if match.verification_portals %}
-            <small>Verification portals: Google {{ match.verification_portals.google_positive }} / OpenAI {{ match.verification_portals.openai_positive }} / negative {{ match.verification_portals.negative }}</small>
+            <small>Verification portals: Google {{ match.verification_portals.google_positive }} / OpenAI {{ match.verification_portals.openai_positive }} / Meta {{ match.verification_portals.meta_positive }} / negative {{ match.verification_portals.negative }}</small>
             {% endif %}
             {% if match.c2pa_facts %}
             <small>C2PA: {{ match.c2pa_facts|join("; ") }}</small>

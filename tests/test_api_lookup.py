@@ -221,6 +221,7 @@ def test_verification_portals_google_positive_reflected(client, app):
         "verdict": "google_positive",
         "google_positive": 2,
         "openai_positive": 0,
+        "meta_positive": 0,
         "negative": 1,
         "contested": False,
     }
@@ -252,6 +253,20 @@ def test_verification_portals_conflict_returns_contested(client, app):
     match = _single_match(_lookup(client, [url]), url)
     assert match["verification_portals"]["verdict"] == "contested"
     assert match["verification_portals"]["contested"] is True
+
+
+def test_verification_portals_meta_positive_reflected(client, app):
+    url = "https://example.com/meta-positive.jpg"
+    _seed_image(
+        app,
+        url=url,
+        phash="cdcdcdcdcdcdcdcd",
+        synthid_reports=["meta_positive", "meta_positive", "negative"],
+    )
+
+    match = _single_match(_lookup(client, [url]), url)
+    assert match["verification_portals"]["verdict"] == "meta_positive"
+    assert match["verification_portals"]["meta_positive"] == 2
 
 
 def test_no_consensus_verdict_null(client, app):

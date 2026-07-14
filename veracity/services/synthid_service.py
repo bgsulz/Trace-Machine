@@ -6,9 +6,10 @@ from ..models import ImageRegistry, SynthIDReport
 
 GOOGLE_POSITIVE = "google_positive"
 OPENAI_POSITIVE = "openai_positive"
+META_POSITIVE = "meta_positive"
 NEGATIVE = "negative"
 
-SYNTHID_CHOICES = {GOOGLE_POSITIVE, OPENAI_POSITIVE, NEGATIVE}
+SYNTHID_CHOICES = {GOOGLE_POSITIVE, OPENAI_POSITIVE, META_POSITIVE, NEGATIVE}
 PORTAL_RESULTS = {
     GOOGLE_POSITIVE: {
         "provider": "google",
@@ -21,6 +22,12 @@ PORTAL_RESULTS = {
         "label": "OpenAI Positive",
         "short_label": "OpenAI",
         "check_label": "OpenAI Verify",
+    },
+    META_POSITIVE: {
+        "provider": "meta",
+        "label": "Meta Positive",
+        "short_label": "Meta",
+        "check_label": "Meta Identify",
     },
     NEGATIVE: {
         "provider": "portal",
@@ -125,13 +132,20 @@ def normalize_portal_result(
 
     if provider == "openai" or detector == "openai_verify":
         return OPENAI_POSITIVE
+    if provider == "meta" or detector == "meta_identification":
+        return META_POSITIVE
     if provider in {"", "google"} or detector in {"", "google_about_this_image"}:
         return GOOGLE_POSITIVE
     return None
 
 
 def portal_counts_from_reports(reports) -> dict[str, int]:
-    counts = {GOOGLE_POSITIVE: 0, OPENAI_POSITIVE: 0, NEGATIVE: 0}
+    counts = {
+        GOOGLE_POSITIVE: 0,
+        OPENAI_POSITIVE: 0,
+        META_POSITIVE: 0,
+        NEGATIVE: 0,
+    }
     for report in reports or []:
         result = normalize_portal_result(str(getattr(report, "result", "") or ""))
         if result is not None:
@@ -142,17 +156,22 @@ def portal_counts_from_reports(reports) -> dict[str, int]:
 def portal_verdict(counts: dict[str, int]) -> str | None:
     google = int(counts.get(GOOGLE_POSITIVE) or 0)
     openai = int(counts.get(OPENAI_POSITIVE) or 0)
+    meta = int(counts.get(META_POSITIVE) or 0)
     negative = int(counts.get(NEGATIVE) or 0)
 
-    if google > 0 and openai > 0:
+    positives = {
+        GOOGLE_POSITIVE: google,
+        OPENAI_POSITIVE: openai,
+        META_POSITIVE: meta,
+    }
+    present = [result for result, count in positives.items() if count > 0]
+    if len(present) > 1:
         return "contested"
-    if google > negative:
-        return GOOGLE_POSITIVE
-    if openai > negative:
-        return OPENAI_POSITIVE
-    if negative > google + openai:
+    if present and positives[present[0]] > negative:
+        return present[0]
+    if negative > sum(positives.values()):
         return NEGATIVE
-    if negative > 0 and google == 0 and openai == 0:
+    if negative > 0 and not present:
         return NEGATIVE
     return None
 
@@ -161,6 +180,7 @@ def portal_payload_from_counts(counts: dict[str, int]) -> dict[str, object]:
     payload = {
         GOOGLE_POSITIVE: int(counts.get(GOOGLE_POSITIVE) or 0),
         OPENAI_POSITIVE: int(counts.get(OPENAI_POSITIVE) or 0),
+        META_POSITIVE: int(counts.get(META_POSITIVE) or 0),
         NEGATIVE: int(counts.get(NEGATIVE) or 0),
     }
     verdict = portal_verdict(payload)

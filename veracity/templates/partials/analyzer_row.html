@@ -47,21 +47,35 @@
     {% set lens_link = row.context.lens_link if row.context else "https://images.google.com/" %}
     <div class="header-action-group">
       <a
-        class="header-action"
+        class="header-action portal-header-action"
         href="{{ lens_link }}"
         target="_blank"
         rel="noopener noreferrer"
         role="button"
+        aria-label="Open Google About this image"
+        title="Google About this image"
         onclick="event.stopPropagation(); this.closest('details').open = true;"
-      >Check Google</a>
+      ><img src="{{ url_for('static', filename='icons/portal-google.svg') }}" alt="" /></a>
       <a
-        class="header-action"
+        class="header-action portal-header-action"
         href="https://openai.com/research/verify/"
         target="_blank"
         rel="noopener noreferrer"
         role="button"
+        aria-label="Open OpenAI Verify"
+        title="OpenAI Verify"
         onclick="event.stopPropagation(); this.closest('details').open = true;"
-      >OpenAI Verify</a>
+      ><img src="{{ url_for('static', filename='icons/portal-openai.svg') }}" alt="" /></a>
+      <a
+        class="header-action portal-header-action"
+        href="https://meta.ai/identification"
+        target="_blank"
+        rel="noopener noreferrer"
+        role="button"
+        aria-label="Open Meta Identify"
+        title="Meta Identify"
+        onclick="event.stopPropagation(); this.closest('details').open = true;"
+      ><img src="{{ url_for('static', filename='icons/portal-meta.svg') }}" alt="" /></a>
     </div>
     {% endif %}
     {% endif %}

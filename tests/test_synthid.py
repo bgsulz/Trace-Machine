@@ -26,10 +26,11 @@ def _make_context(
     )
 
 
-def _snapshot(google=0, openai=0, negative=0):
+def _snapshot(google=0, openai=0, meta=0, negative=0):
     return SynthIDSnapshot(
         google_positive=google,
         openai_positive=openai,
+        meta_positive=meta,
         negative=negative,
     )
 
@@ -115,6 +116,21 @@ def test_contested_when_both_provider_positive_buckets_exist():
     assert result["data"]["verification_portals"]["verdict"] == "contested"
 
 
+def test_meta_positive_is_detected_and_contests_other_provider():
+    detected = run_synthid(
+        _make_context(neighbors=[_make_neighbor(id=1, synthid=_snapshot(meta=5))])
+    )
+    contested = run_synthid(
+        _make_context(
+            neighbors=[_make_neighbor(id=1, synthid=_snapshot(openai=1, meta=1))]
+        )
+    )
+
+    assert detected["status"] == "DETECTED"
+    assert detected["data"]["scores"]["meta_positive"] == 5.0
+    assert contested["data"]["display_state"] == "contested"
+
+
 def test_checker_rows_preserve_portal_counts():
     context = _make_context(neighbors=[_make_neighbor(id=1, synthid=_snapshot(google=2, negative=1))])
 
@@ -124,10 +140,12 @@ def test_checker_rows_preserve_portal_counts():
     assert result["data"]["totals"] == {
         "google_positive": 2,
         "openai_positive": 0,
+        "meta_positive": 0,
         "negative": 1,
     }
     assert rows["google_positive"]["count"] == 2
     assert rows["openai_positive"]["count"] == 0
+    assert rows["meta_positive"]["count"] == 0
     assert rows["negative"]["count"] == 1
 
 
@@ -265,6 +283,25 @@ def test_synthid_report_change_updates_single_row(client, app):
         assert reports[0].result == "negative"
 
 
+def test_synthid_report_accepts_meta_positive(client, app):
+    analysis_id, phash = _upload_and_get_ids(client)
+
+    client.post(
+        "/synthid-report",
+        data={
+            "phash": phash,
+            "report": "meta_positive",
+            "analysis_id": analysis_id,
+        },
+    )
+
+    from veracity.models import SynthIDReport
+
+    with app.app_context():
+        report = SynthIDReport.query.one()
+        assert report.result == "meta_positive"
+
+
 def test_synthid_report_accepts_legacy_post_values(client, app):
     analysis_id, phash = _upload_and_get_ids(client)
 
@@ -339,15 +376,16 @@ def test_htmx_synthid_report_unchanged(client):
     assert "already" in trigger["showToast"].lower()
 
 
-def test_synthid_mini_fragment_includes_three_portal_forms(client):
+def test_synthid_mini_fragment_includes_four_portal_forms(client):
     analysis_id, _ = _upload_and_get_ids(client)
 
     fragment = client.get(f"/analysis/{analysis_id}/analyzers/synthid?mini=1")
 
     assert fragment.status_code == 200
-    assert fragment.data.count(b'name="mini" value="1"') == 3
+    assert fragment.data.count(b'name="mini" value="1"') == 4
     assert b'name="report" value="google_positive"' in fragment.data
     assert b'name="report" value="openai_positive"' in fragment.data
+    assert b'name="report" value="meta_positive"' in fragment.data
     assert b'name="report" value="negative"' in fragment.data
 
 
@@ -359,9 +397,12 @@ def test_synthid_fragment_includes_checker_actions(client):
     assert fragment.status_code == 200
     assert b"OpenAI Verify" in fragment.data
     assert b"Check Google" in fragment.data
+    assert b"Meta Identify" in fragment.data
     assert b"Google Positive" in fragment.data
     assert b"OpenAI Positive" in fragment.data
+    assert b"Meta Positive" in fragment.data
     assert b"Negative" in fragment.data
+    assert b'aria-label="Open Meta Identify"' in fragment.data
 
 
 def test_htmx_synthid_report_mini_returns_mini_fragment(client):
