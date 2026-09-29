@@ -1,25 +1,42 @@
 {% extends "base.html" %}
 {% from "partials/hint_card.html" import hint_card %}
 
-{% block content %}
-{% set raised_cents = donation_total_cents or 0 %}
-{% set goal_cents = donation_goal_cents or 0 %}
-{% set raised_dollars = raised_cents / 100 %}
-{% set goal_dollars = goal_cents / 100 if goal_cents else 0 %}
+{% set samples = [
+  {"file": "info_images/infrared_tree.png", "label": "C2PA-signed image"},
+  {"file": "info_images/astronaut.png", "label": "Automatic1111 metadata"},
+  {"file": "info_images/bottle.png", "label": "ComfyUI metadata"},
+] %}
 
-<section class="home-section">
-  {% include "partials/analyzer_form.html" %}
+{% block content %}
+<section class="home stack-lg">
+  <div>
+    {% with variant = "hero" %}{% include "partials/analyzer_form.html" %}{% endwith %}
+
+    <div class="samples">
+      <span>No image handy? Try a sample:</span>
+      {% for sample in samples %}
+      {% set sample_url = url_for('static', filename=sample.file, _external=True) %}
+      <form action="{{ url_for('main.analyze') }}" method="get" data-analyzing data-preview="{{ url_for('static', filename=sample.file) }}">
+        <input type="hidden" name="url" value="{{ sample_url }}" />
+        <button type="submit" class="btn btn--sm">{{ sample.label }}</button>
+      </form>
+      {% endfor %}
+    </div>
+  </div>
 
   {% call hint_card(show_dismiss=True) %}
-  <h4>What Is This?</h4>
-  <p>Upload an image or paste a link. Trace Machine will search for:</p>
-  <ul>
-    <li><strong>Origin indicators:</strong> C2PA signatures, image metadata, and reverse image matches.</li>
-    <li><strong>AI markers:</strong> Local watermark decoders, verification portals, and known AI-generator sites.</li>
-    <li><strong>Community consensus:</strong> How other users have classified this image.</li>
-  </ul>
+  <h2>What gets checked</h2>
+  <p>
+    Trace Machine gathers provenance signals and shows you where they came from.
+    It won't tell you whether an image is real. Signals are evidence to weigh,
+    and finding nothing doesn't mean an image is authentic.
+  </p>
+  <dl class="kv home-checks">
+    {% for analyzer in analyzers %}
+    <dt>{{ short_name(analyzer.slug, analyzer.name) }}</dt>
+    <dd>{{ analyzer.tooltip }}</dd>
+    {% endfor %}
+  </dl>
   {% endcall %}
-
-  <!-- {% include "partials/donation_meter.html" %} -->
 </section>
 {% endblock %}

@@ -56,7 +56,7 @@ def test_result_page_links_export_actions(client):
         "file": (io.BytesIO(image_bytes), "test.png"),
         "image_url": "",
     }
-    resp = client.post("/analyze", data=data, content_type="multipart/form-data")
+    resp = client.post("/analyze", data=data, content_type="multipart/form-data", follow_redirects=True)
     assert resp.status_code == 200
     body = resp.data.decode("utf-8")
     analysis_id = _extract_analysis_id(body)

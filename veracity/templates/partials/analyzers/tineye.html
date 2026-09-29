@@ -1,32 +1,55 @@
 {% from "partials/macros/tineye.html" import render_tineye_buckets, render_tineye_intelligence %}
+{% from "partials/macros/ui.html" import icon %}
+{% set search_links = row.context.search_links if row.context and row.context.search_links else [] %}
+{% set analysis_id = row.context.analysis_id if row.context else None %}
 
-{% if row.status == "MANUAL" %}
-<div class="analyzer-detail-block">
-  <p class="analyzer-note">
-    Click <strong>"Check TinEye"</strong> above to search for this image across the web.
-    This will check where the image has appeared online and when it was first indexed.
+<div class="stack">
+  {% if row.status == "MANUAL" %}
+  <p class="muted">
+    Finds where this image appears on the web and when it was first indexed. Pages from
+    before 2022 predate convincing image generators; matches on known AI-image sites point
+    the other way. TinEye results are fetched on demand and are not retained by Trace Machine.
   </p>
-  <p class="analyzer-note">
-    TinEye results are fetched on demand and are not retained by Trace Machine.
-  </p>
-</div>
-{% else %}
-<div class="analyzer-detail-block">
+  {% if analysis_id %}
+  <form
+    method="post"
+    action="{{ url_for('main.run_tineye', analysis_id=analysis_id) }}"
+    hx-post="{{ url_for('main.run_tineye', analysis_id=analysis_id) }}"
+    hx-target="#analyzer-row-tineye"
+    hx-swap="outerHTML"
+    hx-disabled-elt="find button"
+  >
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+    <button type="submit" class="btn btn--primary">
+      {{ icon("search") }} Check TinEye
+      <span class="htmx-indicator dot" data-state="loading" aria-hidden="true"></span>
+    </button>
+  </form>
+  {% endif %}
+  {% else %}
   {{ render_tineye_intelligence(row.data|default({}, true)) }}
 
-  <div class="tineye-interpretation">
-    <h4>Interpretation Guidance</h4>
-    <ul>
-      <li>Older first-seen dates usually indicate the image existed before recent AI generators.</li>
-      <li>AI-hosting domains increase AI-origin suspicion, but still require manual verification.</li>
-      <li>Social/news/stock clusters can help trace publication context and recirculation.</li>
-    </ul>
-  </div>
-
-  <p class="analyzer-note">
-    TinEye results are fetched on demand and are not retained by Trace Machine.
-  </p>
-
   {{ render_tineye_buckets(row.data.buckets) }}
+
+  <details class="disclosure">
+    <summary>Reading these results</summary>
+    <ul>
+      <li>Older first-seen dates usually mean the image existed before today's AI generators.</li>
+      <li>Matches on AI-hosting sites raise suspicion of AI origin, but still need manual verification.</li>
+      <li>Clusters of social, news, or stock sites help trace where the image was published and recirculated.</li>
+    </ul>
+  </details>
+  <p class="faint">TinEye results are fetched on demand and are not retained by Trace Machine.</p>
+  {% endif %}
+
+  {% if search_links %}
+  <div class="search-links">
+    <span class="eyebrow">Search it yourself</span>
+    <div class="cluster">
+      {% for link in search_links %}
+      <a class="btn btn--sm" href="{{ link.url }}" target="_blank" rel="noopener noreferrer">{{ link.label|trim }} {{ icon("external") }}</a>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
 </div>
-{% endif %}

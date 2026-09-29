@@ -3,29 +3,20 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
     <title>Trace Machine · Mini Report</title>
-    <link
-      rel="stylesheet"
-      href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css"
-    />
-    <link
-      rel="stylesheet"
-      href="{{ url_for('static', filename='css/theme.css') }}"
-    />
-    <link
-      rel="stylesheet"
-      href="{{ url_for('static', filename='css/custom.css') }}"
-    />
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/report.css') }}" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/mini.css') }}" />
+    <script src="{{ url_for('static', filename='js/theme.js') }}"></script>
     <script
       src="https://cdn.jsdelivr.net/npm/htmx.org@2.0.8/dist/htmx.min.js"
       integrity="sha384-/TgkGk7p307TH7EXJDuUlgG3Ce1UVolAOFopFekQkkXihi5u/6OCvVKyz1W+idaz"
       crossorigin="anonymous"
     ></script>
-    <script src="{{ url_for('static', filename='js/theme.js') }}"></script>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/mini.css') }}" />
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/c2pa_trust_assessment.css') }}" />
   </head>
-  <body>
+  <body class="mini-page">
+    {% include "partials/icon_sprite.html" %}
     {% include "partials/mini_grid.html" %}
   </body>
 </html>

@@ -1,11 +1,10 @@
-{% set placeholder_prefix = placeholder_prefix|default("analyzer-placeholder-") %}
-{% set mini_mode = mini_mode|default(False) %}
+{% from "partials/macros/ui.html" import icon, status_pill %}
 
-<div class="analyzer-list">
+<div class="checks">
   {% if direct_distant and direct_distant.distant_matches %}
   {% set matches = direct_distant.distant_matches %}
   {% set match_count = matches|length %}
-  {# Aggregate verification-portal verdict across all matches #}
+  {# Aggregate verification-portal reports across all matches #}
   {% set ns = namespace(portal_google=0, portal_openai=0, portal_meta=0, portal_negative=0) %}
   {% for m in matches %}
     {% if m.verification_portals %}
@@ -15,93 +14,78 @@
       {% set ns.portal_negative = ns.portal_negative + m.verification_portals.negative %}
     {% endif %}
   {% endfor %}
-  <details class="analyzer-item" id="direct-distant-traces" open>
-    <summary class="analyzer-header">
-      <div class="analyzer-header-info">
-        <span class="analyzer-title"><strong>Distant traces</strong></span>
-      </div>
-      <span class="badge found">{{ match_count }} match{{ "es" if match_count != 1 }} found</span>
+  <details class="check" id="direct-distant-traces" data-state="found" open>
+    <summary class="check__head">
+      <span class="check__title"><span class="check__name">Distant traces</span></span>
+      <span class="check__summary">{{ match_count }} similar image{{ "s" if match_count != 1 }} already carr{{ "y" if match_count != 1 else "ies" }} evidence.</span>
+      <span class="check__status">{{ status_pill("FOUND", "distant") }}</span>
+      {{ icon("chevron", "check__chevron") }}
     </summary>
-    <div class="analyzer-content">
-      {# -- Verdict line -- #}
+    <div class="check__body stack">
+      <p class="muted">
+        These images look like this one and were analyzed before. Evidence attached to them
+        may apply here too, or may belong to a different version of the image.
+      </p>
+
       {% if ns.portal_google > 0 or ns.portal_openai > 0 or ns.portal_meta > 0 %}
-      <div class="dt-verdict dt-verdict--detected">
-        <span class="dt-verdict__dot"></span>
-        <strong>Portal-positive report on matched copy</strong>
-        <span class="tech-only dt-verdict__counts">Google {{ ns.portal_google }} / OpenAI {{ ns.portal_openai }} / negative {{ ns.portal_negative }}</span>
-      </div>
+      <p class="notice">
+        <strong>A matched copy has portal-positive reports.</strong>
+        <span class="tech-only mono">Google {{ ns.portal_google }} · OpenAI {{ ns.portal_openai }} · Meta {{ ns.portal_meta }} · negative {{ ns.portal_negative }}</span>
+      </p>
       {% elif ns.portal_negative > 0 %}
-      <div class="dt-verdict dt-verdict--clear">
-        <span class="dt-verdict__dot dt-verdict__dot--clear"></span>
-        <strong>Negative portal reports on matched copies</strong>
-        <span class="tech-only dt-verdict__counts">0 positive / {{ ns.portal_negative }} negative</span>
-      </div>
+      <p class="notice notice--info">
+        Matched copies have only negative portal reports.
+        <span class="tech-only mono">0 positive · {{ ns.portal_negative }} negative</span>
+      </p>
       {% endif %}
 
-      {# -- Match cards -- #}
-      <div class="dt-cards{% if match_count > 3 %} dt-cards--capped{% endif %}">
+      <div class="trace-list{% if match_count > 3 %} is-capped{% endif %}">
         {% for match in matches %}
-        <div class="dt-card{% if loop.index > 3 and match_count > 3 %} dt-card--overflow{% endif %}">
-          <div class="dt-card__top">
-            <div class="dt-card__source">
-              <span class="dt-card__label friendly-only">{% if match.sources %}Online image{% else %}Uploaded image{% endif %}</span>
-              <span class="dt-card__label tech-only"><code>{{ match.hash_display or match.phash }}</code></span>
-              <small class="dt-card__method friendly-only">{{ match.match_method_label }}{% if match.distance is not none %} · {{ ((64 - match.distance) / 64 * 100) | round | int }}% similar{% endif %}</small>
-              <small class="dt-card__method tech-only">{{ match.match_method_label }}{% if match.distance is not none %} · dist {{ match.distance }}{% endif %}</small>
+        <article class="trace">
+          <div class="trace__head">
+            <div>
+              <span class="trace__label friendly-only">{% if match.sources %}Online image{% else %}Uploaded image{% endif %}</span>
+              <code class="tech-only">{{ match.hash_display or match.phash }}</code>
+              <span class="trace__method">
+                {{ match.match_method_label }}
+                {%- if match.distance is not none %}
+                <span class="friendly-only">· {{ ((64 - match.distance) / 64 * 100) | round | int }}% similar</span>
+                <span class="tech-only">· dist {{ match.distance }}</span>
+                {%- endif %}
+              </span>
             </div>
             {% if match.local and match.local.inlier_ratio is not none %}
-            <div class="dt-card__confidence" title="{{ "%.0f"|format(match.local.inlier_ratio * 100) }}% inlier ratio">
-              <div class="dt-card__confidence-bar">
-                <div class="dt-card__confidence-fill" style="width: {{ "%.0f"|format(match.local.inlier_ratio * 100) }}%"></div>
-              </div>
-              <small class="dt-card__confidence-pct">{{ "%.0f"|format(match.local.inlier_ratio * 100) }}%</small>
+            {% set pct = "%.0f"|format(match.local.inlier_ratio * 100) %}
+            <div class="meter" title="{{ pct }}% of matched features agree">
+              <span class="meter__bar"><span style="width: {{ pct }}%"></span></span>
+              <span class="mono">{{ pct }}%</span>
             </div>
             {% endif %}
           </div>
 
-          {# Carried traces summary (normal mode) #}
-          <div class="dt-card__traces friendly-only">
-            {% if match.verification_portals %}
-            <small>Portals: G {{ match.verification_portals.google_positive }} / O {{ match.verification_portals.openai_positive }} / M {{ match.verification_portals.meta_positive }} / N {{ match.verification_portals.negative }}</small>
-            {% endif %}
+          <dl class="kv trace__facts">
             {% if match.c2pa_facts %}
-            <small>C2PA: {{ match.c2pa_facts|join("; ") }}</small>
+            <dt>C2PA</dt><dd>{{ match.c2pa_facts|join("; ") }}</dd>
+            {% endif %}
+            {% if match.verification_portals %}
+            <dt>Portals</dt>
+            <dd>Google {{ match.verification_portals.google_positive }} · OpenAI {{ match.verification_portals.openai_positive }} · Meta {{ match.verification_portals.meta_positive }} · negative {{ match.verification_portals.negative }}</dd>
             {% endif %}
             {% if match.votes %}
-            <small>Consensus: {{ match.votes.total_votes }} votes ({{ match.votes.vote_real }}R / {{ match.votes.vote_edited }}E / {{ match.votes.vote_ai }}A)</small>
+            <dt>Community</dt>
+            <dd>{{ match.votes.vote_real }} real · {{ match.votes.vote_edited }} edited · {{ match.votes.vote_ai }} AI ({{ match.votes.total_votes }} vote{{ "s" if match.votes.total_votes != 1 }})</dd>
             {% endif %}
-          </div>
-
-          {# Technical detail block #}
-          {% if match.local or match.votes or match.c2pa_facts or match.verification_portals %}
-          <div class="dt-card__tech tech-only">
             {% if match.local %}
-            <code class="dt-card__tech-block">{{ match.local.extractor|upper }}: {{ match.local.inliers }} inliers / {{ match.local.good_matches }} good ({{ "%.1f"|format(match.local.inlier_ratio * 100) }}%){% if match.local.crop_box %}
-Region: [{{ "%.3f"|format(match.local.crop_box[0]) }}, {{ "%.3f"|format(match.local.crop_box[1]) }}, {{ "%.3f"|format(match.local.crop_box[2]) }}, {{ "%.3f"|format(match.local.crop_box[3]) }}]{% endif %}</code>
+            <dt class="tech-only">{{ match.local.extractor|upper }}</dt>
+            <dd class="tech-only mono">{{ match.local.inliers }} inliers / {{ match.local.good_matches }} good ({{ "%.1f"|format(match.local.inlier_ratio * 100) }}%){% if match.local.crop_box %}<br />region [{{ "%.3f"|format(match.local.crop_box[0]) }}, {{ "%.3f"|format(match.local.crop_box[1]) }}, {{ "%.3f"|format(match.local.crop_box[2]) }}, {{ "%.3f"|format(match.local.crop_box[3]) }}]{% endif %}</dd>
             {% endif %}
-            {% if match.verification_portals %}
-            <small>Verification portals: Google {{ match.verification_portals.google_positive }} / OpenAI {{ match.verification_portals.openai_positive }} / Meta {{ match.verification_portals.meta_positive }} / negative {{ match.verification_portals.negative }}</small>
-            {% endif %}
-            {% if match.c2pa_facts %}
-            <small>C2PA: {{ match.c2pa_facts|join("; ") }}</small>
-            {% endif %}
-            {% if match.votes %}
-            <small>Consensus: {{ match.votes.total_votes }} votes ({{ match.votes.vote_real }} real / {{ match.votes.vote_edited }} edited / {{ match.votes.vote_ai }} AI)</small>
-            {% endif %}
-          </div>
-          {% endif %}
+          </dl>
 
-          {# Action buttons #}
-          <div class="dt-card__actions">
-            {% if match.sources %}
-            <a href="{{ url_for('main.analyze', url=match.sources[0].url) }}" class="dt-card__btn dt-card__btn--link">Open source</a>
-            {% endif %}
-            {% if match.local and match.local.crop_box and match.sources %}
-            <form
-              action="{{ url_for('main.analyze_matched_region') }}"
-              method="post"
-              class="dt-card__form"
-            >
+          {% if match.sources %}
+          <div class="cluster">
+            <a href="{{ url_for('main.analyze', url=match.sources[0].url) }}" class="btn btn--sm" data-analyzing>Analyze source</a>
+            {% if match.local and match.local.crop_box %}
+            <form action="{{ url_for('main.analyze_matched_region') }}" method="post" data-analyzing>
               <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
               <input type="hidden" name="image_url" value="{{ match.sources[0].url }}" />
               <input type="hidden" name="crop_left" value="{{ match.local.crop_box[0] }}" />
@@ -109,15 +93,16 @@ Region: [{{ "%.3f"|format(match.local.crop_box[0]) }}, {{ "%.3f"|format(match.lo
               <input type="hidden" name="crop_width" value="{{ match.local.crop_box[2] }}" />
               <input type="hidden" name="crop_height" value="{{ match.local.crop_box[3] }}" />
               <input type="hidden" name="parent_registry_id" value="{{ match.image_id }}" />
-              <button type="submit" class="dt-card__btn">Analyze region</button>
+              <button type="submit" class="btn btn--sm">Analyze matching region</button>
             </form>
             {% endif %}
           </div>
-        </div>
+          {% endif %}
+        </article>
         {% endfor %}
       </div>
       {% if match_count > 3 %}
-      <button class="dt-show-all" onclick="this.previousElementSibling.classList.remove('dt-cards--capped'); this.remove();">
+      <button type="button" class="btn btn--sm btn--ghost" onclick="this.previousElementSibling.classList.remove('is-capped'); this.remove();">
         Show all {{ match_count }} matches
       </button>
       {% endif %}
@@ -126,60 +111,44 @@ Region: [{{ "%.3f"|format(match.local.crop_box[0]) }}, {{ "%.3f"|format(match.lo
   {% endif %}
 
   {% if containments %}
-  <details class="analyzer-item" open>
-    <summary class="analyzer-header">
-      <div class="analyzer-header-info">
-        <span class="analyzer-title"><strong>Contained Regions</strong></span>
-      </div>
-      <span class="badge found">FOUND</span>
+  <details class="check" id="contained-regions" data-state="found" open>
+    <summary class="check__head">
+      <span class="check__title"><span class="check__name">Contained regions</span></span>
+      <span class="check__summary">This image contains regions that match previously analyzed images.</span>
+      <span class="check__status">{{ status_pill("FOUND", "contained") }}</span>
+      {{ icon("chevron", "check__chevron") }}
     </summary>
-    <div class="analyzer-content">
-      <p class="analyzer-summary">
-        This image contains regions that match previously analyzed images.
-      </p>
+    <div class="check__body">
       <table class="contained-regions-table">
         <thead>
           <tr>
             <th scope="col">
-              <span class="tech-only">Normalized Crop (x, y, w, h)</span>
-              <span class="friendly-only">Matched Region</span>
+              <span class="tech-only">Normalized crop (x, y, w, h)</span>
+              <span class="friendly-only">Region</span>
             </th>
             <th scope="col">Signals</th>
-            <th scope="col">Action</th>
+            <th scope="col"><span class="sr-only">Action</span></th>
           </tr>
         </thead>
         <tbody>
           {% for region in containments %}
           <tr>
             <td>
-              <code class="tech-only">
-                {{ '%.3f'|format(region.crop_box[0]) }},
-                {{ '%.3f'|format(region.crop_box[1]) }},
-                {{ '%.3f'|format(region.crop_box[2]) }},
-                {{ '%.3f'|format(region.crop_box[3]) }}
-              </code>
-              <span class="friendly-only">Region detected</span>
+              <code class="tech-only">{{ '%.3f'|format(region.crop_box[0]) }}, {{ '%.3f'|format(region.crop_box[1]) }}, {{ '%.3f'|format(region.crop_box[2]) }}, {{ '%.3f'|format(region.crop_box[3]) }}</code>
+              <span class="friendly-only">Region {{ loop.index }}</span>
             </td>
             <td>
-              <small>Votes: {{ region.vote_real }} / {{ region.vote_edited }} / {{ region.vote_ai }}</small><br />
-              {% if region.fact_count %}
-              <small>{{ region.fact_count }} provenance facts</small>
-              {% else %}
-              <small>No provenance facts yet</small>
-              {% endif %}
+              {{ region.vote_real }} real · {{ region.vote_edited }} edited · {{ region.vote_ai }} AI<br />
+              <span class="faint">{% if region.fact_count %}{{ region.fact_count }} provenance fact{{ "s" if region.fact_count != 1 }}{% else %}No provenance facts yet{% endif %}</span>
             </td>
             <td>
-              <form
-                action="{{ url_for('main.crop_analysis', analysis_id=analysis_id) }}"
-                method="post"
-                class="inline-form"
-              >
+              <form action="{{ url_for('main.crop_analysis', analysis_id=analysis_id) }}" method="post" data-analyzing>
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
                 <input type="hidden" name="crop_left" value="{{ region.crop_box[0] }}" />
                 <input type="hidden" name="crop_top" value="{{ region.crop_box[1] }}" />
                 <input type="hidden" name="crop_width" value="{{ region.crop_box[2] }}" />
                 <input type="hidden" name="crop_height" value="{{ region.crop_box[3] }}" />
-                <button type="submit" class="secondary analyze-region-btn">Analyze region</button>
+                <button type="submit" class="btn btn--sm">Analyze region</button>
               </form>
             </td>
           </tr>
@@ -191,32 +160,21 @@ Region: [{{ "%.3f"|format(match.local.crop_box[0]) }}, {{ "%.3f"|format(match.lo
   {% endif %}
 
   {% for analyzer in analyzers %}
-  {% if analyzer.slug != 'tineye' %}
-  {% set row_id = placeholder_prefix ~ analyzer.slug %}
-  {% set hx_url = url_for(
-    'main.analyzer_fragment',
-    analysis_id=analysis_id,
-    slug=analyzer.slug,
-    mini=1 if mini_mode else None,
-  ) %}
+  {% set row_id = "analyzer-row-" ~ analyzer.slug %}
   <details
-    class="analyzer-item"
+    class="check"
     id="{{ row_id }}"
-    hx-get="{{ hx_url }}"
+    data-state="loading"
+    hx-get="{{ url_for('main.analyzer_fragment', analysis_id=analysis_id, slug=analyzer.slug) }}"
     hx-trigger="load"
-    hx-target="#{{ row_id }}"
     hx-swap="outerHTML"
   >
-    <summary class="analyzer-header">
-      <div class="analyzer-header-info">
-        <span class="analyzer-title"><strong>{{ analyzer.name }}</strong></span>
-      </div>
-      <span class="badge loading">RUNNING</span>
+    <summary class="check__head">
+      <span class="check__title"><span class="check__name">{{ analyzer.name }}</span></span>
+      <span class="check__summary">Running…</span>
+      <span class="check__status">{{ status_pill("LOADING") }}</span>
+      {{ icon("chevron", "check__chevron") }}
     </summary>
-    <div class="analyzer-content">
-      <em>Contacting {{ analyzer.name }}...</em>
-    </div>
   </details>
-  {% endif %}
   {% endfor %}
 </div>

@@ -1,0 +1,33 @@
+{% macro icon(name, class="") -%}
+<svg class="icon{% if name.startswith('logo-') %} icon--brand{% endif %}{% if class %} {{ class }}{% endif %}" aria-hidden="true" focusable="false"><use href="#i-{{ name }}"></use></svg>
+{%- endmacro %}
+
+{% macro status_pill(status, slug=None) -%}
+{% set ui = status_ui(status, slug) -%}
+<span class="pill" data-state="{{ ui.state }}"><span class="dot"></span>{{ ui.label }}</span>
+{%- endmacro %}
+
+{# One entry in the overview of checks at the top of a report. Rendered with
+   oob=True from analyzer fragments so the overview stays in sync as rows load,
+   votes are cast, or TinEye runs. #}
+{% macro signal_chip(slug, name, status, summary="", target=None, oob=False) -%}
+{% set ui = status_ui(status, slug) -%}
+<a
+  class="signal"
+  id="signal-{{ slug }}"
+  href="#{{ target or ('analyzer-row-' ~ slug) }}"
+  data-state="{{ ui.state }}"
+  data-open-target="{{ target or ('analyzer-row-' ~ slug) }}"
+  {% if summary %}title="{{ summary }}"{% endif %}
+  {% if oob %}hx-swap-oob="true"{% endif %}
+>
+  <span class="signal__name">{{ short_name(slug, name) }}</span>
+  <span class="signal__state"><span class="dot"></span>{{ ui.label }}</span>
+</a>
+{%- endmacro %}
+
+{% macro portal_logo(provider) -%}
+{% if provider in ("google", "openai", "meta") -%}
+<span class="portal-logo brand-{{ provider }}">{{ icon("logo-" ~ provider) }}</span>
+{%- endif %}
+{%- endmacro %}

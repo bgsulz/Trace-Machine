@@ -88,7 +88,7 @@ def _extract_analysis_id(html: str) -> str:
 def _upload_banner_image(client, banner_bottom: int = 60, gradient: bool = False) -> tuple[str, bytes]:
     image_bytes = _make_banner_image(banner_bottom=banner_bottom, gradient_background=gradient)
     data = {"file": (io.BytesIO(image_bytes), "banner.png"), "image_url": ""}
-    resp = client.post("/analyze", data=data, content_type="multipart/form-data")
+    resp = client.post("/analyze", data=data, content_type="multipart/form-data", follow_redirects=True)
     assert resp.status_code == 200
     analysis_id = _extract_analysis_id(resp.data.decode("utf-8"))
     return analysis_id, image_bytes
@@ -179,7 +179,7 @@ class TestAutocropRoute:
         # keeping the interior Sobel-Y low enough for banner detection to fire.
         analysis_id, _ = _upload_banner_image(client, banner_bottom=60, gradient=True)
 
-        resp = client.post(f"/analysis/{analysis_id}/autocrop")
+        resp = client.post(f"/analysis/{analysis_id}/autocrop", follow_redirects=True)
         assert resp.status_code == 200
         assert b"Provenance Report" in resp.data
 
@@ -198,11 +198,11 @@ class TestAutocropRoute:
         # Upload a clean image (no banner) — autocrop should gracefully decline.
         clean_bytes = _make_banner_image()  # no banner
         data = {"file": (io.BytesIO(clean_bytes), "clean.png"), "image_url": ""}
-        resp = client.post("/analyze", data=data, content_type="multipart/form-data")
+        resp = client.post("/analyze", data=data, content_type="multipart/form-data", follow_redirects=True)
         assert resp.status_code == 200
         analysis_id = _extract_analysis_id(resp.data.decode("utf-8"))
 
-        resp2 = client.post(f"/analysis/{analysis_id}/autocrop")
+        resp2 = client.post(f"/analysis/{analysis_id}/autocrop", follow_redirects=True)
         assert resp2.status_code == 200
         # Should still render the result page, just with a flash message.
         assert b"Provenance Report" in resp2.data
@@ -220,6 +220,7 @@ class TestAutocropRoute:
                 "image_url": "",
             },
             content_type="multipart/form-data",
+            follow_redirects=True,
         )
         assert resp.status_code == 200
         body = resp.data.decode("utf-8")
@@ -228,7 +229,7 @@ class TestAutocropRoute:
     def test_autocrop_button_absent_for_clean_image(self, client):
         clean_bytes = _make_banner_image()  # no banner
         data = {"file": (io.BytesIO(clean_bytes), "clean.png"), "image_url": ""}
-        resp = client.post("/analyze", data=data, content_type="multipart/form-data")
+        resp = client.post("/analyze", data=data, content_type="multipart/form-data", follow_redirects=True)
         assert resp.status_code == 200
         body = resp.data.decode("utf-8")
         assert "Auto-crop to image" not in body
@@ -236,7 +237,7 @@ class TestAutocropRoute:
     def test_autocrop_button_absent_after_autocrop(self, client):
         # After an auto-crop, the result should not offer another auto-crop.
         analysis_id, _ = _upload_banner_image(client, banner_bottom=60, gradient=True)
-        resp = client.post(f"/analysis/{analysis_id}/autocrop")
+        resp = client.post(f"/analysis/{analysis_id}/autocrop", follow_redirects=True)
         assert resp.status_code == 200
         body = resp.data.decode("utf-8")
         assert "Auto-crop to image" not in body

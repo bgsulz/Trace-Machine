@@ -4,14 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Mini View Test</title>
-    <link
-      rel="stylesheet"
-      href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css"
-    />
-    <link
-      rel="stylesheet"
-      href="{{ url_for('static', filename='css/theme.css') }}"
-    />
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}" />
     <script src="{{ url_for('static', filename='js/theme.js') }}"></script>
     <style>
       body {
@@ -24,14 +17,8 @@
         gap: 0.5rem;
         margin-bottom: 1rem;
       }
-      input[type="url"] {
-        flex: 1;
-      }
-      button[type="submit"] {
-        width: revert;
-      }
       .iframe-container {
-        border: 1px solid var(--pico-muted-border-color);
+        border: 1px solid var(--border);
         border-radius: 6px;
         overflow: hidden;
       }
@@ -46,13 +33,14 @@
     <form id="test-form" autocomplete="off">
       <div class="controls">
         <input
+          class="field"
           type="url"
           id="image-url"
           name="url"
           placeholder="Image URL"
           required
         />
-        <button type="submit">Load</button>
+        <button type="submit" class="btn btn--primary">Load</button>
       </div>
     </form>
     <div class="iframe-container">

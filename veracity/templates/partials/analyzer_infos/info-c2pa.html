@@ -112,13 +112,12 @@
       "An infrared photo of a tree on a hill."
     </figcaption>
   </figure>
-  <form action="{{ url_for('main.analyze') }}" method="get" style="display: inline" class="demo-buttons">
+  <form action="{{ url_for('main.analyze') }}" method="get" data-analyzing>
     <input type="hidden" name="url" value="{{ url_for('static', filename='info_images/infrared_tree.png', _external=True) }}" />
-    <button type="submit">Analyze</button>
+    <button type="submit" class="btn btn--sm">Analyze this image</button>
   </form>
 </section>
 
-<br/>
 
 <p><strong>Learn more:</strong></p>
 <ul>

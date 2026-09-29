@@ -37,7 +37,7 @@
       btn.addEventListener("click", () => {
         writeDismissed(true);
         setHintsVisible(false);
-        window.showToast("Tips hidden. Open Options to re-enable them.");
+        window.showToast("Tips hidden. Turn them back on in Settings.");
       });
     });
 

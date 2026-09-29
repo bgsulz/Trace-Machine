@@ -15,8 +15,14 @@ from .services.config_service import DONATION_GOAL_CENTS, get_global_config
 from .web.routes.analysis import register_analysis_routes
 from .web.routes.batch_api import register_batch_api_routes
 from .web.routes.community import register_community_routes
+from .web.ui import graph_outline, humanize_key, none_note, short_name, status_ui
 
 bp = Blueprint("main", __name__)
+bp.add_app_template_global(status_ui, "status_ui")
+bp.add_app_template_global(short_name, "short_name")
+bp.add_app_template_global(none_note, "none_note")
+bp.add_app_template_global(graph_outline, "graph_outline")
+bp.add_app_template_filter(humanize_key, "humanize_key")
 
 EXPIRED_MESSAGE = "Analysis expired. Please submit the image again."
 RATE_LIMIT_MESSAGE = "Rate limit reached (5 per hour). Please wait before trying again."
@@ -70,6 +76,7 @@ def index():
         donation_goal_cents=DONATION_GOAL_CENTS,
         donation_progress_percent=round(progress * 100, 2),
         donation_goal_met=total_cents >= DONATION_GOAL_CENTS,
+        analyzers=get_active_analyzers(),
     )
 
 

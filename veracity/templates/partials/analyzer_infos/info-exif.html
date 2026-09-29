@@ -7,7 +7,6 @@
 <div class="flash-warning">
   <strong>Important limitation:</strong> It's really easy to add, edit, or remove image metadata. You can do it in Photoshop, GIMP, or any number of online tools. So metadata is a clue, not proof, and the absence of metadata doesn't prove anything.
 </div>
-<br/>
 <section>
   <h3>Metadata demo image: Automatic1111</h3>
   <p>
@@ -23,12 +22,11 @@
       This image was generated in Stable Diffusion using the Automatic1111 UI, which writes detailed generation parameters into image metadata.
     </figcaption>
   </figure>
-  <form action="{{ url_for('main.analyze') }}" method="get" style="display: inline" class="demo-buttons">
+  <form action="{{ url_for('main.analyze') }}" method="get" data-analyzing>
     <input type="hidden" name="url" value="{{ url_for('static', filename='info_images/astronaut.png', _external=True) }}" />
-    <button type="submit">Analyze</button>
+    <button type="submit" class="btn btn--sm">Analyze this image</button>
   </form>
 </section>
-<br/>
 <section>
   <h3>Metadata demo image: ComfyUI</h3>
   <p>
@@ -44,15 +42,13 @@
       This image was generated in Stable Diffusion using ComfyUI, another interface that can encode prompts and parameters into image metadata.
     </figcaption>
   </figure>
-  <form action="{{ url_for('main.analyze') }}" method="get" style="display: inline" class="demo-buttons">
+  <form action="{{ url_for('main.analyze') }}" method="get" data-analyzing>
     <input type="hidden" name="url" value="{{ url_for('static', filename='info_images/bottle.png', _external=True) }}" />
-    <button type="submit">Analyze</button>
+    <button type="submit" class="btn btn--sm">Analyze this image</button>
   </form>
 </section>
-<br/>
-<p>
-  <strong>Learn more:</strong>
-  <ul>
+<p><strong>Learn more:</strong></p>
+<ul>
     <li>
       <a href="https://www.exif.org/" target="_blank" rel="noopener noreferrer">EXIF Standard Overview</a>
     </li>
@@ -63,4 +59,3 @@
       <a href="https://github.com/AUTOMATIC1111/stable-diffusion-webui/wiki/Features#png-info" target="_blank" rel="noopener noreferrer">How Automatic1111 Stores PNG Info</a>
     </li>
   </ul>
-</p>

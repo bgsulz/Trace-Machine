@@ -1,9 +1,9 @@
-{% macro render_vote_bar(breakdown, label=None, compact=False) -%}
+{% macro render_vote_bar(breakdown, label=None, compact=False, legend=False) -%}
   {% set total = breakdown.total or 0 %}
   <div class="vote-bar-wrapper{% if compact %} vote-bar-compact{% endif %}">
     {% if label %}
     <div class="vote-bar-header">
-      <small>{{ label }}{% if total %} — {{ total }} vote{% if total != 1 %}s{% endif %}{% endif %}</small>
+      <small>{{ label }}{% if total %} · {{ total }} vote{% if total != 1 %}s{% endif %}{% endif %}</small>
     </div>
     {% endif %}
 
@@ -11,25 +11,25 @@
     <div
       class="vote-distribution"
       role="img"
-      aria-label="{{ label or 'Vote distribution' }} showing {{ total }} total votes"
+      aria-label="{{ label or 'Vote distribution' }}: {% for s in breakdown.segments %}{{ s.label }} {{ s.count }}{% if not loop.last %}, {% endif %}{% endfor %}"
     >
-      {% for segment in breakdown.segments %}
-      {% set width = "%.2f"|format(segment.percent) %}
+      {% for segment in breakdown.segments if segment.count %}
       <div
-        class="vote-segment vote-{{ segment.kind }}{% if segment.percent == 0 %} vote-segment-empty{% endif %}"
-        style="width: {{ width }}%;"
+        class="vote-segment vote-{{ segment.kind }}"
+        style="width: {{ '%.2f'|format(segment.percent) }}%;"
         title="{{ segment.label }}: {{ segment.count }} ({{ '%.0f'|format(segment.percent) }}%)"
-      >
-        <span class="sr-only"
-          >{{ segment.label }}: {{ segment.count }} ({{ '%.0f'|format(segment.percent) }}%)</span
-        >
-      </div>
+      ></div>
       {% endfor %}
     </div>
+    {% if legend %}
+    <ul class="vote-legend" role="list">
+      {% for segment in breakdown.segments %}
+      <li><span class="vote-swatch vote-{{ segment.kind }}"></span>{{ segment.label }} <span class="mono">{{ segment.count }}</span></li>
+      {% endfor %}
+    </ul>
+    {% endif %}
     {% else %}
-    <div class="vote-distribution vote-distribution-empty">
-      <span>No votes yet</span>
-    </div>
+    <div class="vote-distribution vote-distribution-empty" aria-label="No votes yet"></div>
     {% endif %}
   </div>
 {%- endmacro %}

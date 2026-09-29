@@ -18,7 +18,7 @@ def _extract_analysis_id(response_text: str) -> str:
 def _upload_entropy_image(client):
     image_bytes = _make_entropy_image_bytes()
     data = {"file": (io.BytesIO(image_bytes), "entropy.png"), "image_url": ""}
-    resp = client.post("/analyze", data=data, content_type="multipart/form-data")
+    resp = client.post("/analyze", data=data, content_type="multipart/form-data", follow_redirects=True)
     assert resp.status_code == 200
     return resp, image_bytes
 
@@ -33,7 +33,7 @@ def test_crop_endpoint_creates_containment(client, app):
         "crop_width": "0.75",
         "crop_height": "0.75",
     }
-    resp = client.post(f"/analysis/{analysis_id}/crop", data=crop_data)
+    resp = client.post(f"/analysis/{analysis_id}/crop", data=crop_data, follow_redirects=True)
     assert resp.status_code == 200
     assert b"Provenance Report" in resp.data
 
@@ -57,7 +57,7 @@ def test_crop_rejects_tiny_selection(client, app):
         "crop_width": "0.05",
         "crop_height": "0.05",
     }
-    resp = client.post(f"/analysis/{analysis_id}/crop", data=crop_data)
+    resp = client.post(f"/analysis/{analysis_id}/crop", data=crop_data, follow_redirects=True)
     assert resp.status_code == 200
     assert b"Provenance Report" in resp.data
 
@@ -77,7 +77,7 @@ def test_containment_section_shows_for_known_child(client, app):
         "crop_width": "0.75",
         "crop_height": "0.75",
     }
-    resp = client.post(f"/analysis/{analysis_id}/crop", data=crop_data)
+    resp = client.post(f"/analysis/{analysis_id}/crop", data=crop_data, follow_redirects=True)
     assert resp.status_code == 200
 
     from veracity import db
@@ -97,7 +97,7 @@ def test_containment_section_shows_for_known_child(client, app):
         db.session.commit()
 
     data = {"file": (io.BytesIO(image_bytes), "entropy.png"), "image_url": ""}
-    resp_second = client.post("/analyze", data=data, content_type="multipart/form-data")
+    resp_second = client.post("/analyze", data=data, content_type="multipart/form-data", follow_redirects=True)
     assert resp_second.status_code == 200
     body = resp_second.data.decode("utf-8")
     assert "This image contains regions that match previously analyzed images." in body
@@ -138,6 +138,7 @@ def test_analyze_matched_region_creates_containment(client, app, monkeypatch):
             "crop_height": "0.75",
             "parent_registry_id": str(parent_registry_id),
         },
+        follow_redirects=True,
     )
     assert resp.status_code == 200
     assert b"Provenance Report" in resp.data

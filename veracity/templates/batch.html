@@ -1,30 +1,120 @@
 {% extends "base.html" %}
+{% block title %}Batch analysis · Trace Machine{% endblock %}
 
 {% block content %}
-<section>
-  <nav aria-label="breadcrumb">
-    <ul>
-      <li><a href="{{ url_for('main.index') }}">Home</a></li>
-      <li>Batch Analysis</li>
-    </ul>
-  </nav>
-
-  <div class="upload-card">
-    <h3>Batch Image Analysis</h3>
-    <p>Paste up to 10 image URLs, one per line.</p>
-    <form method="post" action="{{ url_for('main.batch_submit') }}">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
-      <textarea
-        name="urls"
-        rows="8"
-        placeholder="https://example.com/image1.jpg&#10;https://example.com/image2.png&#10;..."
-        required
-      ></textarea>
-      <button type="submit">Analyze Batch</button>
-    </form>
-    <p class="upload-hint">
-      TinEye reverse search is skipped in batch mode to avoid rate limits.
-    </p>
+<header class="page-head">
+  <div>
+    <h1>Batch analysis</h1>
+    <p>Run the quick checks on up to 10 image URLs at once.</p>
   </div>
-</section>
+</header>
+
+<div class="batch-entry">
+  <form class="batch-form" method="post" action="{{ url_for('main.batch_submit') }}" data-analyzing data-batch-form>
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+    <div class="batch-form__head">
+      <label class="eyebrow" for="batch-urls">Image URLs, one per line</label>
+      <span class="batch-form__count" data-batch-count aria-hidden="true">0 / 10</span>
+    </div>
+    <textarea
+      class="field batch-form__input"
+      id="batch-urls"
+      name="urls"
+      rows="10"
+      spellcheck="false"
+      autocomplete="off"
+      autocapitalize="off"
+      placeholder="https://example.com/image1.jpg&#10;https://example.com/image2.png&#10;…"
+      aria-describedby="batch-status"
+      required
+    ></textarea>
+    <p class="batch-form__status" id="batch-status" data-batch-status aria-live="polite">
+      Paste direct links to image files. Blank lines are ignored.
+    </p>
+    <div class="cluster">
+      <button type="submit" class="btn btn--primary" data-batch-submit>Analyze batch</button>
+      <button type="button" class="btn btn--ghost" data-batch-clear hidden>Clear</button>
+    </div>
+  </form>
+
+  <aside class="batch-scope" aria-labelledby="batch-scope-title">
+    <h2 class="eyebrow" id="batch-scope-title">Checks per image</h2>
+    <dl class="kv">
+      <dt>C2PA</dt><dd>Content Credentials manifest</dd>
+      <dt>METADATA</dt><dd>EXIF/XMP tags left by AI tools</dd>
+      {% if config.get("INVISIBLE_WATERMARK_DECODERS") %}
+      <dt>WATERMARKS</dt><dd>Open invisible-watermark schemes</dd>
+      {% endif %}
+      <dt>PORTALS</dt><dd>Links to Google, OpenAI, and Meta checkers; you report back</dd>
+      <dt>COMMUNITY</dt><dd>Existing votes for the image</dd>
+    </dl>
+    <h2 class="eyebrow">Skipped</h2>
+    <dl class="kv">
+      <dt>TINEYE</dt><dd>Reverse search is off in batch mode to stay within rate limits. Run it from any image&rsquo;s full analysis.</dd>
+    </dl>
+  </aside>
+</div>
+
+<script>
+  (function () {
+    const MAX = 10;
+    const form = document.querySelector("[data-batch-form]");
+    if (!form) return;
+    const input = form.querySelector("textarea");
+    const count = form.querySelector("[data-batch-count]");
+    const status = form.querySelector("[data-batch-status]");
+    const submit = form.querySelector("[data-batch-submit]");
+    const clear = form.querySelector("[data-batch-clear]");
+    const defaultStatus = status.textContent.trim();
+    const URL_RE = /^https?:\/\/\S+$/i;
+
+    function parse() {
+      const lines = input.value.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+      const seen = new Set();
+      let valid = 0, invalid = 0, dupes = 0;
+      for (const line of lines) {
+        if (seen.has(line)) { dupes += 1; continue; }
+        seen.add(line);
+        if (URL_RE.test(line)) valid += 1; else invalid += 1;
+      }
+      return { lines: lines.length, valid, invalid, dupes };
+    }
+
+    function plural(n, word) { return n + " " + word + (n === 1 ? "" : "s"); }
+
+    function update() {
+      const r = parse();
+      const over = r.lines > MAX;
+      count.textContent = r.valid + " / " + MAX;
+      form.dataset.state = over ? "error" : (r.invalid ? "warn" : (r.valid ? "ok" : "empty"));
+
+      let msg;
+      if (!r.lines) {
+        msg = defaultStatus;
+      } else if (over) {
+        msg = plural(r.lines, "line") + " entered. Maximum " + MAX + " URLs per batch; remove " + (r.lines - MAX) + ".";
+      } else {
+        const parts = [plural(r.valid, "URL") + " ready"];
+        if (r.invalid) parts.push(r.invalid + " not a URL (must start with http:// or https://)");
+        if (r.dupes) parts.push(plural(r.dupes, "duplicate") + " will be skipped");
+        msg = parts.join(" · ");
+      }
+      status.textContent = msg;
+      submit.disabled = over || r.valid === 0;
+      clear.hidden = !r.lines;
+      submit.textContent = r.valid > 1 && !over ? "Analyze " + r.valid + " images" : "Analyze batch";
+    }
+
+    input.addEventListener("input", update);
+    clear.addEventListener("click", () => { input.value = ""; update(); input.focus(); });
+    form.addEventListener("submit", () => {
+      const r = parse();
+      const title = document.querySelector("#analyzing-overlay .overlay__title");
+      if (title) title.textContent = "Analyzing " + plural(r.valid, "image") + "…";
+    });
+    // Returning via the back button can restore the textarea contents.
+    window.addEventListener("pageshow", update);
+    update();
+  })();
+</script>
 {% endblock %}

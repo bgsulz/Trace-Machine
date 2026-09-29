@@ -20,7 +20,7 @@ def test_analyze_with_file_upload(client, app):
         "file": (io.BytesIO(image_bytes), "test.png"),
         "image_url": "",
     }
-    resp = client.post("/analyze", data=data, content_type="multipart/form-data")
+    resp = client.post("/analyze", data=data, content_type="multipart/form-data", follow_redirects=True)
     assert resp.status_code == 200
     # result template header
     assert b"Provenance Report" in resp.data
@@ -43,7 +43,7 @@ def test_analysis_raw_endpoint_serves_cached_bytes(client):
         "file": (io.BytesIO(image_bytes), "test.png"),
         "image_url": "",
     }
-    resp = client.post("/analyze", data=data, content_type="multipart/form-data")
+    resp = client.post("/analyze", data=data, content_type="multipart/form-data", follow_redirects=True)
     assert resp.status_code == 200
 
     body = resp.data.decode("utf-8")
@@ -90,7 +90,7 @@ def test_analyze_url_creates_image_source(client, app, monkeypatch):
 
     monkeypatch.setattr(ingestion_module, "fetch_image_bytes", fake_fetch)
 
-    resp = client.get("/analyze?url=https://example.com/image.png")
+    resp = client.get("/analyze?url=https://example.com/image.png", follow_redirects=True)
     assert resp.status_code == 200
     assert b"Provenance Report" in resp.data
 
@@ -114,9 +114,9 @@ def test_analyze_url_creates_image_source_only_once(client, app, monkeypatch):
     monkeypatch.setattr(ingestion_module, "fetch_image_bytes", fake_fetch)
 
     url = "https://example.com/image.png"
-    resp1 = client.get(f"/analyze?url={url}")
+    resp1 = client.get(f"/analyze?url={url}", follow_redirects=True)
     assert resp1.status_code == 200
-    resp2 = client.get(f"/analyze?url={url}")
+    resp2 = client.get(f"/analyze?url={url}", follow_redirects=True)
     assert resp2.status_code == 200
 
     from veracity.models import ImageSource
@@ -177,7 +177,7 @@ def test_file_upload_does_not_create_image_source(client, app):
         "file": (io.BytesIO(image_bytes), "test.png"),
         "image_url": "",
     }
-    resp = client.post("/analyze", data=data, content_type="multipart/form-data")
+    resp = client.post("/analyze", data=data, content_type="multipart/form-data", follow_redirects=True)
     assert resp.status_code == 200
 
     from veracity.models import ImageSource
@@ -211,11 +211,11 @@ def test_analyze_auto_vote_records_and_updates(client, app, monkeypatch):
 
     url = "https://example.com/auto.png"
 
-    first = client.get(f"/analyze?url={url}&vote=real")
+    first = client.get(f"/analyze?url={url}&vote=real", follow_redirects=True)
     assert first.status_code == 200
 
     # Same client/IP requesting a different vote should update the existing record.
-    second = client.get(f"/analyze?url={url}&vote=ai")
+    second = client.get(f"/analyze?url={url}&vote=ai", follow_redirects=True)
     assert second.status_code == 200
 
     from veracity.models import ImageRegistry, ImageConsensus, VoteHistory
@@ -245,7 +245,7 @@ def test_vote_creates_record_and_increments_counts(client, app):
         "file": (io.BytesIO(image_bytes), "test.png"),
         "image_url": "",
     }
-    resp = client.post("/analyze", data=data, content_type="multipart/form-data")
+    resp = client.post("/analyze", data=data, content_type="multipart/form-data", follow_redirects=True)
     assert resp.status_code == 200
 
     with Image.open(io.BytesIO(image_bytes)) as img:
@@ -279,7 +279,7 @@ def test_vote_redirects_back_to_url_analysis_missing_metadata_falls_back(client)
         "file": (io.BytesIO(image_bytes), "test.png"),
         "image_url": "",
     }
-    resp = client.post("/analyze", data=data, content_type="multipart/form-data")
+    resp = client.post("/analyze", data=data, content_type="multipart/form-data", follow_redirects=True)
     assert resp.status_code == 200
 
     with Image.open(io.BytesIO(image_bytes)) as img:
@@ -310,7 +310,7 @@ def test_thumbnail_url_upgrades_to_full_res(client, app, monkeypatch):
 
     # Reddit preview URL should be upgraded to i.redd.it
     thumbnail_url = "https://preview.redd.it/abc123def456g.jpg"
-    resp = client.get(f"/analyze?url={thumbnail_url}")
+    resp = client.get(f"/analyze?url={thumbnail_url}", follow_redirects=True)
     assert resp.status_code == 200
 
     # Should have fetched the full-res URL, not the thumbnail
@@ -337,7 +337,7 @@ def test_thumbnail_url_falls_back_when_full_res_fails(client, app, monkeypatch):
     monkeypatch.setattr(ingestion_module, "fetch_image_bytes", fake_fetch)
 
     thumbnail_url = "https://preview.redd.it/abc123def456g.jpg"
-    resp = client.get(f"/analyze?url={thumbnail_url}")
+    resp = client.get(f"/analyze?url={thumbnail_url}", follow_redirects=True)
     assert resp.status_code == 200
 
     # Should have tried full-res first, then fallen back to thumbnail
@@ -380,7 +380,7 @@ def test_non_thumbnail_url_not_upgraded(client, app, monkeypatch):
     monkeypatch.setattr(ingestion_module, "fetch_image_bytes", fake_fetch)
 
     regular_url = "https://example.com/image.png"
-    resp = client.get(f"/analyze?url={regular_url}")
+    resp = client.get(f"/analyze?url={regular_url}", follow_redirects=True)
     assert resp.status_code == 200
 
     # Should fetch the original URL directly
@@ -400,7 +400,7 @@ def test_htmx_vote_returns_trigger_header(client, app):
         "file": (io.BytesIO(image_bytes), "test.png"),
         "image_url": "",
     }
-    resp = client.post("/analyze", data=data, content_type="multipart/form-data")
+    resp = client.post("/analyze", data=data, content_type="multipart/form-data", follow_redirects=True)
     assert resp.status_code == 200
 
     # Extract analysis_id from response
@@ -433,7 +433,7 @@ def test_human_mini_fragment_uses_relative_card_target(client):
         "file": (io.BytesIO(image_bytes), "test.png"),
         "image_url": "",
     }
-    resp = client.post("/analyze", data=data, content_type="multipart/form-data")
+    resp = client.post("/analyze", data=data, content_type="multipart/form-data", follow_redirects=True)
     assert resp.status_code == 200
 
     body = resp.data.decode("utf-8")
@@ -445,3 +445,60 @@ def test_human_mini_fragment_uses_relative_card_target(client):
     assert fragment.status_code == 200
     assert b'hx-target="closest .mini-card"' in fragment.data
     assert b'hx-target="#mini-card-human"' not in fragment.data
+
+
+def test_analyze_upload_redirects_to_permalink(client):
+    data = {
+        "file": (io.BytesIO(_make_test_image_bytes()), "test.png"),
+        "image_url": "",
+    }
+    resp = client.post("/analyze", data=data, content_type="multipart/form-data")
+    assert resp.status_code == 302
+    match = re.search(r"/analysis/([a-f0-9]+)$", resp.headers["Location"])
+    assert match is not None
+
+    page = client.get(resp.headers["Location"])
+    assert page.status_code == 200
+    body = page.data.decode("utf-8")
+    assert "Provenance Report" in body
+    # The image is served by URL rather than inlined as base64.
+    assert f"/analysis/{match.group(1)}/raw" in body
+    assert "data:image/png;base64" not in body
+    # Every active check appears in the overview.
+    assert 'id="signal-c2pa"' in body
+    assert 'id="signal-tineye"' in body
+
+
+def test_expired_permalink_redirects_home(client):
+    resp = client.get("/analysis/deadbeef00000000")
+    assert resp.status_code == 410
+
+
+def test_htmx_fragment_updates_overview_chip(client):
+    data = {
+        "file": (io.BytesIO(_make_test_image_bytes()), "test.png"),
+        "image_url": "",
+    }
+    resp = client.post("/analyze", data=data, content_type="multipart/form-data")
+    analysis_id = resp.headers["Location"].rsplit("/", 1)[-1]
+
+    fragment = client.get(
+        f"/analysis/{analysis_id}/analyzers/c2pa", headers={"HX-Request": "true"}
+    )
+    assert b'id="signal-c2pa"' in fragment.data
+    assert b'hx-swap-oob="true"' in fragment.data
+
+    plain = client.get(f"/analysis/{analysis_id}/analyzers/c2pa")
+    assert b'hx-swap-oob="true"' not in plain.data
+
+
+def test_status_ui_maps_statuses_to_display_states():
+    from veracity.web.ui import status_ui
+
+    assert status_ui("FOUND")["state"] == "found"
+    assert status_ui("NOT FOUND")["state"] == "none"
+    assert status_ui("CHECKED")["state"] == "none"
+    assert status_ui("MANUAL") == {"state": "action", "label": "Needs you"}
+    assert status_ui("ERROR")["state"] == "error"
+    assert status_ui(None)["state"] == "loading"
+    assert status_ui("FOUND", "human")["label"] == "Has votes"

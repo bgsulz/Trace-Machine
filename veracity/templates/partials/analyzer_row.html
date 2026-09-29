@@ -1,106 +1,60 @@
-{% set status_class = row.status|lower|replace(' ', '-') %}
+{% from "partials/macros/ui.html" import icon, status_pill, signal_chip %}
+{% set ui = status_ui(row.status, row.slug) %}
 {% set details_template = row.template or "partials/analyzers/default.html" %}
 {% set link_target = row.context.link_target if row.context else None %}
-{% set is_notable = status_class not in ['not-found', 'not-detected', 'manual'] %}
-{% set expand_by_default = row.slug == 'human' or is_notable %}
+{% set expand_by_default = ui.state in ("found", "action", "error") or row.slug == "human" %}
 
-{% macro tineye_action(label, button_class, analysis_id, form_class=None, onclick=None) -%}
-<form
-  {% if form_class %}class="{{ form_class }}"{% endif %}
-  method="post"
-  action="{{ url_for('main.run_tineye', analysis_id=analysis_id) }}"
-  hx-post="{{ url_for('main.run_tineye', analysis_id=analysis_id) }}"
-  hx-target="#analyzer-row-tineye"
-  hx-swap="outerHTML"
-  {% if onclick %}onclick="{{ onclick }}"{% endif %}
->
-  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
-  <button type="submit" class="{{ button_class }}">{{ label }}</button>
-</form>
-{%- endmacro %}
-
-<details class="analyzer-item analyzer-item--{{ status_class }}" id="analyzer-row-{{ row.slug }}" {{ 'open' if expand_by_default else '' }}>
-  <summary class="analyzer-header">
-    <div class="analyzer-header-info">
-      <span class="analyzer-title">
-        <strong>{{ row.name }}</strong>
-        {% if row.tooltip %}
-        <span class="tooltip-trigger" tabindex="0">
-          <span class="tooltip-bubble" role="tooltip">{{ row.tooltip }}</span>
-        </span>
-        {% endif %}
-      </span>
+<details class="check" id="analyzer-row-{{ row.slug }}" data-state="{{ ui.state }}" {{ 'open' if expand_by_default else '' }}>
+  <summary class="check__head">
+    <span class="check__title">
+      <span class="check__name">{{ row.name }}</span>
       {% if row.info_id %}
-      <div class="analyzer-links">
-        <a
-          href="{{ url_for('main.analyzer_info') }}#{{ row.info_id }}"
-          {% if link_target %}target="{{ link_target }}" rel="noopener noreferrer"{% endif %}
-        >Learn more</a>
-      </div>
+      <a
+        class="check__info"
+        href="{{ url_for('main.analyzer_info') }}#{{ row.info_id }}"
+        title="{{ row.tooltip or 'How this check works' }}"
+        aria-label="How {{ row.name }} works"
+        {% if link_target %}target="{{ link_target }}" rel="noopener noreferrer"{% endif %}
+      >{{ icon("info") }}</a>
       {% endif %}
-    </div>
-    {% if row.data.header_action %}
-    {% set action = row.data.header_action %}
-    {% if action.type == "htmx" and row.slug == "tineye" %}
-    {{ tineye_action(action.label, "outline", row.context.analysis_id, form_class="header-action", onclick="event.stopPropagation()") }}
-    {% elif action.type in ["synthid_checkers", "verification_portals"] and row.slug == "synthid" %}
-    {% set lens_link = row.context.lens_link if row.context else "https://images.google.com/" %}
-    <div class="header-action-group">
-      <a
-        class="header-action portal-header-action"
-        href="{{ lens_link }}"
-        target="_blank"
-        rel="noopener noreferrer"
-        role="button"
-        aria-label="Open Google About this image"
-        title="Google About this image"
-        onclick="event.stopPropagation(); this.closest('details').open = true;"
-      ><img src="{{ url_for('static', filename='icons/portal-google.svg') }}" alt="" /></a>
-      <a
-        class="header-action portal-header-action"
-        href="https://openai.com/research/verify/"
-        target="_blank"
-        rel="noopener noreferrer"
-        role="button"
-        aria-label="Open OpenAI Verify"
-        title="OpenAI Verify"
-        onclick="event.stopPropagation(); this.closest('details').open = true;"
-      ><img src="{{ url_for('static', filename='icons/portal-openai.svg') }}" alt="" /></a>
-      <a
-        class="header-action portal-header-action"
-        href="https://meta.ai/identification"
-        target="_blank"
-        rel="noopener noreferrer"
-        role="button"
-        aria-label="Open Meta Identify"
-        title="Meta Identify"
-        onclick="event.stopPropagation(); this.closest('details').open = true;"
-      ><img src="{{ url_for('static', filename='icons/portal-meta.svg') }}" alt="" /></a>
-    </div>
-    {% endif %}
-    {% endif %}
-    <span class="badge {{ status_class }}">{{ row.status }}</span>
+    </span>
+    {% if row.summary %}<span class="check__summary">{{ row.summary }}</span>{% endif %}
+    <span class="check__status">{{ status_pill(row.status, row.slug) }}</span>
+    {{ icon("chevron", "check__chevron") }}
   </summary>
-  <div class="analyzer-content">
-    {% if row.summary %}
-    <p class="analyzer-summary">{{ row.summary }}</p>
-    {% endif %}
+  <div class="check__body">
     {% if row.status == "ERROR" %}
-    <div class="analyzer-retry">
+    <div class="cluster">
       {% if row.slug == "tineye" %}
-      {{ tineye_action("Retry", "secondary", row.context.analysis_id) }}
+      <form
+        method="post"
+        action="{{ url_for('main.run_tineye', analysis_id=row.context.analysis_id) }}"
+        hx-post="{{ url_for('main.run_tineye', analysis_id=row.context.analysis_id) }}"
+        hx-target="#analyzer-row-tineye"
+        hx-swap="outerHTML"
+      >
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+        <button type="submit" class="btn btn--sm">{{ icon("refresh") }} Retry</button>
+      </form>
       {% else %}
       <button
         type="button"
-        class="secondary"
+        class="btn btn--sm"
         hx-get="{{ url_for('main.analyzer_fragment', analysis_id=row.context.analysis_id, slug=row.slug, refresh=1) }}"
         hx-target="#analyzer-row-{{ row.slug }}"
         hx-swap="outerHTML"
-      >Retry</button>
+      >{{ icon("refresh") }} Retry</button>
       {% endif %}
     </div>
     {% else %}
+    {% if ui.state == "none" and none_note(row.slug) %}
+    <p class="check__note">{{ none_note(row.slug) }}</p>
+    {% endif %}
     {% include details_template %}
     {% endif %}
   </div>
 </details>
+
+{% if request.headers.get("HX-Request") %}
+{{ signal_chip(row.slug, row.name, row.status, row.summary, oob=True) }}
+{% endif %}

@@ -370,9 +370,9 @@ class TestTinEyeTemplates:
                 "context": {"analysis_id": "test-123", "link_target": "_blank"},
             }
             html = render_template("partials/analyzers/tineye.html", row=row)
-            # Template shows instructions to click header button
+            # Manual state offers the on-demand TinEye search
             assert "Check TinEye" in html
-            assert "search for this image" in html
+            assert "not retained by Trace Machine" in html
 
     def test_tineye_template_renders_found_state(self, app):
         from flask import render_template
@@ -400,7 +400,7 @@ class TestTinEyeTemplates:
             html = render_template("partials/analyzers/tineye.html", row=row)
             # ERROR state renders buckets (empty in this case), not MANUAL instructions
             assert "Check TinEye" not in html
-            assert "analyzer-detail-block" in html
+            assert "stat-grid" in html
 
 
 class TestShameListParsing:

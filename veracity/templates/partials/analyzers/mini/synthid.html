@@ -1,3 +1,4 @@
+{% from "partials/macros/ui.html" import portal_logo %}
 {% set display_state = row.data.display_state or "manual" %}
 {% set totals = row.data.totals or {} %}
 {% set current_report = row.data.current_report %}
@@ -62,7 +63,7 @@
         class="mini-vote-btn portal-mini-vote portal-mini-vote--{{ checker.provider }}{% if current_report == checker.result %} active{% endif %}"
         aria-label="Report {{ checker.label }}"
         title="{{ checker.label }}"
-      >{% if checker.result == 'negative' %}&times;{% else %}<img src="{{ url_for('static', filename='icons/portal-' ~ checker.provider ~ '.svg') }}" alt="" />{% endif %}</button>
+      >{% if checker.result == 'negative' %}&times;{% else %}{{ portal_logo(checker.provider) }}{% endif %}</button>
     </form>
     {% endfor %}
   </div>

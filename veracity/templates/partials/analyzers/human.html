@@ -1,54 +1,33 @@
 {% from "partials/vote_bar.html" import render_vote_bar %}
+{% from "partials/macros/ui.html" import icon %}
 {% if row.data.phash %}
-<div class="analyzer-detail-block">
-  {{ render_vote_bar(row.data.overall_breakdown) }}
-  <small class="vote-bar-counts"
-    >{{ row.data.totals.vote_real }} / {{ row.data.totals.vote_edited }} /
-    {{ row.data.totals.vote_ai }}</small
-  >
-
-  {% if row.data.has_distant_matches %}
-  <hr />
-  <p class="analyzer-match-callout">
-    <strong>{{ row.data.matches_summary }}</strong>
-    <a
-      href="#direct-distant-traces"
-      onclick="const panel=document.getElementById('direct-distant-traces'); if (panel) panel.open = true;"
-    >View in Distant Traces</a>
-  </p>
-  {% elif row.data.has_matches %}
-  <hr />
-  <p><em>{{ row.data.direct_only_message }}</em></p>
+{% set totals = row.data.totals or {} %}
+{% set current_vote = row.data.current_vote %}
+{% set vote_options = [
+  {"kind": "real", "label": "Real", "description": "Fully human-made: a photo or artwork with no AI generation."},
+  {"kind": "edited", "label": "AI-edited", "description": "Human-made, but edited or modified with AI generation."},
+  {"kind": "ai", "label": "AI-generated", "description": "The relevant part of the image is mostly or entirely AI-generated."},
+] %}
+<div class="stack">
+  {% if totals.total_votes %}
+  {{ render_vote_bar(row.data.overall_breakdown, legend=True) }}
   {% else %}
-  <p><em>{{ row.data.no_votes_message }}</em></p>
+  <p class="muted">No one has voted on this image yet.</p>
   {% endif %}
 
-  <div class="voting-area">
-    {% set current_vote = row.data.current_vote %}
-    {% set vote_options = [
-      {
-        "kind": "real",
-        "button_class": "vote-btn-real",
-        "label": "Mark as Real",
-        "tooltip": "This is a fully human-generated image (photo or artwork.)"
-      },
-      {
-        "kind": "edited",
-        "button_class": "vote-btn-edited",
-        "label": "Mark as AI-Edited",
-        "tooltip": "This is a human-created image (photo or artwork) that was edited or modified with AI generation."
-      },
-      {
-        "kind": "ai",
-        "button_class": "vote-btn-ai",
-        "label": "Mark as AI-Gen",
-        "tooltip": "The relevant part of this image is mostly or entirely AI-generated."
-      }
-    ] %}
-    <small class="vote-prompt"
-      ><strong>Cast your vote:</strong></small
-    >
-    <div class="vote-buttons">
+  {% if row.data.has_distant_matches %}
+  <p class="notice notice--info">
+    <strong>{{ row.data.matches_summary|replace(":", "") }}</strong> Totals above include votes on close copies of this image.
+    <a href="#direct-distant-traces" data-open-target="direct-distant-traces">View in Distant traces</a>
+  </p>
+  {% elif row.data.has_matches %}
+  <p class="faint">{{ row.data.direct_only_message }}</p>
+  {% endif %}
+
+  <fieldset class="vote">
+    <legend>Your assessment</legend>
+    <p class="faint">Only vote if you're confident. Community votes are one signal among many, not a ruling.</p>
+    <div class="vote__options">
       {% for option in vote_options %}
       <form
         action="{{ url_for('main.vote') }}"
@@ -56,31 +35,27 @@
         hx-post="{{ url_for('main.vote') }}"
         hx-target="#analyzer-row-human"
         hx-swap="outerHTML"
-        hx-include="closest .voting-area"
       >
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
-        <input type="hidden" name="source_type" value="{{ source }}" />
-        <input
-          type="hidden"
-          name="analysis_link"
-          value="{{ analysis_link or '' }}"
-        />
+        <input type="hidden" name="source_type" value="{{ row.context.source if row.context else '' }}" />
+        <input type="hidden" name="analysis_link" value="{{ (row.context.analysis_link if row.context else '') or '' }}" />
         <input type="hidden" name="phash" value="{{ row.data.phash }}" />
-        <input type="hidden" name="analysis_id" value="{{ row.context.analysis_id }}" />
+        <input type="hidden" name="analysis_id" value="{{ row.context.analysis_id if row.context else '' }}" />
         <input type="hidden" name="vote" value="{{ option.kind }}" />
         <button
           type="submit"
-          class="{{ option.button_class }}{% if current_vote and current_vote != option.kind %} vote-btn-muted{% endif %}"
-          hx-on:click="this.closest('.vote-buttons').querySelectorAll('button').forEach(b => b.classList.add('vote-btn-muted')); this.classList.remove('vote-btn-muted')"
+          class="vote-option vote-option--{{ option.kind }}"
+          aria-pressed="{{ 'true' if current_vote == option.kind else 'false' }}"
         >
-          <span class="tooltip-trigger vote-tooltip" tabindex="0">
-            {{ option.label }}
-            <span class="tooltip-bubble">{{ option.tooltip }}</span>
-          </span>
+          <span class="vote-option__label"><span class="vote-swatch vote-{{ option.kind }}"></span>{{ option.label }}{% if current_vote == option.kind %} {{ icon("check") }}{% endif %}</span>
+          <span class="vote-option__desc">{{ option.description }}</span>
         </button>
       </form>
       {% endfor %}
     </div>
-  </div>
+    {% if current_vote %}
+    <p class="faint">Your vote is recorded. Choose another option to change it.</p>
+    {% endif %}
+  </fieldset>
 </div>
 {% endif %}
