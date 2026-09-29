@@ -43,6 +43,37 @@
     if (target?.tagName === "DETAILS") target.open = true;
   });
 
+  // Drag-out chips: show the visible thumbnail as the drag preview rather
+  // than the transparent full-size hit area.
+  document.addEventListener("dragstart", (event) => {
+    // Tag every drag that starts on this page so intake.js can tell it apart
+    // from files dragged in from elsewhere.
+    event.dataTransfer?.setData("application/x-trace-machine", "1");
+    const source = event.target.closest?.("[data-drag-out]");
+    const thumb = source?.parentElement?.querySelector(".drag-chip__thumb");
+    if (thumb && event.dataTransfer) {
+      event.dataTransfer.setDragImage(thumb, thumb.width / 2, thumb.height / 2);
+    }
+  });
+
+  // Matched-region previews load a third-party image only on request.
+  document.addEventListener("click", (event) => {
+    const button = event.target.closest?.("[data-load-preview]");
+    const figure = button?.closest("[data-trace-preview]");
+    if (!figure) return;
+    const stage = figure.querySelector(".trace__stage");
+    const img = stage.querySelector("img[data-src]");
+    const note = figure.querySelector("figcaption .faint");
+    img.addEventListener("error", () => {
+      stage.hidden = true;
+      if (note) note.textContent = "The similar image couldn't be loaded from its source.";
+    }, { once: true });
+    img.src = img.dataset.src;
+    stage.hidden = false;
+    if (note) note.hidden = false;
+    button.remove();
+  });
+
   // Copy-to-clipboard buttons: <button data-copy="text">
   document.addEventListener("click", async (event) => {
     const button = event.target.closest?.("[data-copy]");

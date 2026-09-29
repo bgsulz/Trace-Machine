@@ -42,26 +42,153 @@
     place-items: center;
     overflow: hidden;
   }
-  .specimen img {
+  /* The stage shrinks to the rendered image so overlays can use % boxes. */
+  .crop-stage {
+    position: relative;
+    display: inline-block;
+    max-width: 100%;
+    overflow: hidden;
+    cursor: crosshair;
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: auto;
+  }
+  .crop-stage.is-cropping { touch-action: none; }
+  .crop-stage img {
+    display: block;
+    max-width: 100%;
     max-height: min(60vh, 32rem);
     width: auto;
+    height: auto;
     object-fit: contain;
+    -webkit-user-drag: none;
   }
   @media (max-width: 63.99rem) {
-    .specimen img { max-height: 36vh; }
+    .crop-stage img { max-height: 36vh; }
   }
+
+  /* Suggested and known regions */
+  .region {
+    position: absolute;
+    padding: 0;
+    border: 1.5px dashed rgb(255 255 255 / 0.9);
+    outline: 1.5px dashed rgb(0 0 0 / 0.55);
+    outline-offset: -3px;
+    border-radius: 2px;
+    background: rgb(255 255 255 / 0.06);
+    cursor: pointer;
+    transition: background-color 0.12s, border-color 0.12s;
+  }
+  .region:hover,
+  .region:focus-visible,
+  .region.is-hinted {
+    background: color-mix(in srgb, var(--focus) 22%, transparent);
+    border-color: var(--focus);
+    border-style: solid;
+  }
+  .region__label {
+    position: absolute;
+    top: 4px;
+    left: 4px;
+    padding: 0.05rem 0.4rem;
+    border-radius: var(--radius-sm);
+    background: rgb(0 0 0 / 0.7);
+    color: #fff;
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    white-space: nowrap;
+    pointer-events: none;
+  }
+  .crop-stage.has-selection .region { visibility: hidden; }
+
+  /* Active selection: the huge shadow dims everything outside the box. */
+  .selection {
+    position: absolute;
+    box-shadow: 0 0 0 9999px rgb(0 0 0 / 0.5);
+    outline: 1.5px solid #fff;
+    cursor: move;
+  }
+  .selection::before,
+  .selection::after {
+    /* Rule-of-thirds guides */
+    content: "";
+    position: absolute;
+    inset: 33.333% 0;
+    border-block: 1px solid rgb(255 255 255 / 0.3);
+    pointer-events: none;
+  }
+  .selection::after {
+    inset: 0 33.333%;
+    border-block: 0;
+    border-inline: 1px solid rgb(255 255 255 / 0.3);
+  }
+  /* Handles sit just inside the box so they're never clipped at image edges. */
+  .selection__handle {
+    position: absolute;
+    width: 12px;
+    height: 12px;
+    background: #fff;
+    border: 1px solid rgb(0 0 0 / 0.5);
+    border-radius: 2px;
+    z-index: 1;
+  }
+  @media (pointer: coarse) {
+    .selection__handle { width: 22px; height: 22px; }
+  }
+  .selection__handle--nw { left: 0; top: 0; cursor: nwse-resize; }
+  .selection__handle--n { left: 50%; top: 0; translate: -50% 0; cursor: ns-resize; }
+  .selection__handle--ne { right: 0; top: 0; cursor: nesw-resize; }
+  .selection__handle--e { right: 0; top: 50%; translate: 0 -50%; cursor: ew-resize; }
+  .selection__handle--se { right: 0; bottom: 0; cursor: nwse-resize; }
+  .selection__handle--s { left: 50%; bottom: 0; translate: -50% 0; cursor: ns-resize; }
+  .selection__handle--sw { left: 0; bottom: 0; cursor: nesw-resize; }
+  .selection__handle--w { left: 0; top: 50%; translate: 0 -50%; cursor: ew-resize; }
 
   .media-toolbar {
     display: flex;
     flex-wrap: wrap;
+    align-items: center;
     gap: var(--space-2);
   }
-  .media-toolbar .btn--ghost:last-of-type { margin-left: auto; }
-  .crop-status {
-    color: var(--error);
-    font-size: var(--text-sm);
-    margin-top: var(--space-2);
+  .media-toolbar .btn--ghost:last-child { margin-left: auto; }
+  .media-toolbar--active { justify-content: flex-end; }
+  .crop-size {
+    margin-right: auto;
+    font-size: var(--text-xs);
+    color: var(--text-2);
   }
+  .crop-size.is-invalid { color: var(--error); }
+
+  /* A small real <img> you can drag into other windows (e.g. a portal). */
+  .drag-chip {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: 2px var(--space-2) 2px 2px;
+    border: 1px dashed var(--border-strong);
+    border-radius: var(--radius);
+    font-size: var(--text-xs);
+    color: var(--text-2);
+    cursor: grab;
+  }
+  .drag-chip:hover { border-color: var(--accent); color: var(--text); }
+  .drag-chip__thumb {
+    width: 1.625rem;
+    height: 1.625rem;
+    object-fit: cover;
+    border-radius: var(--radius-sm);
+  }
+  .drag-chip__hit {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+    cursor: grab;
+  }
+  .drag-chip__hit:active { cursor: grabbing; }
+
   .media-note {
     font-size: var(--text-xs);
     margin-top: var(--space-2);
@@ -548,6 +675,18 @@
     gap: var(--space-3);
   }
   .trace__label { font-weight: 600; margin-right: var(--space-2); }
+  .trace__preview { display: grid; gap: var(--space-1); justify-items: start; }
+  .trace__preview figcaption { font-size: var(--text-xs); }
+  .trace__stage {
+    position: relative;
+    display: inline-block;
+    max-width: 100%;
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+    background: var(--surface-2);
+  }
+  .trace__stage img { display: block; max-height: 11rem; max-width: 100%; width: auto; }
+  .region--matched { cursor: default; pointer-events: none; }
   .trace__method { font-size: var(--text-sm); color: var(--text-2); }
   .meter {
     display: flex;

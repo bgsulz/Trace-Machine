@@ -128,6 +128,16 @@ def graph_outline(parsed: Any) -> list[dict[str, Any]] | None:
     return None
 
 
+def same_box(a: Any, b: Any, tolerance: float = 0.01) -> bool:
+    """True when two normalized (left, top, width, height) boxes coincide."""
+    try:
+        return len(a) == len(b) == 4 and all(
+            abs(float(x) - float(y)) <= tolerance for x, y in zip(a, b)
+        )
+    except (TypeError, ValueError):
+        return False
+
+
 def humanize_key(key: Any) -> str:
     text = str(key).replace("_", " ").strip()
     return text[:1].upper() + text[1:] if text else text

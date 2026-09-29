@@ -31,3 +31,15 @@
 <span class="portal-logo brand-{{ provider }}">{{ icon("logo-" ~ provider) }}</span>
 {%- endif %}
 {%- endmacro %}
+
+{# Drag the image into another window (e.g. a verification portal). The whole
+   chip is covered by a transparent copy of the image: dragging a real <img> is
+   what makes browsers hand the image file to the drop target. The visible
+   thumbnail is used as the drag preview (see app.js). #}
+{% macro drag_chip(src, label, title="") -%}
+<span class="drag-chip" {% if title %}title="{{ title }}"{% endif %}>
+  <img class="drag-chip__thumb" src="{{ src }}" alt="" draggable="false" />
+  <span>{{ label }}</span>
+  <img class="drag-chip__hit" src="{{ src }}" alt="{{ label }}" draggable="true" data-drag-out />
+</span>
+{%- endmacro %}

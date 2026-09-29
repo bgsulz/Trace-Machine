@@ -81,6 +81,21 @@
             {% endif %}
           </dl>
 
+          {% if match.sources and match.local and match.local.crop_box %}
+          {% set b = match.local.crop_box %}
+          {# The source is a third-party URL, so it only loads when asked. #}
+          <figure class="trace__preview" data-trace-preview>
+            <div class="trace__stage" hidden>
+              <img alt="Similar image" data-src="{{ match.sources[0].url }}" referrerpolicy="no-referrer" />
+              <span class="region region--matched" style="left: {{ b[0] * 100 }}%; top: {{ b[1] * 100 }}%; width: {{ b[2] * 100 }}%; height: {{ b[3] * 100 }}%;"></span>
+            </div>
+            <figcaption>
+              <button type="button" class="btn btn--sm btn--ghost" data-load-preview>{{ icon("image") }} Preview matched region</button>
+              <span class="faint" hidden>Where this image appears in the similar one. Loaded from {{ match.sources[0].url|replace('https://', '')|replace('http://', '')|truncate(48, True) }}.</span>
+            </figcaption>
+          </figure>
+          {% endif %}
+
           {% if match.sources %}
           <div class="cluster">
             <a href="{{ url_for('main.analyze', url=match.sources[0].url) }}" class="btn btn--sm" data-analyzing>Analyze source</a>
@@ -148,7 +163,7 @@
                 <input type="hidden" name="crop_top" value="{{ region.crop_box[1] }}" />
                 <input type="hidden" name="crop_width" value="{{ region.crop_box[2] }}" />
                 <input type="hidden" name="crop_height" value="{{ region.crop_box[3] }}" />
-                <button type="submit" class="btn btn--sm">Analyze region</button>
+                <button type="submit" class="btn btn--sm" data-select-region="region-contained-{{ loop.index }}">Select on image</button>
               </form>
             </td>
           </tr>

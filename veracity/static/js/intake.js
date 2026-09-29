@@ -129,9 +129,13 @@
       fileInput.click();
     });
 
-    // Page-wide drag and drop
+    // Page-wide drag and drop. Drags that start on this page (e.g. the
+    // "Drag out" chip) are tagged in app.js; dropping one back here is a no-op.
     let dragDepth = 0;
-    const hasFiles = (event) => Array.from(event.dataTransfer?.types || []).includes("Files");
+    const types = (event) => Array.from(event.dataTransfer?.types || []);
+    const isOwnImageDrag = (event) =>
+      types(event).includes("application/x-trace-machine") && types(event).includes("Files");
+    const hasFiles = (event) => !isOwnImageDrag(event) && types(event).includes("Files");
     const setDragging = (on) => {
       if (dropzone) dropzone.classList.toggle("is-dragging", on);
       else if (dropOverlay) dropOverlay.hidden = !on;
@@ -149,9 +153,21 @@
       if (dragDepth === 0) setDragging(false);
     });
     document.addEventListener("dragover", (event) => {
+      if (isOwnImageDrag(event)) {
+        // Not a drop target for our own image; also blocks the browser's
+        // default of navigating to a dropped image.
+        event.preventDefault();
+        event.dataTransfer.dropEffect = "none";
+        return;
+      }
       if (hasFiles(event)) event.preventDefault();
     });
     document.addEventListener("drop", (event) => {
+      if (isOwnImageDrag(event)) {
+        // Swallow it so the browser doesn't navigate to the dropped image.
+        event.preventDefault();
+        return;
+      }
       if (!hasFiles(event)) return;
       event.preventDefault();
       dragDepth = 0;
