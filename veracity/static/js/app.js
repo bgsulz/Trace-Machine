@@ -43,6 +43,16 @@
     if (target?.tagName === "DETAILS") target.open = true;
   });
 
+  // Drag-out chips: show the visible thumbnail as the drag preview rather
+  // than the transparent full-size hit area.
+  document.addEventListener("dragstart", (event) => {
+    const source = event.target.closest?.("[data-drag-out]");
+    const thumb = source?.parentElement?.querySelector(".drag-chip__thumb");
+    if (thumb && event.dataTransfer) {
+      event.dataTransfer.setDragImage(thumb, thumb.width / 2, thumb.height / 2);
+    }
+  });
+
   // Copy-to-clipboard buttons: <button data-copy="text">
   document.addEventListener("click", async (event) => {
     const button = event.target.closest?.("[data-copy]");

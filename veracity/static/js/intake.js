@@ -129,9 +129,14 @@
       fileInput.click();
     });
 
-    // Page-wide drag and drop
+    // Page-wide drag and drop. Drags that start on this page (e.g. the
+    // "Drag out" chip) are for other windows; dropping them back here is a no-op.
     let dragDepth = 0;
-    const hasFiles = (event) => Array.from(event.dataTransfer?.types || []).includes("Files");
+    let internalDrag = false;
+    document.addEventListener("dragstart", () => { internalDrag = true; });
+    document.addEventListener("dragend", () => { internalDrag = false; });
+    const hasFiles = (event) =>
+      !internalDrag && Array.from(event.dataTransfer?.types || []).includes("Files");
     const setDragging = (on) => {
       if (dropzone) dropzone.classList.toggle("is-dragging", on);
       else if (dropOverlay) dropOverlay.hidden = !on;
@@ -149,9 +154,21 @@
       if (dragDepth === 0) setDragging(false);
     });
     document.addEventListener("dragover", (event) => {
+      if (internalDrag) {
+        // Not a drop target for our own image; also blocks the browser's
+        // default of navigating to a dropped image.
+        event.preventDefault();
+        event.dataTransfer.dropEffect = "none";
+        return;
+      }
       if (hasFiles(event)) event.preventDefault();
     });
     document.addEventListener("drop", (event) => {
+      if (internalDrag) {
+        // Swallow it so the browser doesn't navigate to the dropped image.
+        event.preventDefault();
+        return;
+      }
       if (!hasFiles(event)) return;
       event.preventDefault();
       dragDepth = 0;

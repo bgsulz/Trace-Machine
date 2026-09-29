@@ -170,49 +170,16 @@ class TestDetectOverlayCropUnit:
 
 
 # ===========================================================================
-# Integration tests: /analysis/<id>/autocrop route
+# Integration tests: suggested crop regions on the result page
 # ===========================================================================
 
-class TestAutocropRoute:
-    def test_autocrop_creates_containment_and_reruns_analysis(self, client, app):
-        # gradient_background gives non-trivial entropy (crop validator) while
-        # keeping the interior Sobel-Y low enough for banner detection to fire.
-        analysis_id, _ = _upload_banner_image(client, banner_bottom=60, gradient=True)
+def _suggested_box(body: str) -> list[float] | None:
+    match = re.search(r'id="region-suggested"[^>]*data-region="([^"]+)"', body, re.S)
+    return [float(v) for v in match.group(1).split(",")] if match else None
 
-        resp = client.post(f"/analysis/{analysis_id}/autocrop", follow_redirects=True)
-        assert resp.status_code == 200
-        assert b"Provenance Report" in resp.data
 
-        from veracity.models import ImageContainment
-
-        with app.app_context():
-            links = ImageContainment.query.all()
-            assert len(links) >= 1
-            latest = links[-1]
-            crop_box = json.loads(latest.crop_box_json)
-            # Cropped image should be narrower in height than the original.
-            # crop_box is [left, top, width, height]; height should be < 1.0.
-            assert crop_box[3] < 1.0
-
-    def test_autocrop_on_clean_image_flashes_and_rerenders(self, client):
-        # Upload a clean image (no banner) — autocrop should gracefully decline.
-        clean_bytes = _make_banner_image()  # no banner
-        data = {"file": (io.BytesIO(clean_bytes), "clean.png"), "image_url": ""}
-        resp = client.post("/analyze", data=data, content_type="multipart/form-data", follow_redirects=True)
-        assert resp.status_code == 200
-        analysis_id = _extract_analysis_id(resp.data.decode("utf-8"))
-
-        resp2 = client.post(f"/analysis/{analysis_id}/autocrop", follow_redirects=True)
-        assert resp2.status_code == 200
-        # Should still render the result page, just with a flash message.
-        assert b"Provenance Report" in resp2.data
-
-    def test_autocrop_on_expired_analysis_returns_gone(self, client):
-        resp = client.post("/analysis/deadbeef00000000/autocrop")
-        # The app returns 410 Gone for expired analyses.
-        assert resp.status_code == 410
-
-    def test_autocrop_button_present_for_banner_image(self, client):
+class TestSuggestedCrop:
+    def test_suggestion_shown_as_selectable_region_for_banner_image(self, client):
         resp = client.post(
             "/analyze",
             data={
@@ -224,20 +191,78 @@ class TestAutocropRoute:
         )
         assert resp.status_code == 200
         body = resp.data.decode("utf-8")
-        assert "Auto-crop to image" in body
+        box = _suggested_box(body)
+        assert box is not None
+        assert box[3] < 1.0  # the banner is excluded
+        assert 'data-select-region="region-suggested"' in body
+        assert "Use suggested crop" in body
 
-    def test_autocrop_button_absent_for_clean_image(self, client):
-        clean_bytes = _make_banner_image()  # no banner
-        data = {"file": (io.BytesIO(clean_bytes), "clean.png"), "image_url": ""}
+    def test_no_suggestion_for_clean_image(self, client):
+        data = {"file": (io.BytesIO(_make_banner_image()), "clean.png"), "image_url": ""}
         resp = client.post("/analyze", data=data, content_type="multipart/form-data", follow_redirects=True)
         assert resp.status_code == 200
         body = resp.data.decode("utf-8")
-        assert "Auto-crop to image" not in body
+        assert _suggested_box(body) is None
+        assert "Use suggested crop" not in body
 
-    def test_autocrop_button_absent_after_autocrop(self, client):
-        # After an auto-crop, the result should not offer another auto-crop.
+    def test_cropping_to_suggestion_links_containment(self, client, app):
+        # gradient_background gives non-trivial entropy (crop validator) while
+        # keeping the interior Sobel-Y low enough for banner detection to fire.
         analysis_id, _ = _upload_banner_image(client, banner_bottom=60, gradient=True)
-        resp = client.post(f"/analysis/{analysis_id}/autocrop", follow_redirects=True)
+        page = client.get(f"/analysis/{analysis_id}").data.decode("utf-8")
+        left, top, width, height = _suggested_box(page)
+
+        resp = client.post(
+            f"/analysis/{analysis_id}/crop",
+            data={"crop_left": left, "crop_top": top, "crop_width": width, "crop_height": height},
+            follow_redirects=True,
+        )
         assert resp.status_code == 200
         body = resp.data.decode("utf-8")
-        assert "Auto-crop to image" not in body
+        assert "Provenance Report" in body
+        # A cropped result doesn't suggest cropping again.
+        assert _suggested_box(body) is None
+
+        from veracity.models import ImageContainment
+
+        with app.app_context():
+            links = ImageContainment.query.all()
+            assert len(links) >= 1
+            assert json.loads(links[-1].crop_box_json)[3] < 1.0
+
+    def test_autocrop_route_is_retired(self, client):
+        analysis_id, _ = _upload_banner_image(client, banner_bottom=60, gradient=True)
+        resp = client.post(f"/analysis/{analysis_id}/autocrop")
+        assert resp.status_code in (404, 405)
+
+    def test_analyzed_suggestion_becomes_contained_region(self, client, app):
+        analysis_id, _ = _upload_banner_image(client, banner_bottom=60, gradient=True)
+        page = client.get(f"/analysis/{analysis_id}").data.decode("utf-8")
+        left, top, width, height = _suggested_box(page)
+
+        crop = client.post(
+            f"/analysis/{analysis_id}/crop",
+            data={"crop_left": left, "crop_top": top, "crop_width": width, "crop_height": height},
+        )
+        child_id = crop.headers["Location"].rsplit("/", 1)[-1]
+
+        from veracity.analysis_cache import load_analysis_metadata
+
+        with app.app_context():
+            child_phash = load_analysis_metadata(child_id)["phash"]
+        # Regions are only shown once they carry evidence, e.g. a vote.
+        client.post("/vote", data={"phash": child_phash, "vote": "ai"})
+
+        body = client.get(f"/analysis/{analysis_id}").data.decode("utf-8")
+        assert 'id="region-contained-1"' in body
+        assert 'data-select-region="region-contained-1"' in body
+        # The suggestion is now covered by the contained region.
+        assert _suggested_box(body) is None
+
+
+def test_same_box_tolerance():
+    from veracity.web.ui import same_box
+
+    assert same_box([0, 0.2216, 1, 0.4783], (0.0, 0.221667, 1.0, 0.478333))
+    assert not same_box([0, 0.2, 1, 0.5], [0, 0.3, 1, 0.5])
+    assert not same_box(None, [0, 0, 1, 1])

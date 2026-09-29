@@ -1,11 +1,7 @@
 {% extends "base.html" %}
-{% from "partials/macros/ui.html" import icon %}
+{% from "partials/macros/ui.html" import icon, drag_chip %}
 
 {% block title %}Provenance Report · Trace Machine{% endblock %}
-
-{% block head_extra %}
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/cropperjs@1.5.13/dist/cropper.min.css" />
-{% endblock %}
 
 {% set permalink = url_for('main.view_analysis', analysis_id=analysis_id, _external=True) %}
 {% set share_link = (request.host_url.rstrip('/') ~ analysis_link) if analysis_link else permalink %}
@@ -14,8 +10,44 @@
 {% block content %}
 <div class="report-layout">
   <aside class="report-media" aria-label="Analyzed image">
+    {# Regions of this image worth re-analyzing on their own: the overlay
+       auto-crop suggestion and any regions already known to contain other
+       analyzed images. Boxes are normalized (left, top, width, height). #}
+    {% set regions = [] %}
+    {# Once the suggested crop has been analyzed it shows up as a contained
+       region, so drop the duplicate suggestion. #}
+    {% set seen = namespace(suggestion=False) %}
+    {% if auto_crop and auto_crop.crop_box %}
+    {% for region in containments or [] %}
+    {% if same_box(region.crop_box, auto_crop.crop_box) %}{% set seen.suggestion = True %}{% endif %}
+    {% endfor %}
+    {% endif %}
+    {% if auto_crop and auto_crop.has_overlay and auto_crop.crop_box and not seen.suggestion %}
+    {% set _ = regions.append({"id": "suggested", "kind": "suggested", "box": auto_crop.crop_box, "label": "Suggested crop", "title": auto_crop.method}) %}
+    {% endif %}
+    {% for region in containments or [] %}
+    {% set _ = regions.append({"id": "contained-" ~ loop.index, "kind": "contained", "box": region.crop_box, "label": "Region " ~ loop.index, "title": "Contains a previously analyzed image"}) %}
+    {% endfor %}
+
     <figure class="specimen">
-      <img src="{{ image_url }}" alt="Analyzed image" id="result-image" />
+      <div class="crop-stage" id="crop-stage" data-min-px="150">
+        <img src="{{ image_url }}" alt="Analyzed image" id="result-image" draggable="false" />
+        {% for region in regions %}
+        <button
+          type="button"
+          class="region region--{{ region.kind }}"
+          id="region-{{ region.id }}"
+          style="left: {{ region.box[0] * 100 }}%; top: {{ region.box[1] * 100 }}%; width: {{ region.box[2] * 100 }}%; height: {{ region.box[3] * 100 }}%;"
+          data-region="{{ region.box|join(',') }}"
+          title="{{ region.title }}"
+        ><span class="region__label">{{ region.label }}</span></button>
+        {% endfor %}
+        <div class="selection" id="crop-selection" hidden>
+          {% for handle in ["nw", "n", "ne", "e", "se", "s", "sw", "w"] %}
+          <span class="selection__handle selection__handle--{{ handle }}" data-handle="{{ handle }}"></span>
+          {% endfor %}
+        </div>
+      </div>
     </figure>
 
     <form
@@ -30,27 +62,25 @@
       <input type="hidden" name="crop_top" value="0" />
       <input type="hidden" name="crop_width" value="1" />
       <input type="hidden" name="crop_height" value="1" />
-      <div class="media-toolbar" data-state="idle">
-        <button type="button" id="crop-toggle" class="btn btn--sm">{{ icon("crop") }} Crop &amp; re-analyze</button>
-        {% if auto_crop and auto_crop.has_overlay %}
-        <button
-          type="submit"
-          class="btn btn--sm"
-          formaction="{{ url_for('main.autocrop_analysis', analysis_id=analysis_id) }}"
-          title="{{ auto_crop.method }}"
-          data-autocrop
-        >{{ icon("scan") }} Auto-crop to image</button>
+
+      <div class="media-toolbar" id="crop-idle">
+        <button type="button" class="btn btn--sm" id="crop-start">{{ icon("crop") }} Crop</button>
+        {% if regions and regions[0].kind == "suggested" %}
+        <button type="button" class="btn btn--sm" data-select-region="region-suggested" title="{{ auto_crop.method }}">{{ icon("scan") }} Use suggested crop</button>
         {% endif %}
+        {{ drag_chip(image_url, "Drag out", "Drag this image into another window, such as a verification portal") }}
         <a class="btn btn--sm btn--ghost" href="{{ image_url }}" download="trace-machine-{{ analysis_id[:8] }}">{{ icon("download") }} Image</a>
-        <span id="crop-active-controls" class="cluster" hidden>
-          <button type="submit" class="btn btn--sm btn--primary" id="crop-submit">Re-analyze selection</button>
-          <button type="button" class="btn btn--sm btn--ghost" id="crop-cancel">Cancel</button>
-        </span>
       </div>
-      <p id="crop-status" class="crop-status" hidden></p>
-      {% if auto_crop and auto_crop.has_overlay %}
-      <p class="faint media-note">Auto-crop found {{ auto_crop.method|lower }}.</p>
-      {% endif %}
+
+      <div class="media-toolbar media-toolbar--active" id="crop-active" hidden>
+        <span class="crop-size mono" id="crop-size" aria-live="polite"></span>
+        <button type="submit" class="btn btn--sm btn--primary" id="crop-submit">Analyze selection</button>
+        <button type="button" class="btn btn--sm btn--ghost" id="crop-clear">Clear</button>
+      </div>
+
+      <p class="faint media-note" id="crop-hint">
+        {% if auto_crop and auto_crop.has_overlay %}{{ auto_crop.method }}. {% endif %}Drag on the image to select a region to analyze on its own.
+      </p>
     </form>
 
     <dl class="kv media-facts">
@@ -125,6 +155,5 @@
 {% endblock %}
 
 {% block body_scripts %}
-<script src="https://cdn.jsdelivr.net/npm/cropperjs@1.5.13/dist/cropper.min.js"></script>
 <script src="{{ url_for('static', filename='js/crop.js') }}"></script>
 {% endblock %}
