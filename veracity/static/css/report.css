@@ -99,10 +99,7 @@
     white-space: nowrap;
     pointer-events: none;
   }
-  .crop-stage.has-selection .region {
-    opacity: 0;
-    pointer-events: none;
-  }
+  .crop-stage.has-selection .region { visibility: hidden; }
 
   /* Active selection: the huge shadow dims everything outside the box. */
   .selection {
@@ -125,27 +122,27 @@
     border-block: 0;
     border-inline: 1px solid rgb(255 255 255 / 0.3);
   }
+  /* Handles sit just inside the box so they're never clipped at image edges. */
   .selection__handle {
     position: absolute;
     width: 12px;
     height: 12px;
-    margin: -6px 0 0 -6px;
     background: #fff;
     border: 1px solid rgb(0 0 0 / 0.5);
     border-radius: 2px;
     z-index: 1;
   }
   @media (pointer: coarse) {
-    .selection__handle { width: 22px; height: 22px; margin: -11px 0 0 -11px; }
+    .selection__handle { width: 22px; height: 22px; }
   }
   .selection__handle--nw { left: 0; top: 0; cursor: nwse-resize; }
-  .selection__handle--n { left: 50%; top: 0; cursor: ns-resize; }
-  .selection__handle--ne { left: 100%; top: 0; cursor: nesw-resize; }
-  .selection__handle--e { left: 100%; top: 50%; cursor: ew-resize; }
-  .selection__handle--se { left: 100%; top: 100%; cursor: nwse-resize; }
-  .selection__handle--s { left: 50%; top: 100%; cursor: ns-resize; }
-  .selection__handle--sw { left: 0; top: 100%; cursor: nesw-resize; }
-  .selection__handle--w { left: 0; top: 50%; cursor: ew-resize; }
+  .selection__handle--n { left: 50%; top: 0; translate: -50% 0; cursor: ns-resize; }
+  .selection__handle--ne { right: 0; top: 0; cursor: nesw-resize; }
+  .selection__handle--e { right: 0; top: 50%; translate: 0 -50%; cursor: ew-resize; }
+  .selection__handle--se { right: 0; bottom: 0; cursor: nwse-resize; }
+  .selection__handle--s { left: 50%; bottom: 0; translate: -50% 0; cursor: ns-resize; }
+  .selection__handle--sw { left: 0; bottom: 0; cursor: nesw-resize; }
+  .selection__handle--w { left: 0; top: 50%; translate: 0 -50%; cursor: ew-resize; }
 
   .media-toolbar {
     display: flex;

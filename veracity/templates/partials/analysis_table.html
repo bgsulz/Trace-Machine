@@ -83,13 +83,16 @@
 
           {% if match.sources and match.local and match.local.crop_box %}
           {% set b = match.local.crop_box %}
-          <figure class="trace__preview">
-            <div class="trace__stage">
-              <img src="{{ match.sources[0].url }}" alt="Similar image" loading="lazy" referrerpolicy="no-referrer"
-                   onerror="this.closest('.trace__preview').remove()" />
+          {# The source is a third-party URL, so it only loads when asked. #}
+          <figure class="trace__preview" data-trace-preview>
+            <div class="trace__stage" hidden>
+              <img alt="Similar image" data-src="{{ match.sources[0].url }}" referrerpolicy="no-referrer" />
               <span class="region region--matched" style="left: {{ b[0] * 100 }}%; top: {{ b[1] * 100 }}%; width: {{ b[2] * 100 }}%; height: {{ b[3] * 100 }}%;"></span>
             </div>
-            <figcaption class="faint">Where this image appears in the similar one.</figcaption>
+            <figcaption>
+              <button type="button" class="btn btn--sm btn--ghost" data-load-preview>{{ icon("image") }} Preview matched region</button>
+              <span class="faint" hidden>Where this image appears in the similar one. Loaded from {{ match.sources[0].url|replace('https://', '')|replace('http://', '')|truncate(48, True) }}.</span>
+            </figcaption>
           </figure>
           {% endif %}
 
