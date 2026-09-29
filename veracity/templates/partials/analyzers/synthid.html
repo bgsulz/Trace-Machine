@@ -1,4 +1,5 @@
 {% from "partials/macros/common.html" import distant_match_callout %}
+{% from "partials/macros/ui.html" import icon, portal_logo %}
 {% set display_state = row.data.display_state or "manual" %}
 {% set contested = row.data.contested %}
 {% set this_image = row.data.this_image or {} %}
@@ -7,106 +8,118 @@
 {% set caveat = row.data.caveat %}
 {% set current_report = row.data.current_report %}
 {% set checker_rows = row.data.checker_rows or [] %}
-{% set link_target = row.context.link_target if row.context else None %}
+{% set analysis_id = row.context.analysis_id if row.context else None %}
 {% set lens_link = row.context.lens_link if row.context else "https://images.google.com/" %}
+{% set portals = {
+  "google": {
+    "name": "Google", "tool": "About this image", "href": lens_link,
+    "hint": "Open About this image and look for “Made with Google AI”.",
+    "aria": "Open Google About this image",
+  },
+  "openai": {
+    "name": "OpenAI", "tool": "Verify", "href": "https://openai.com/research/verify/",
+    "hint": "Upload the image and look for a positive OpenAI result.",
+    "aria": "Open OpenAI Verify",
+  },
+  "meta": {
+    "name": "Meta", "tool": "Identify", "href": "https://meta.ai/identification",
+    "hint": "Upload the image and look for an imperceptible-watermark match.",
+    "aria": "Open Meta Identify",
+  },
+} %}
 
-<div class="analyzer-detail-block" id="synthid-detail">
-  <p><strong>How to check external portals:</strong></p>
-  <ol class="synthid-steps">
-    <li>Use the Google check for images that may come from Google tools; open <strong>About this image</strong> and look for <strong>Made with Google AI</strong>.</li>
-    <li>Use OpenAI Verify for images that may come from OpenAI tools; upload the same image and look for a positive OpenAI signal.</li>
-    <li>Use Meta Identify for images that may come from Meta AI; upload the same image and look for an imperceptible-watermark match.</li>
-  </ol>
-  <div class="synthid-check-actions">
-    <a
-      class="secondary synthid-check-action"
-      href="{{ lens_link }}"
-      target="_blank"
-      rel="noopener noreferrer"
-      role="button"
-    >Check Google</a>
-    <a
-      class="secondary synthid-check-action"
-      href="https://openai.com/research/verify/"
-      target="_blank"
-      rel="noopener noreferrer"
-      role="button"
-    >OpenAI Verify</a>
-    <a
-      class="secondary synthid-check-action"
-      href="https://meta.ai/identification"
-      target="_blank"
-      rel="noopener noreferrer"
-      role="button"
-    >Meta Identify</a>
+{% macro report_form(checker, label, extra_class="") -%}
+<form
+  action="{{ url_for('main.synthid_report') }}"
+  method="post"
+  hx-post="{{ url_for('main.synthid_report') }}"
+  hx-target="#analyzer-row-synthid"
+  hx-swap="outerHTML"
+>
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+  <input type="hidden" name="analysis_id" value="{{ analysis_id }}" />
+  <input type="hidden" name="report" value="{{ checker.result }}" />
+  <button
+    type="submit"
+    class="btn btn--sm {{ extra_class }}"
+    aria-label="Report {{ checker.label }}"
+    aria-pressed="{{ 'true' if current_report == checker.result else 'false' }}"
+  >{% if current_report == checker.result %}{{ icon("check") }}{% endif %}{{ label }}</button>
+</form>
+{%- endmacro %}
+
+<div class="stack" id="synthid-detail">
+  <p class="muted">
+    Google, OpenAI, and Meta each offer a checker for their own invisible watermarks.
+    Open a portal, give it this image, then record what it showed. Each portal only
+    recognizes its own provider, so a negative result rules out that provider only.
+    {% if analysis_id %}
+    <a href="{{ url_for('main.serve_analysis_image', analysis_id=analysis_id) }}" download="trace-machine-{{ analysis_id[:8] }}">Download this image</a> for portals that need a file.
+    {% endif %}
+  </p>
+
+  {% if row.data.phash %}
+  <ul class="portal-list" role="list">
+    {% for checker in checker_rows if checker.provider in portals %}
+    {% set portal = portals[checker.provider] %}
+    <li class="portal{% if current_report == checker.result %} is-reported{% endif %}">
+      {{ portal_logo(checker.provider) }}
+      <div class="portal__text">
+        <span class="portal__name">{{ portal.name }} <span class="faint">· {{ portal.tool }}</span></span>
+        <span class="portal__hint">{{ portal.hint }}</span>
+      </div>
+      <span class="portal__count mono faint" title="Community reports for this image and close copies">
+        {{ totals[checker.result]|default(0) }} report{{ "s" if totals[checker.result]|default(0) != 1 }}
+      </span>
+      <div class="portal__actions">
+        <a
+          class="btn btn--sm synthid-check-action"
+          href="{{ portal.href }}"
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label="{{ portal.aria }}"
+        >{{ checker.check_label }} {{ icon("external") }}</a>
+        {{ report_form(checker, "Positive") }}
+      </div>
+    </li>
+    {% endfor %}
+  </ul>
+
+  {% for checker in checker_rows if checker.result == "negative" %}
+  <div class="portal-none">
+    <span class="muted">Checked the portals and nothing was flagged?</span>
+    <span class="portal__count mono faint">{{ totals.negative|default(0) }} report{{ "s" if totals.negative|default(0) != 1 }}</span>
+    {{ report_form(checker, "None flagged it") }}
   </div>
-  <p class="analyzer-note">
-    Portal checks are provider-specific. A negative report does not rule out an unsupported provider or a different copy of the image.
-  </p>
+  {% endfor %}
 
-  {% if display_state in ["reported", "detected", "contested", "checked"] %}
-  <hr />
-  {% if caveat %}
-  <p class="analyzer-note">{{ caveat }}</p>
+  {% if current_report %}
+  <p class="faint">You reported <strong>{{ (checker_rows|selectattr("result", "equalto", current_report)|first or {}).label|default(current_report) }}</strong>. Pick another option to change your report.</p>
   {% endif %}
-  <p class="synthid-counts">
-    Google positive: {{ totals.google_positive|default(0) }} /
-    OpenAI positive: {{ totals.openai_positive|default(0) }} /
-    Meta positive: {{ totals.meta_positive|default(0) }} /
-    Negative: {{ totals.negative|default(0) }}
-  </p>
+  {% else %}
+  <div class="cluster">
+    {% for provider, portal in portals.items() %}
+    <a class="btn btn--sm synthid-check-action" href="{{ portal.href }}" target="_blank" rel="noopener noreferrer" aria-label="{{ portal.aria }}">
+      {{ portal_logo(provider) }} {{ portal.name }} {{ icon("external") }}
+    </a>
+    {% endfor %}
+  </div>
   {% endif %}
 
   {% if contested %}
-  <p class="synthid-contested">
-    <strong>Conflicting portal reports</strong> &mdash;
-    Google positive: {{ this_image.google_positive|default(0) }},
-    OpenAI positive: {{ this_image.openai_positive|default(0) }},
-    Meta positive: {{ this_image.meta_positive|default(0) }},
-    negative: {{ this_image.negative|default(0) }}.
+  <p class="notice">
+    <strong>Conflicting portal reports.</strong>
+    A single image shouldn't be positive for more than one provider. On this image:
+    Google {{ this_image.google_positive|default(0) }},
+    OpenAI {{ this_image.openai_positive|default(0) }},
+    Meta {{ this_image.meta_positive|default(0) }},
+    negative {{ this_image.negative|default(0) }}.
   </p>
+  {% elif caveat %}
+  <p class="notice notice--info">{{ caveat }}</p>
   {% endif %}
 
   {% if row.data.has_distant_matches %}
   {{ distant_match_callout(similar_images|length, "verification portal reports") }}
   {% endif %}
 </div>
-
-{% if row.data.phash %}
-<div class="synthid-voting-area" id="synthid-vote-area" hidden>
-  <hr />
-  <small class="vote-prompt"><strong>What did your portal check show?</strong></small>
-  <div class="synthid-provider-list">
-    {% for checker in checker_rows %}
-    <form
-      action="{{ url_for('main.synthid_report') }}"
-      method="post"
-      hx-post="{{ url_for('main.synthid_report') }}"
-      hx-target="#analyzer-row-synthid"
-      hx-swap="outerHTML"
-      class="synthid-provider-row"
-    >
-      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
-      <input type="hidden" name="analysis_id" value="{{ row.context.analysis_id }}" />
-      <input type="hidden" name="report" value="{{ checker.result }}" />
-      <button
-        type="submit"
-        class="portal-vote-btn portal-vote-btn--{{ checker.provider }}{% if current_report == checker.result %} active{% endif %}"
-        aria-label="Report {{ checker.label }}"
-        title="{{ checker.label }}"
-      >
-        {% if checker.result == 'negative' %}
-        <span class="portal-vote-negative-mark" aria-hidden="true">&times;</span>
-        <span>No portal matched</span>
-        {% else %}
-        <span class="portal-brand-mark" aria-hidden="true">
-          <img src="{{ url_for('static', filename='icons/portal-' ~ checker.provider ~ '.svg') }}" alt="" />
-        </span>
-        <span class="sr-only">{{ checker.short_label }}</span>
-        {% endif %}
-      </button>
-    </form>
-    {% endfor %}
-  </div>
-</div>
-{% endif %}

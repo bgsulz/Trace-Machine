@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-import base64
+import json
+from dataclasses import asdict
 from typing import Any
 from urllib.parse import urlparse, quote_plus
 
@@ -41,52 +42,28 @@ _SUMMARY_FALLBACK: dict[str, str] = {
 }
 
 
-def _build_analyzer_summary(
-    rows: list[dict[str, Any]],
-) -> list[dict[str, Any]]:
-    """Build lightweight summary for the evidence summary strip."""
+def _build_analyzer_summary(analysis_id: str) -> list[dict[str, Any]]:
+    """Build the per-check overview from cached analyzer rows.
+
+    TinEye rows are not persisted by default (compliance), so a missing TinEye
+    row is shown as its on-demand manual state.
+    """
     summary: list[dict[str, Any]] = []
-    for row in rows:
-        if row.get("slug") == "tineye":
-            continue
+    for spec in get_active_analyzers():
+        row = load_cached_analyzer_row(analysis_id, spec.slug)
+        if row is None:
+            status = "MANUAL" if spec.slug == "tineye" else "LOADING"
+            row = {"status": status, "summary": ""}
         status = (row.get("status") or "LOADING").upper()
-        summary_text = row.get("summary") or _SUMMARY_FALLBACK.get(status.lower(), "")
         summary.append(
             {
-                "slug": row.get("slug"),
-                "name": row.get("name"),
+                "slug": spec.slug,
+                "name": spec.name,
                 "status": status,
-                "summary": summary_text,
+                "summary": row.get("summary") or _SUMMARY_FALLBACK.get(status.lower(), ""),
             }
         )
     return summary
-
-
-def render_evidence_summary_oob(analysis_id: str) -> str:
-    """Return an OOB-swappable evidence summary fragment for *analysis_id*."""
-    rows: list[dict[str, Any]] = []
-    for spec in get_active_analyzers():
-        if spec.slug == "tineye":
-            continue
-        slug = spec.slug
-        cached = load_cached_analyzer_row(analysis_id, slug)
-        if cached is not None:
-            rows.append(cached)
-
-    analyzer_summary = _build_analyzer_summary(rows)
-    has_notable_evidence = any(
-        r["status"] in ("FOUND", "DETECTED", "SIMILAR") for r in analyzer_summary
-    )
-    metadata = load_analysis_metadata(analysis_id) or {}
-    has_distant_traces = metadata.get("has_distant_traces", False)
-
-    return render_template(
-        "partials/evidence_summary.html",
-        analyzer_summary=analyzer_summary,
-        has_notable_evidence=has_notable_evidence,
-        has_distant_traces=has_distant_traces,
-        oob_swap=True,
-    )
 
 
 def handle_remote_analysis(image_url: str, vote_slug: str | None, template_name: str):
@@ -124,8 +101,12 @@ def perform_analysis(
     context=None,
     crop_box: tuple[float, float, float, float] | None = None,
 ):
-    image_data_url = _build_image_data_url(image_bytes, mime_type)
+    """Run every analyzer on *image_bytes* and persist the results.
 
+    Full reports redirect to the analysis permalink (POST/redirect/GET) so
+    results are shareable and refresh-safe. The mini report renders inline
+    because it lives inside the browser extension's iframe.
+    """
     context = context or prepare_analysis_context(image_bytes)
     phash = context.phash
     voting_service.persist_source_url(phash, image_url)
@@ -154,47 +135,72 @@ def perform_analysis(
         "public_url_display": public_url_display,
     }
     analysis_id = store_analysis_payload(None, image_bytes, metadata)
-    tool_results = generate_external_tools(public_url, analysis_id=analysis_id)
-    active_analyzers = get_active_analyzers()
-    analyzer_rows = _prime_analyzer_rows(analysis_id, context, active_analyzers)
+    analyzer_rows = _prime_analyzer_rows(analysis_id, context, get_active_analyzers())
     direct_distant = build_direct_and_distant_traces(
         context,
         analyzer_rows=analyzer_rows,
     )
-    has_distant_traces = bool(direct_distant and direct_distant.get("distant_matches"))
-    update_analysis_metadata(analysis_id, {"has_distant_traces": has_distant_traces})
-    containments = get_displayable_containments(context.registry_id)
-    analyzer_summary = _build_analyzer_summary(analyzer_rows)
-    has_notable_evidence = any(
-        r["status"] in ("FOUND", "DETECTED", "SIMILAR") for r in analyzer_summary
-    )
     # Only run overlay detection when we aren't already looking at a cropped result,
     # to avoid suggesting a second auto-crop on an already-cropped image.
     auto_crop = detect_overlay_crop(image_bytes) if crop_box is None else None
+    update_analysis_metadata(
+        analysis_id,
+        {
+            "has_distant_traces": bool(
+                direct_distant and direct_distant.get("distant_matches")
+            ),
+            "direct_distant": _json_safe(direct_distant),
+            "auto_crop": _json_safe(asdict(auto_crop)) if auto_crop else None,
+        },
+    )
+
+    if template_name == "result.html":
+        return redirect(url_for("main.view_analysis", analysis_id=analysis_id))
+    return render_analysis_page(analysis_id, template_name)
+
+
+def render_analysis_page(analysis_id: str, template_name: str = "result.html"):
+    """Render a stored analysis. Returns ``None`` when the analysis expired."""
+    metadata = load_analysis_metadata(analysis_id)
+    if metadata is None:
+        return None
+
+    public_url = metadata.get("public_url")
+    active_analyzers = get_active_analyzers()
+    registry_id = metadata.get("registry_id")
+    containments = (
+        get_displayable_containments(registry_id) if registry_id is not None else []
+    )
+    auto_crop = metadata.get("auto_crop") or None
     return render_template(
         template_name,
-        image_url=image_data_url,
-        source=source,
+        image_url=url_for("main.serve_analysis_image", analysis_id=analysis_id),
+        mime_type=metadata.get("mime_type"),
+        source=metadata.get("source", "file"),
         analyzers=active_analyzers,
         invisible_watermarks_enabled=any(
             spec.slug == "invisible" for spec in active_analyzers
         ),
-        tools=tool_results,
-        analysis_link=analysis_link,
+        tools=generate_external_tools(public_url, analysis_id=analysis_id),
+        analysis_link=metadata.get("analysis_link"),
         analysis_id=analysis_id,
-        registry_id=context.registry_id,
+        registry_id=registry_id,
         containments=containments,
-        direct_distant=direct_distant,
-        crop_box=crop_box,
-        full_res_url=full_res_url,
+        direct_distant=metadata.get("direct_distant"),
+        crop_box=metadata.get("crop_box"),
+        full_res_url=metadata.get("full_res_url"),
         public_url=public_url,
-        public_url_display=public_url_display,
-        image_width=context.width,
-        image_height=context.height,
-        analyzer_summary=analyzer_summary,
-        has_notable_evidence=has_notable_evidence,
+        public_url_display=metadata.get("public_url_display"),
+        image_width=metadata.get("image_width"),
+        image_height=metadata.get("image_height"),
+        analyzer_summary=_build_analyzer_summary(analysis_id),
         auto_crop=auto_crop,
     )
+
+
+def _json_safe(value: Any) -> Any:
+    """Round-trip through JSON so stored metadata matches what we reload."""
+    return json.loads(json.dumps(value, default=str))
 
 
 _MINI_TEMPLATES = {"c2pa", "exif", "human", "invisible", "synthid"}
@@ -257,11 +263,6 @@ def _prime_analyzer_rows(
             continue
         store_cached_analyzer_row(analysis_id, slug, row)
     return rows
-
-
-def _build_image_data_url(image_bytes: bytes, mime_type: str) -> str:
-    image_b64 = base64.b64encode(image_bytes).decode("ascii")
-    return f"data:{mime_type};base64,{image_b64}"
 
 
 def _maybe_auto_vote(phash: str | None, auto_vote: str | None) -> None:
@@ -337,6 +338,7 @@ def _prepare_row_for_render(
     _ensure_distant_match_flags(row, metadata)
 
     lens_link = _build_google_lens_link(metadata, analysis_id)
+    search_tools = generate_external_tools(metadata.get("public_url"), analysis_id=analysis_id)
 
     row["context"] = {
         "source": metadata.get("source", "file"),
@@ -344,6 +346,7 @@ def _prepare_row_for_render(
         "link_target": link_target,
         "analysis_id": analysis_id,
         "lens_link": lens_link,
+        "search_links": search_tools[0]["links"] if search_tools else [],
     }
 
     slug = row.get("slug")

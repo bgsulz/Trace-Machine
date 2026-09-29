@@ -1,17 +1,15 @@
 {% macro render_match_card(match, extra_class="") %}
 {% set fallback_url = url_for('static', filename='missing.svg') %}
 {% set proxy_url = "https://wsrv.nl/?url=" ~ (match.url | urlencode) ~ "&w=150&l=1&af=1&default=" ~ (url_for('static', filename='missing.svg', _external=true) | urlencode) %}
-<div class="bucket-match {{ extra_class }}">
-  <a href="{{ match.url }}" target="_blank" rel="noopener noreferrer" class="match-link">
-    <img src="{{ proxy_url }}" alt="Match image" class="match-thumbnail" loading="lazy"
-         onerror="this.onerror=null; this.src='{{ fallback_url }}'; this.classList.add('match-thumbnail-error');" />
-  </a>
-  <div class="match-info">
-    <div class="match-domain">{{ match.domain }}</div>
-    <div class="match-date">{{ match.crawl_date[:10] if match.crawl_date else '—' }}</div>
-    <div class="match-score">{{ "%.1f"|format(match.similarity * 100) }}%</div>
-  </div>
-</div>
+<a href="{{ match.url }}" target="_blank" rel="noopener noreferrer" class="web-match {{ extra_class }}" title="{{ match.url }}">
+  <img src="{{ proxy_url }}" alt="" class="web-match__thumb" loading="lazy"
+       onerror="this.onerror=null; this.src='{{ fallback_url }}'; this.classList.add('is-missing');" />
+  <span class="web-match__domain">{{ match.domain }}</span>
+  <span class="web-match__meta mono">
+    <span>{{ match.crawl_date[:10] if match.crawl_date else '—' }}</span>
+    <span>{{ "%.0f"|format(match.similarity * 100) }}%</span>
+  </span>
+</a>
 {% endmacro %}
 
 {% macro render_tineye_intelligence(data) %}
@@ -20,108 +18,88 @@
 {% set category_mix = intelligence.category_mix|default([], true) %}
 {% set timeline_bins = intelligence.timeline_bins|default([], true) %}
 
-<div class="tineye-intel-grid">
-  <section class="tineye-intel-card">
-    <h4>Earliest Seen</h4>
-    <p>{{ data.earliest_date[:10] if data.earliest_date else "Unknown" }}</p>
+<div class="stat-grid">
+  <section class="stat">
+    <h4 class="eyebrow">Earliest seen</h4>
+    <p class="stat__value">{{ data.earliest_date[:10] if data.earliest_date else "Unknown" }}</p>
   </section>
 
-  <section class="tineye-intel-card">
-    <h4>Top Domains</h4>
+  <section class="stat">
+    <h4 class="eyebrow">Top domains</h4>
     {% if top_domains %}
-    <ul class="tineye-intel-list">
+    <ul class="stat__list" role="list">
       {% for item in top_domains %}
-      <li><code>{{ item.domain }}</code> ({{ item.count }})</li>
+      <li><span>{{ item.domain }}</span><span class="mono faint">{{ item.count }}</span></li>
       {% endfor %}
     </ul>
     {% else %}
-    <p>No qualifying domain data.</p>
+    <p class="faint">No qualifying domains.</p>
     {% endif %}
   </section>
 
-  <section class="tineye-intel-card">
-    <h4>Category Mix</h4>
+  <section class="stat">
+    <h4 class="eyebrow">Categories</h4>
     {% if category_mix %}
-    <ul class="tineye-intel-list">
+    <ul class="stat__list" role="list">
       {% for item in category_mix %}
-      <li>{{ item.category }} ({{ item.count }})</li>
+      <li><span>{{ item.category }}</span><span class="mono faint">{{ item.count }}</span></li>
       {% endfor %}
     </ul>
     {% else %}
-    <p>No category signals available.</p>
+    <p class="faint">No category signals.</p>
     {% endif %}
   </section>
 
-  <section class="tineye-intel-card">
-    <h4>Timeline Hints</h4>
+  <section class="stat">
+    <h4 class="eyebrow">Timeline</h4>
     {% if timeline_bins %}
-    <ul class="tineye-intel-list">
+    <ul class="stat__list" role="list">
       {% for bucket in timeline_bins %}
-      <li>{{ bucket.label }}: {{ bucket.count }}</li>
+      <li><span>{{ bucket.label }}</span><span class="mono faint">{{ bucket.count }}</span></li>
       {% endfor %}
     </ul>
     {% else %}
-    <p>No crawl-date hints available.</p>
+    <p class="faint">No crawl dates.</p>
     {% endif %}
   </section>
 </div>
 {% endmacro %}
 
 {% macro render_tineye_buckets(buckets) %}
-{% if buckets.oldest or buckets.newest or buckets.shame_list %}
-<div class="tineye-buckets">
+{% if buckets and (buckets.oldest or buckets.newest or buckets.shame_list) %}
+<div class="stack">
+  {% if buckets.shame_list %}
+  <section>
+    <h4 class="bucket-title bucket-title--flag">Found on AI image sites <span class="faint">({{ buckets.shame_list|length }})</span></h4>
+    <div class="web-match-row">
+      {% for match in buckets.shame_list %}
+      {{ render_match_card(match, "is-flagged") }}
+      {% endfor %}
+    </div>
+  </section>
+  {% endif %}
+
   {% if buckets.oldest %}
-  <div class="bucket-section">
-    <h4>Oldest Matches</h4>
-    <div class="bucket-scroll">
+  <section>
+    <h4 class="bucket-title">Oldest matches</h4>
+    <div class="web-match-row">
       {% for match in buckets.oldest %}
       {{ render_match_card(match) }}
       {% endfor %}
     </div>
-  </div>
+  </section>
   {% endif %}
 
   {% if buckets.newest %}
-  <div class="bucket-section">
-    <h4>Newest Matches</h4>
-    <div class="bucket-scroll">
+  <section>
+    <h4 class="bucket-title">Newest matches</h4>
+    <div class="web-match-row">
       {% for match in buckets.newest %}
       {{ render_match_card(match) }}
       {% endfor %}
     </div>
-  </div>
-  {% endif %}
-
-  {% if buckets.shame_list %}
-  <div class="bucket-section">
-    <h4>Found on AI Image Sites ({{ buckets.shame_list|length }})</h4>
-    <div class="bucket-scroll">
-      {% for match in buckets.shame_list %}
-      {{ render_match_card(match, "shame-list") }}
-      {% endfor %}
-    </div>
-  </div>
+  </section>
   {% endif %}
 </div>
 {% endif %}
 {% endmacro %}
-
-{% macro render_tineye_button(analysis_id, is_refresh=false) %}
-<form
-  class="tineye-buttons"
-  action="{{ url_for('main.run_tineye', analysis_id=analysis_id) }}"
-  method="post"
-  hx-post="{{ url_for('main.run_tineye', analysis_id=analysis_id) }}"
-  hx-target="#analyzer-row-tineye"
-  hx-swap="outerHTML"
-  hx-indicator="#tineye-spinner"
-  style="display: inline"
->
-  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
-  <button type="secondary">
-    {% if is_refresh %}Refresh TinEye{% else %}Check TinEye{% endif %}
-    <span id="tineye-spinner" class="htmx-indicator">...</span>
-  </button>
-</form>
-{% endmacro %}
-

@@ -1,28 +1,21 @@
+{# One row of mini cards per batch image. Each card loads its analyzer's mini
+   template (shared with the extension iframe); batch-specific styling maps the
+   card's data-status to the same found/none/action/off/error states used on
+   the full report. #}
 <div class="batch-strip">
   {% set batch_slugs = ["c2pa", "exif"] + (["invisible"] if invisible_watermarks_enabled else []) + ["synthid", "human"] %}
-  {% set batch_titles = {"c2pa": "C2PA", "exif": "Metadata", "invisible": "Invisible", "synthid": "Portals", "human": "Community"} %}
   {% for slug in batch_slugs %}
   <div
     class="mini-card batch-strip__card"
+    data-slug="{{ slug }}"
     hx-get="{{ url_for('main.analyzer_fragment', analysis_id=item.analysis_id, slug=slug, mini=1) }}"
     hx-trigger="load"
     hx-swap="innerHTML"
   >
-    <div class="mini-card-content">
-      <div class="mini-card-title">{{ batch_titles[slug] }}</div>
-      <div class="mini-card-status loading">Loading...</div>
+    <div class="mini-card-content" data-status="LOADING">
+      <div class="mini-card-title">{{ short_name(slug) }}</div>
+      <div class="mini-card-status loading">Loading…</div>
     </div>
   </div>
   {% endfor %}
-  <div class="mini-card batch-strip__card">
-    <div class="mini-card-content">
-      <div class="mini-card-title">Reverse Search</div>
-      <div class="mini-search-links">
-        {% set encoded_url = item.url | urlencode %}
-        <a href="https://lens.google.com/upload?url={{ encoded_url }}" target="_blank" rel="noopener noreferrer" class="mini-search-link">Google</a>
-        <a href="https://www.bing.com/images/search?view=detailv2&amp;iss=sbi&amp;form=SBIHMP&amp;q=imgurl:{{ encoded_url }}" target="_blank" rel="noopener noreferrer" class="mini-search-link">Bing</a>
-        <a href="https://tineye.com/search?url={{ encoded_url }}" target="_blank" rel="noopener noreferrer" class="mini-search-link">TinEye</a>
-      </div>
-    </div>
-  </div>
 </div>

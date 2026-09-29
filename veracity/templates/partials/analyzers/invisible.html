@@ -4,29 +4,31 @@
 {% set disabled = row.data.disabled_decoders or [] %}
 {% set errors = row.data.errors or [] %}
 
-<div class="analyzer-detail-block">
-  <div class="flash-warning">
-    <strong>Important limitation:</strong>
-    Local invisible-watermark detection is positive-only. A hit is useful evidence;
-    a miss does not prove the image is clean.
-  </div>
-
+<div class="stack">
   {% if findings %}
-  {% for finding in findings %}
-  <details class="exif-finding" open>
-    <summary>
-      <strong>{{ finding.label }}</strong>
-      {% if finding.scheme %}<span class="exif-finding-key">({{ finding.scheme }})</span>{% endif %}
-    </summary>
-    <div class="exif-finding-body">
-      {% if finding.match %}<p><strong>Match:</strong> {{ finding.match }}</p>{% endif %}
-      {% if finding.note %}<p class="analyzer-note">{{ finding.note }}</p>{% endif %}
-    </div>
-  </details>
-  {% endfor %}
+  <p class="notice">
+    Local watermark detection is positive-only. A hit is useful evidence; a miss would not
+    have proven the image clean.
+  </p>
+  <ul class="finding-list" role="list">
+    {% for finding in findings %}
+    <li>
+      <details class="finding" open>
+        <summary>
+          <span class="finding__tool">{{ finding.label }}</span>
+          {% if finding.scheme %}<span class="finding__key mono faint">{{ finding.scheme }}</span>{% endif %}
+        </summary>
+        <div class="finding__body stack-sm">
+          {% if finding.match %}<p><strong>Match:</strong> {{ finding.match }}</p>{% endif %}
+          {% if finding.note %}<p class="muted">{{ finding.note }}</p>{% endif %}
+        </div>
+      </details>
+    </li>
+    {% endfor %}
+  </ul>
   {% endif %}
 
-  <dl class="exif-summary">
+  <dl class="kv">
     <dt>Ran locally</dt>
     <dd>{{ attempted|join(", ") if attempted else "No optional decoders installed" }}</dd>
     <dt>Disabled</dt>
@@ -36,11 +38,11 @@
   </dl>
 
   {% if errors %}
-  <details class="tech-only">
-    <summary><strong>Decoder Errors</strong></summary>
+  <details class="disclosure tech-only">
+    <summary>Decoder errors</summary>
     <ul>
       {% for error in errors %}
-      <li>{{ error }}</li>
+      <li class="mono">{{ error }}</li>
       {% endfor %}
     </ul>
   </details>

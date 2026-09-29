@@ -14,6 +14,7 @@ from ...services.analysis_service import (
     _prepare_row_for_render,
     handle_remote_analysis,
     perform_analysis,
+    render_analysis_page,
     render_analyzer_fragment_html,
 )
 from ...analyzers.manager import _format_result, get_analyzer_spec
@@ -39,6 +40,13 @@ def register_analysis_routes(
     bp: Blueprint,
     expired_analysis_response: Callable[[], object],
 ) -> None:
+    @bp.route("/analysis/<analysis_id>")
+    def view_analysis(analysis_id: str):
+        page = render_analysis_page(analysis_id)
+        if page is None:
+            return expired_analysis_response()
+        return page
+
     @bp.route("/analysis/<analysis_id>/analyzers/<slug>")
     def analyzer_fragment(analysis_id: str, slug: str):
         payload = load_analysis_payload(analysis_id)
@@ -96,7 +104,7 @@ def register_analysis_routes(
         crop_box = _parse_normalized_box(request.form)
         if crop_box is None:
             flash("Invalid crop selection. Please try again.")
-            return _rerender_original(payload)
+            return redirect(url_for("main.view_analysis", analysis_id=analysis_id))
 
         image_bytes, metadata = payload
 
@@ -104,7 +112,7 @@ def register_analysis_routes(
             cropped_bytes, sanitized_box = _crop_image_bytes(image_bytes, crop_box)
         except ValueError as exc:
             flash(str(exc))
-            return _rerender_original(payload)
+            return redirect(url_for("main.view_analysis", analysis_id=analysis_id))
 
         child_context = prepare_analysis_context(cropped_bytes)
         parent_registry_id = metadata.get("registry_id")
@@ -136,13 +144,13 @@ def register_analysis_routes(
         result = detect_overlay_crop(image_bytes)
         if not result.has_overlay or result.crop_box is None:
             flash("Auto-crop could not find a clear overlay to remove.")
-            return _rerender_original(payload)
+            return redirect(url_for("main.view_analysis", analysis_id=analysis_id))
 
         try:
             cropped_bytes, sanitized_box = _crop_image_bytes(image_bytes, result.crop_box)
         except ValueError as exc:
             flash(str(exc))
-            return _rerender_original(payload)
+            return redirect(url_for("main.view_analysis", analysis_id=analysis_id))
 
         child_context = prepare_analysis_context(cropped_bytes)
         parent_registry_id = metadata.get("registry_id")
@@ -429,18 +437,3 @@ def _calculate_entropy_and_contrast(image: Image.Image) -> tuple[float, float]:
 
     contrast = math.sqrt(variance)
     return entropy, contrast
-
-
-def _rerender_original(payload):
-    image_bytes, metadata = payload
-    mime_type = metadata.get("mime_type", "application/octet-stream")
-    source = metadata.get("source", "file")
-    image_url = metadata.get("image_url")
-    crop_box = metadata.get("crop_box")
-    return perform_analysis(
-        image_bytes,
-        mime_type,
-        source,
-        image_url=image_url,
-        crop_box=crop_box,
-    )

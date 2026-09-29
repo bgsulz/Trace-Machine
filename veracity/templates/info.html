@@ -1,45 +1,34 @@
 {% extends "base.html" %}
+{% block title %}How it works · Trace Machine{% endblock %}
 {% block content %}
-<section>
-  <nav aria-label="breadcrumb">
-    <ul>
-      <li><a href="{{ url_for('main.index') }}">Home</a></li>
-      <li>Info</li>
-    </ul>
+<header class="page-head">
+  <div>
+    <h1>How it works</h1>
+    <p>What each check looks for, what it can show, and where it falls short.</p>
+  </div>
+</header>
+
+<div class="info-layout">
+  <nav class="info-toc" aria-label="Checks">
+    <h2 class="info-toc__title">Checks</h2>
+    <ol>
+      {% for analyzer in analyzers %}
+      <li><a href="#info-{{ analyzer.slug }}">{{ analyzer.name }}</a></li>
+      {% endfor %}
+    </ol>
   </nav>
 
-  <h2>How It Works</h2>
-  <p>
-    Learn what each analyzer checks and how to interpret the results.
-  </p>
-
-  <ol>
-    {% for analyzer in analyzers %}
-    <li>
-      {% set info_id = "info-" ~ analyzer.slug %}
-      <a href="#{{ info_id }}">{{ analyzer.name }}</a>
-    </li>
-    {% endfor %}
-  </ol>
-
-  <div class="analyzer-list">
+  <div>
     {% for analyzer in analyzers %}
     {% set info_id = "info-" ~ analyzer.slug %}
-    <details class="analyzer-item" id="{{ info_id }}" open>
-      <summary class="analyzer-header">
-        <div class="analyzer-header-info">
-          <span class="analyzer-title"><strong>{{ analyzer.name }}</strong></span>
-        </div>
-      </summary>
-      <div class="analyzer-content">
-        {% if analyzer.tooltip %}
-        <p><strong>{{ analyzer.tooltip }}</strong></p>
-        {% endif %}
-        {% set info_template = "partials/analyzer_infos/" ~ info_id ~ ".html" %}
-        {% include info_template %}
-      </div>
-    </details>
+    <article class="info-article" id="{{ info_id }}">
+      <h2>{{ analyzer.name }}</h2>
+      {% if analyzer.tooltip %}
+      <p class="lede">{{ analyzer.tooltip }}</p>
+      {% endif %}
+      {% include "partials/analyzer_infos/" ~ info_id ~ ".html" %}
+    </article>
     {% endfor %}
   </div>
-</section>
+</div>
 {% endblock %}

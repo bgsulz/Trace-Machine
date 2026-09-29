@@ -1,46 +1,78 @@
 {% set findings = row.data.findings %}
-{% set chunks = row.data.chunks or {} %}
 {% set grouped = row.data.grouped_chunks or [] %}
 {% set friendly = row.data.friendly_summary or [] %}
-<div class="analyzer-detail-block">
-
+<div class="stack">
   {% if findings %}
-  <div class="flash-warning">
-    <strong>Warning:</strong>
-    Image metadata can be freely added, edited, or removed. Treat this
-    information as a clue, not definitive proof about how the image was created.
-  </div>
-  {% for finding in findings %}
-  <details class="exif-finding">
-    <summary>
-      <strong>{{ finding.tool }}</strong>
-      <span class="exif-finding-key">({{ finding.key }})</span>
-      <br />
-      <small>{{ finding.preview }}</small>
-    </summary>
-    <div class="exif-finding-body">
-      <pre class="exif-pre">{{ finding.full_text }}</pre>
-      {% if finding.metadata %}
-      <ul class="exif-metadata-list">
-        {% for meta_key, meta_value in finding.metadata.items() %}
-        <li>
-          <strong>{{ meta_key }}:</strong>
-          {% if meta_value is mapping %}
-          <pre class="exif-pre">
-{{ meta_value | tojson(indent=2) }}</pre>
-          {% else %} {{ meta_value }} {% endif %}
-        </li>
+  <p class="notice">
+    Metadata can be freely added, edited, or removed. Treat these as clues about how the
+    image was made, not proof.
+  </p>
+  <ul class="finding-list" role="list">
+    {% for finding in findings %}
+    <li>
+      <details class="finding">
+        <summary>
+          <span class="finding__tool">{{ finding.tool }}</span>
+          <span class="finding__key mono faint">{{ finding.key }}</span>
+          <span class="finding__preview">{{ finding.preview }}</span>
+        </summary>
+        {% set meta = finding.metadata or {} %}
+        {% set parsed = meta.parsed_json %}
+        {% set outline = graph_outline(parsed) if parsed is not none else None %}
+        {% set fields = [] %}
+        {% for key, value in meta.items() if key not in ("category", "kind", "field", "parsed_json") and value is not mapping %}
+        {% set _ = fields.append((key, value)) %}
         {% endfor %}
-      </ul>
-      {% endif %}
-    </div>
-  </details>
-  {% endfor %}
+        <div class="finding__body stack">
+          {% if fields %}
+          <dl class="kv">
+            {% for key, value in fields %}
+            <dt>{{ key|humanize_key }}</dt>
+            <dd{% if key in ("prompt", "negative_prompt") %} class="finding__prompt"{% endif %}>{{ value }}</dd>
+            {% endfor %}
+          </dl>
+          {% endif %}
+
+          {% if outline %}
+          <ol class="graph" role="list">
+            {% for node in outline %}
+            <li class="graph__node">
+              <p class="graph__type">
+                <span class="mono">{{ node.type }}</span>
+                {% if node.title and node.title != node.type %}<span class="faint">{{ node.title }}</span>{% endif %}
+                {% if node.id is not none %}<span class="faint mono">#{{ node.id }}</span>{% endif %}
+              </p>
+              {% if node.fields %}
+              <dl class="kv kv--compact">
+                {% for key, value in node.fields %}
+                <dt>{{ key }}</dt><dd>{{ value }}</dd>
+                {% endfor %}
+              </dl>
+              {% endif %}
+            </li>
+            {% endfor %}
+          </ol>
+          {% elif parsed is not none %}
+          <pre>{{ parsed | tojson(indent=2) }}</pre>
+          {% elif not fields %}
+          <pre>{{ finding.full_text }}</pre>
+          {% endif %}
+
+          {% if outline or fields %}
+          <details class="disclosure">
+            <summary>{% if parsed is not none %}Raw JSON{% else %}Raw text{% endif %}</summary>
+            <pre>{% if parsed is not none %}{{ parsed | tojson(indent=2) }}{% else %}{{ finding.full_text }}{% endif %}</pre>
+          </details>
+          {% endif %}
+        </div>
+      </details>
+    </li>
+    {% endfor %}
+  </ul>
   {% endif %}
 
-  {# ── Friendly summary (always visible) ─────────────────────────── #}
   {% if friendly %}
-  <dl class="exif-summary">
+  <dl class="kv">
     {% for item in friendly %}
     <dt>{{ item.label }}</dt>
     <dd>{{ item.value }}</dd>
@@ -48,33 +80,21 @@
   </dl>
   {% endif %}
 
-  {# ── Grouped raw metadata (tech-only) ──────────────────────────── #}
   {% if grouped %}
-  <div class="tech-only">
-    <hr />
-    <details>
-      <summary><strong>All Metadata</strong></summary>
-      <div class="exif-grouped-body">
-        {% for group in grouped %}
-        <details class="exif-group" {% if group.name == 'Basic' %}open{% endif %}>
-          <summary class="exif-group__header">
-            {{ group.name }}
-            <span class="exif-group__count">({{ group.entries | length }})</span>
-          </summary>
-          <table class="exif-raw-table">
-            <tbody>
-              {% for key, value in group.entries.items() %}
-              <tr>
-                <td><strong>{{ key }}</strong></td>
-                <td>{{ value }}</td>
-              </tr>
-              {% endfor %}
-            </tbody>
-          </table>
-        </details>
-        {% endfor %}
-      </div>
-    </details>
-  </div>
+  <details class="disclosure tech-only">
+    <summary>All metadata</summary>
+    <div class="stack-sm">
+      {% for group in grouped %}
+      <details class="disclosure disclosure--nested" {% if group.name == 'Basic' %}open{% endif %}>
+        <summary>{{ group.name }} <span class="faint">({{ group.entries | length }})</span></summary>
+        <dl class="kv">
+          {% for key, value in group.entries.items() %}
+          <dt>{{ key }}</dt><dd>{{ value }}</dd>
+          {% endfor %}
+        </dl>
+      </details>
+      {% endfor %}
+    </div>
+  </details>
   {% endif %}
 </div>
