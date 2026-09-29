@@ -42,11 +42,6 @@ def generate_external_tools(
 
     links.append({"label": "Bing", "url": link})
 
-    # TinEye (only when we have a public URL)
-    if image_url:
-        encoded_url = quote_plus(image_url)
-        link = f"https://tineye.com/search?url={encoded_url}"
-        links.append({"label": "TinEye", "url": link})
 
     tools.append({"name": "Reverse Image Search", "links": links})
 

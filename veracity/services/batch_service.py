@@ -90,11 +90,8 @@ def _do_process_url(url: str) -> dict:
     }
     analysis_id = store_analysis_payload(None, image_bytes, metadata)
 
-    # Prime analyzer cache (excluding TinEye)
-    batch_analyzers = tuple(
-        spec for spec in get_active_analyzers() if spec.slug != "tineye"
-    )
-    rows = run_all_analyzers(context, analyzers=batch_analyzers)
+    # Prime analyzer cache
+    rows = run_all_analyzers(context, analyzers=get_active_analyzers())
     for row in rows:
         slug = row.get("slug")
         if slug:

@@ -65,13 +65,6 @@ def create_app(test_config=None):
         )
     except ValueError:
         local_match_max_candidates = 200
-    tineye_persistence_mode = os.environ.get("TINEYE_PERSISTENCE_MODE", "none").strip().lower()
-    if tineye_persistence_mode not in {"none", "derived"}:
-        app.logger.warning(
-            "Invalid TINEYE_PERSISTENCE_MODE=%r; defaulting to 'none'",
-            tineye_persistence_mode,
-        )
-        tineye_persistence_mode = "none"
     invisible_watermark_decoders = _parse_invisible_watermark_decoders(
         os.environ.get("INVISIBLE_WATERMARK_DECODERS", ""),
         logger=app.logger,
@@ -89,7 +82,6 @@ def create_app(test_config=None):
         PROXY_FIX_X_PROTO=proxy_fix_x_proto,
         LOCAL_MATCHING_ENABLED=local_matching_enabled,
         LOCAL_MATCH_MAX_CANDIDATES=local_match_max_candidates,
-        TINEYE_PERSISTENCE_MODE=tineye_persistence_mode,
         INVISIBLE_WATERMARK_DECODERS=invisible_watermark_decoders,
     )
 

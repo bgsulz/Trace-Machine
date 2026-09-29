@@ -9,25 +9,6 @@
 {% set current_report = row.data.current_report %}
 {% set checker_rows = row.data.checker_rows or [] %}
 {% set analysis_id = row.context.analysis_id if row.context else None %}
-{% set lens_link = row.context.lens_link if row.context else "https://images.google.com/" %}
-{% set portals = {
-  "google": {
-    "name": "Google", "tool": "About this image", "href": lens_link,
-    "hint": "Open About this image and look for “Made with Google AI”.",
-    "aria": "Open Google About this image",
-  },
-  "openai": {
-    "name": "OpenAI", "tool": "Verify", "href": "https://openai.com/research/verify/",
-    "hint": "Upload the image and look for a positive OpenAI result.",
-    "aria": "Open OpenAI Verify",
-  },
-  "meta": {
-    "name": "Meta", "tool": "Identify", "href": "https://meta.ai/identification",
-    "hint": "Upload the image and look for an imperceptible-watermark match.",
-    "aria": "Open Meta Identify",
-  },
-} %}
-
 {% macro report_form(checker, label, extra_class="") -%}
 <form
   action="{{ url_for('main.synthid_report') }}"
@@ -60,13 +41,12 @@
 
   {% if row.data.phash %}
   <ul class="portal-list" role="list">
-    {% for checker in checker_rows if checker.provider in portals %}
-    {% set portal = portals[checker.provider] %}
+    {% for checker in checker_rows if checker.url %}
     <li class="portal{% if current_report == checker.result %} is-reported{% endif %}">
       {{ portal_logo(checker.provider) }}
       <div class="portal__text">
-        <span class="portal__name">{{ portal.name }} <span class="faint">· {{ portal.tool }}</span></span>
-        <span class="portal__hint">{{ portal.hint }}</span>
+        <span class="portal__name">{{ checker.short_label }} <span class="faint">· {{ checker.tool }}</span></span>
+        <span class="portal__hint">{{ checker.hint }}</span>
       </div>
       <span class="portal__count mono faint" title="Community reports for this image and close copies">
         {{ totals[checker.result]|default(0) }} report{{ "s" if totals[checker.result]|default(0) != 1 }}
@@ -74,10 +54,10 @@
       <div class="portal__actions">
         <a
           class="btn btn--sm synthid-check-action"
-          href="{{ portal.href }}"
+          href="{{ checker.url }}"
           target="_blank"
           rel="noopener noreferrer"
-          aria-label="{{ portal.aria }}"
+          aria-label="Open {{ checker.short_label }} {{ checker.tool }}"
         >{{ checker.check_label }} {{ icon("external") }}</a>
         {{ report_form(checker, "Positive") }}
       </div>
@@ -98,9 +78,9 @@
   {% endif %}
   {% else %}
   <div class="cluster">
-    {% for provider, portal in portals.items() %}
-    <a class="btn btn--sm synthid-check-action" href="{{ portal.href }}" target="_blank" rel="noopener noreferrer" aria-label="{{ portal.aria }}">
-      {{ portal_logo(provider) }} {{ portal.name }} {{ icon("external") }}
+    {% for checker in checker_rows if checker.url %}
+    <a class="btn btn--sm synthid-check-action" href="{{ checker.url }}" target="_blank" rel="noopener noreferrer" aria-label="Open {{ checker.short_label }} {{ checker.tool }}">
+      {{ portal_logo(checker.provider) }} {{ checker.short_label }} {{ icon("external") }}
     </a>
     {% endfor %}
   </div>

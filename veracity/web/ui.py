@@ -6,7 +6,7 @@ same vocabulary:
 
 - ``found``   – the check surfaced a signal worth reading.
 - ``none``    – the check ran and found nothing (which is not proof of anything).
-- ``action``  – the check needs the user to do something (portals, TinEye).
+- ``action``  – the check needs the user to do something (verification portals).
 - ``off``     – the check is unavailable on this deployment.
 - ``error``   – the check failed.
 - ``loading`` – the check is still running.
@@ -33,8 +33,6 @@ _STATUS_STATES: dict[str, tuple[str, str]] = {
 _SLUG_LABELS: dict[tuple[str, str], str] = {
     ("human", "FOUND"): "Has votes",
     ("human", "NOT FOUND"): "No votes",
-    ("tineye", "FOUND"): "Matches found",
-    ("tineye", "NOT FOUND"): "No matches",
     ("exif", "FOUND"): "AI metadata",
     ("c2pa", "FOUND"): "Manifest found",
     ("invisible", "FOUND"): "Watermark",
@@ -46,7 +44,6 @@ _SHORT_NAMES: dict[str, str] = {
     "exif": "Metadata",
     "invisible": "Watermarks",
     "synthid": "Portals",
-    "tineye": "Reverse search",
     "human": "Community",
     "distant": "Similar images",
     "contained": "Contained regions",
@@ -66,9 +63,6 @@ _NONE_NOTES: dict[str, str] = {
     "invisible": (
         "Local decoders only recognize a few open watermark schemes. A miss "
         "doesn't mean the image is clean."
-    ),
-    "tineye": (
-        "TinEye only indexes public pages. No matches doesn't mean the image is original."
     ),
 }
 

@@ -9,7 +9,7 @@
 
 {# One entry in the overview of checks at the top of a report. Rendered with
    oob=True from analyzer fragments so the overview stays in sync as rows load,
-   votes are cast, or TinEye runs. #}
+   votes are cast, or portal results are reported. #}
 {% macro signal_chip(slug, name, status, summary="", target=None, oob=False) -%}
 {% set ui = status_ui(status, slug) -%}
 <a

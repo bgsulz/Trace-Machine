@@ -20,7 +20,7 @@ def test_generate_external_tools_with_public_url(app):
     target_url = _extract_google_target(google_link)
 
     assert target_url == public_url
-    assert any(link["label"] == "TinEye" for link in reverse_tool["links"])
+    assert [link["label"] for link in reverse_tool["links"]] == ["Google", "Bing"]
 
 
 def test_generate_external_tools_falls_back_to_cached_route(app):
@@ -37,4 +37,4 @@ def test_generate_external_tools_falls_back_to_cached_route(app):
 
     assert f"/analysis/{analysis_id}/raw" in decoded_target
     assert decoded_target.startswith("http")
-    assert any(link["label"] == "TinEye" for link in reverse_tool["links"])
+    assert [link["label"] for link in reverse_tool["links"]] == ["Google", "Bing"]

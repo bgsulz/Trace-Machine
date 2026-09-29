@@ -396,7 +396,7 @@ def test_synthid_fragment_includes_checker_actions(client):
 
     assert fragment.status_code == 200
     assert b"OpenAI Verify" in fragment.data
-    assert b"Check Google" in fragment.data
+    assert b"Open Gemini" in fragment.data
     assert b"Meta Identify" in fragment.data
     assert b"Google Positive" in fragment.data
     assert b"OpenAI Positive" in fragment.data
