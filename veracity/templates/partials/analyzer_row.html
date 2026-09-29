@@ -25,18 +25,6 @@
   <div class="check__body">
     {% if row.status == "ERROR" %}
     <div class="cluster">
-      {% if row.slug == "tineye" %}
-      <form
-        method="post"
-        action="{{ url_for('main.run_tineye', analysis_id=row.context.analysis_id) }}"
-        hx-post="{{ url_for('main.run_tineye', analysis_id=row.context.analysis_id) }}"
-        hx-target="#analyzer-row-tineye"
-        hx-swap="outerHTML"
-      >
-        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
-        <button type="submit" class="btn btn--sm">{{ icon("refresh") }} Retry</button>
-      </form>
-      {% else %}
       <button
         type="button"
         class="btn btn--sm"
@@ -44,7 +32,6 @@
         hx-target="#analyzer-row-{{ row.slug }}"
         hx-swap="outerHTML"
       >{{ icon("refresh") }} Retry</button>
-      {% endif %}
     </div>
     {% else %}
     {% if ui.state == "none" and none_note(row.slug) %}

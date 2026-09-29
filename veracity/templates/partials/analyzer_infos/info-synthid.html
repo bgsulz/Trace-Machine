@@ -1,35 +1,51 @@
 <p>
-  <strong>Verification Portals</strong> records manual reports from external
-  provider checkers. These portals can see proprietary signals that Veracity
-  cannot decode locally.
+  Some AI providers hide an imperceptible watermark in the pixels of every image
+  they generate. Unlike metadata, these watermarks survive screenshots, resizing,
+  and re-encoding reasonably well, but only the provider can read them, through
+  its own public checker. Trace Machine links you to those checkers ("portals")
+  and records what people report back.
 </p>
-<p>
-  Google exposes checks through Google reverse image search and
-  <strong>About this image</strong>. OpenAI exposes checks through
-  <strong>OpenAI Verify</strong>. Meta exposes its checker through
-  <strong>Meta Identify</strong>. These tools are provider-specific: a negative
-  result from one portal does not rule out a watermark from another provider.
-</p>
+
+<h3>The portals</h3>
+<ul>
+  <li>
+    <strong>Google (SynthID):</strong> Google embeds its SynthID watermark in
+    images from Gemini and its Nano Banana models. To check an image, sign in to
+    Gemini, upload it, and ask whether it was made with Google AI.
+  </li>
+  <li>
+    <strong>OpenAI (Verify):</strong> OpenAI licensed SynthID from Google and now
+    embeds it, alongside a C2PA manifest, in images from ChatGPT Images and its
+    API. OpenAI Verify checks for both. Use it for suspected OpenAI images; Google
+    says Gemini only recognizes content made by Google's own tools.
+  </li>
+  <li>
+    <strong>Meta (Identify):</strong> Meta uses its own imperceptible watermark,
+    Content Seal, for images from Meta AI. It isn't compatible with SynthID or
+    C2PA, so it has its own checker, Meta Identify.
+  </li>
+</ul>
+
 <div class="flash-warning">
-  <strong>Important limitation:</strong> Portal reports are community evidence.
-  A negative report means a user did not get a positive result from the portals
-  they checked; it is not proof that no invisible watermark exists.
+  <strong>Important limitation:</strong> Each portal only recognizes its own
+  provider's watermark. A negative result rules out that provider, not AI in
+  general, and many generators don't watermark at all. Portal reports on Trace
+  Machine are community evidence: a negative report means someone checked and
+  got no positive result.
 </div>
+
 <p><strong>Learn more:</strong></p>
 <ul>
-    <li>
-      <a href="https://deepmind.google/technologies/synthid/" target="_blank" rel="noopener noreferrer">
-        Google DeepMind SynthID Overview
-      </a>
-    </li>
-    <li>
-      <a href="https://openai.com/research/verify/" target="_blank" rel="noopener noreferrer">
-        OpenAI Verify
-      </a>
-    </li>
-    <li>
-      <a href="https://meta.ai/identification" target="_blank" rel="noopener noreferrer">
-        Meta Identify
-      </a>
-    </li>
-  </ul>
+  <li>
+    <a href="https://deepmind.google/technologies/synthid/" target="_blank" rel="noopener noreferrer">Google DeepMind: SynthID</a>
+  </li>
+  <li>
+    <a href="https://support.google.com/gemini/answer/16722517" target="_blank" rel="noopener noreferrer">Gemini Help: Verify AI-generated images</a>
+  </li>
+  <li>
+    <a href="https://openai.com/verify" target="_blank" rel="noopener noreferrer">OpenAI Verify</a>
+  </li>
+  <li>
+    <a href="https://meta.ai/identification" target="_blank" rel="noopener noreferrer">Meta Identify</a>
+  </li>
+</ul>

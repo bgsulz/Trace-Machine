@@ -466,7 +466,7 @@ def test_analyze_upload_redirects_to_permalink(client):
     assert "data:image/png;base64" not in body
     # Every active check appears in the overview.
     assert 'id="signal-c2pa"' in body
-    assert 'id="signal-tineye"' in body
+    assert 'id="signal-synthid"' in body
 
 
 def test_expired_permalink_redirects_home(client):

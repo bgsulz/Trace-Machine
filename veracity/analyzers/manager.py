@@ -11,7 +11,6 @@ from .exif import run_exif_metadata
 from .human import run_human_consensus
 from .invisible import run_invisible_watermarks
 from .synthid import run_synthid
-from .tineye import get_tineye_status
 
 logger = logging.getLogger(__name__)
 
@@ -57,13 +56,6 @@ ANALYZERS: Sequence[AnalyzerSpec] = (
         func=run_synthid,
         template="partials/analyzers/synthid.html",
         tooltip="Collects manual reports from public provider-specific verification portals.",
-    ),
-    AnalyzerSpec(
-        name="TinEye Reverse Search",
-        slug="tineye",
-        func=get_tineye_status,
-        template="partials/analyzers/tineye.html",
-        tooltip="Uses TinEye to find where the image exists on the internet and when it first appeared.",
     ),
     AnalyzerSpec(
         name="Human Consensus",

@@ -8,7 +8,7 @@ from io import BytesIO
 from flask import Blueprint, abort, current_app, flash, make_response, redirect, render_template, request, send_file, url_for
 from PIL import Image, ImageOps
 
-from ... import ingestion, limiter
+from ... import ingestion
 from ...analysis_cache import load_analysis_payload
 from ...services.analysis_service import (
     _prepare_row_for_render,
@@ -18,12 +18,6 @@ from ...services.analysis_service import (
     render_analyzer_fragment_html,
 )
 from ...analyzers.manager import _format_result, get_analyzer_spec
-from ...analyzers.tineye import (
-    build_summary,
-    call_tineye_api,
-    get_shame_list_matchers,
-    process_tineye_response,
-)
 from ...autocrop import detect_overlay_crop
 from ...services.containment_service import save_containment_link
 from ...services.remote_image_service import fetch_remote_image
@@ -256,85 +250,6 @@ def register_analysis_routes(
         if vote_slug not in VOTE_CHOICES:
             vote_slug = None
         return handle_remote_analysis(image_url, vote_slug, "result_mini.html")
-
-    @bp.route("/analysis/<analysis_id>/tineye/run", methods=["POST"])
-    @limiter.limit("5 per hour")
-    @limiter.limit("100 per hour", key_func=lambda: "global")
-    def run_tineye(analysis_id: str):
-        payload = load_analysis_payload(analysis_id)
-        if not payload:
-            return expired_analysis_response()
-        _image_bytes, metadata = payload
-
-        image_url = url_for(
-            "main.serve_analysis_image", analysis_id=analysis_id, _external=True
-        )
-        api_result = call_tineye_api(image_url=image_url)
-
-        if not api_result["success"]:
-            error_msg = api_result.get("error", "")
-            if error_msg:
-                current_app.logger.warning("TinEye API error: %s", error_msg)
-            error_lower = error_msg.lower()
-            if "429" in error_msg or "rate" in error_lower or "too many" in error_lower:
-                summary = "TinEye rate limit reached. Please wait a few minutes before trying again."
-            elif "key" in error_lower or "auth" in error_lower:
-                summary = "TinEye API configuration error. Please contact the site administrator."
-            else:
-                summary = "Unable to complete TinEye search. Please try again later."
-
-            raw_result = {
-                "status": "ERROR",
-                "summary": summary,
-                "data": {
-                    "persistence_mode": current_app.config.get(
-                        "TINEYE_PERSISTENCE_MODE", "none"
-                    ),
-                    "allow_manual_refresh": False,
-                },
-            }
-        else:
-            processed = process_tineye_response(
-                api_result, matchers=get_shame_list_matchers()
-            )
-            summary = build_summary(
-                processed["total_matches"],
-                processed["filtered_match_count"],
-                processed["earliest_date"],
-                processed["on_shame_list"],
-            )
-            raw_result = {
-                "status": "FOUND" if processed["filtered_match_count"] > 0 else "NOT FOUND",
-                "summary": summary,
-                "data": {
-                    "total_matches": processed["total_matches"],
-                    "earliest_date": processed["earliest_date"],
-                    "on_shame_list": processed["on_shame_list"],
-                    "buckets": processed["buckets"],
-                    "intelligence": processed.get(
-                        "intelligence",
-                        {
-                            "top_domains": [],
-                            "category_mix": [],
-                            "timeline_bins": [],
-                        },
-                    ),
-                    "persistence_mode": current_app.config.get(
-                        "TINEYE_PERSISTENCE_MODE", "none"
-                    ),
-                    "allow_manual_refresh": True,
-                },
-            }
-
-        spec = get_analyzer_spec("tineye")
-        formatted_row = _format_result(spec, raw_result)
-        _prepare_row_for_render(
-            formatted_row,
-            metadata,
-            link_target="_blank",
-            analysis_id=analysis_id,
-        )
-        return render_template("partials/analyzer_row.html", row=formatted_row)
 
 
 def _parse_normalized_box(form) -> tuple[float, float, float, float] | None:

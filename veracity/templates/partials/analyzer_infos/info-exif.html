@@ -1,46 +1,23 @@
 <p>
-  Image files can carry metadata in several places, including EXIF camera fields, PNG text chunks, XMP packets, and IPTC photo metadata. It's the reason you can use your photos app to see when photos were taken, what camera settings were used, and other technical details.
-</p>
-<p>
-  AI tools and image-generation interfaces sometimes write prompts, workflow data, generator names, or "Made with AI" labels into those metadata fields. Trace Machine checks for unsigned metadata clues from tools like Automatic1111, ComfyUI, Midjourney, NovelAI, xAI/Grok, and AI-label standards such as IPTC and TC260.
+  Image files carry metadata: EXIF camera fields, XMP and IPTC tags, and PNG text
+  chunks. Some AI tools write their prompt, settings, or an "AI-generated" label
+  there. Today that's mostly local and open-source tools like ComfyUI, plus
+  AI-label standards such as IPTC's digital source type and China's TC260.
+  Mainstream generators now rely on C2PA and invisible watermarks instead.
 </p>
 <div class="flash-warning">
-  <strong>Important limitation:</strong> It's really easy to add, edit, or remove image metadata. You can do it in Photoshop, GIMP, or any number of online tools. So metadata is a clue, not proof, and the absence of metadata doesn't prove anything.
+  <strong>Important limitation:</strong> Metadata is trivial to add, edit, or
+  strip, so it's a clue, not proof, and missing metadata proves nothing.
 </div>
 <section>
-  <h3>Metadata demo image: Automatic1111</h3>
-  <p>
-    Try analyzing this demo image to see what it looks like when Trace Machine detects embedded metadata.
-  </p>
-  <figure>
-    <img
-      src="{{ url_for('static', filename='info_images/astronaut.png') }}"
-      alt="Astronaut demo image with metadata parameters from Automatic1111"
-      class="demo-image"
-    />
-    <figcaption>
-      This image was generated in Stable Diffusion using the Automatic1111 UI, which writes detailed generation parameters into image metadata.
-    </figcaption>
-  </figure>
-  <form action="{{ url_for('main.analyze') }}" method="get" data-analyzing>
-    <input type="hidden" name="url" value="{{ url_for('static', filename='info_images/astronaut.png', _external=True) }}" />
-    <button type="submit" class="btn btn--sm">Analyze this image</button>
-  </form>
-</section>
-<section>
-  <h3>Metadata demo image: ComfyUI</h3>
-  <p>
-    Try analyzing this demo image to see what it looks like when Trace Machine detects embedded metadata.
-  </p>
+  <h3>Demo image: ComfyUI</h3>
+  <p>ComfyUI saves its whole node graph, including the prompt, into the PNG.</p>
   <figure>
     <img
       src="{{ url_for('static', filename='info_images/bottle.png') }}"
-      alt="Bottle demo image with metadata parameters from ComfyUI"
+      alt="Bottle demo image with an embedded ComfyUI workflow"
       class="demo-image"
     />
-    <figcaption>
-      This image was generated in Stable Diffusion using ComfyUI, another interface that can encode prompts and parameters into image metadata.
-    </figcaption>
   </figure>
   <form action="{{ url_for('main.analyze') }}" method="get" data-analyzing>
     <input type="hidden" name="url" value="{{ url_for('static', filename='info_images/bottle.png', _external=True) }}" />
@@ -49,13 +26,7 @@
 </section>
 <p><strong>Learn more:</strong></p>
 <ul>
-    <li>
-      <a href="https://www.exif.org/" target="_blank" rel="noopener noreferrer">EXIF Standard Overview</a>
-    </li>
-    <li>
-      <a href="https://iptc.org/standards/photo-metadata/" target="_blank" rel="noopener noreferrer">IPTC Photo Metadata</a>
-    </li>
-    <li>
-      <a href="https://github.com/AUTOMATIC1111/stable-diffusion-webui/wiki/Features#png-info" target="_blank" rel="noopener noreferrer">How Automatic1111 Stores PNG Info</a>
-    </li>
-  </ul>
+  <li>
+    <a href="https://iptc.org/standards/photo-metadata/" target="_blank" rel="noopener noreferrer">IPTC Photo Metadata</a>
+  </li>
+</ul>

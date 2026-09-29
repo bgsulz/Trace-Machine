@@ -12,7 +12,7 @@
 <header class="page-head">
   <div>
     <h1>Batch Results ({{ results|length }} image{{ 's' if results|length != 1 else '' }})</h1>
-    <p>A quick pass over each image. Open the full analysis for TinEye, similar images, and details.</p>
+    <p>A quick pass over each image. Open the full analysis for portal checks, similar images, and details.</p>
   </div>
   <a href="{{ url_for('main.batch') }}" class="btn">{{ icon("arrow-left") }} New batch</a>
 </header>
@@ -21,7 +21,6 @@
   <p class="batch-summary__counts">
     <span><strong>{{ analyzed }}</strong> analyzed</span>
     {% if failed %}<span class="batch-summary__failed"><strong>{{ failed }}</strong> failed</span>{% endif %}
-    <span class="faint">TinEye skipped</span>
   </p>
   <ul class="batch-legend" aria-label="Legend">
     <li><span class="dot" data-state="found"></span>Found</li>
@@ -65,7 +64,6 @@
           <span class="faint">Reverse search</span>
           <a href="https://lens.google.com/upload?url={{ encoded_url }}" target="_blank" rel="noopener noreferrer">Google</a>
           <a href="https://www.bing.com/images/search?view=detailv2&amp;iss=sbi&amp;form=SBIHMP&amp;q=imgurl:{{ encoded_url }}" target="_blank" rel="noopener noreferrer">Bing</a>
-          <a href="https://tineye.com/search?url={{ encoded_url }}" target="_blank" rel="noopener noreferrer">TinEye</a>
         </p>
       </div>
       <a href="{{ report_url }}" class="btn btn--sm batch-card__open">Full Analysis {{ icon("arrow-right") }}</a>

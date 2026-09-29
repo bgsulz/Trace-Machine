@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from dataclasses import asdict
 from typing import Any
-from urllib.parse import urlparse, quote_plus
+from urllib.parse import urlparse
 
 from flask import abort, current_app, flash, redirect, render_template, url_for
 
@@ -43,17 +43,12 @@ _SUMMARY_FALLBACK: dict[str, str] = {
 
 
 def _build_analyzer_summary(analysis_id: str) -> list[dict[str, Any]]:
-    """Build the per-check overview from cached analyzer rows.
-
-    TinEye rows are not persisted by default (compliance), so a missing TinEye
-    row is shown as its on-demand manual state.
-    """
+    """Build the per-check overview from cached analyzer rows."""
     summary: list[dict[str, Any]] = []
     for spec in get_active_analyzers():
         row = load_cached_analyzer_row(analysis_id, spec.slug)
         if row is None:
-            status = "MANUAL" if spec.slug == "tineye" else "LOADING"
-            row = {"status": status, "summary": ""}
+            row = {"status": "LOADING", "summary": ""}
         status = (row.get("status") or "LOADING").upper()
         summary.append(
             {
@@ -206,12 +201,6 @@ def _json_safe(value: Any) -> Any:
 _MINI_TEMPLATES = {"c2pa", "exif", "human", "invisible", "synthid"}
 
 
-def _should_persist_analyzer_row(slug: str) -> bool:
-    if slug != "tineye":
-        return True
-    # TinEye compliance mode: strict mode avoids all analyzer-row persistence.
-    return current_app.config.get("TINEYE_PERSISTENCE_MODE", "none") == "derived"
-
 
 def render_analyzer_fragment_html(
     analysis_id: str,
@@ -234,13 +223,11 @@ def render_analyzer_fragment_html(
         row = _build_analyzer_error_row(spec, "Analysis expired. Please re-run.")
     else:
         image_bytes, metadata = payload
-        should_persist = _should_persist_analyzer_row(slug)
-        row = None if refresh or not should_persist else load_cached_analyzer_row(analysis_id, slug)
+        row = None if refresh else load_cached_analyzer_row(analysis_id, slug)
         if row is None:
             context = prepare_analysis_context(image_bytes)
             row = run_single_analyzer(context, slug)
-            if should_persist:
-                store_cached_analyzer_row(analysis_id, slug, row)
+            store_cached_analyzer_row(analysis_id, slug, row)
 
     _prepare_row_for_render(row, metadata, link_target, analysis_id)
 
@@ -258,8 +245,6 @@ def _prime_analyzer_rows(
     for row in rows:
         slug = row.get("slug")
         if not slug:
-            continue
-        if not _should_persist_analyzer_row(str(slug)):
             continue
         store_cached_analyzer_row(analysis_id, slug, row)
     return rows
@@ -337,16 +322,12 @@ def _prepare_row_for_render(
     row["data"] = row_data
     _ensure_distant_match_flags(row, metadata)
 
-    lens_link = _build_google_lens_link(metadata, analysis_id)
-    search_tools = generate_external_tools(metadata.get("public_url"), analysis_id=analysis_id)
 
     row["context"] = {
         "source": metadata.get("source", "file"),
         "analysis_link": metadata.get("analysis_link"),
         "link_target": link_target,
         "analysis_id": analysis_id,
-        "lens_link": lens_link,
-        "search_links": search_tools[0]["links"] if search_tools else [],
     }
 
     slug = row.get("slug")
@@ -414,6 +395,9 @@ def _ensure_synthid_detector_defaults(row_data: dict[str, Any]) -> None:
             "label": spec["label"],
             "short_label": spec["short_label"],
             "check_label": spec["check_label"],
+            "tool": spec.get("tool", ""),
+            "url": spec.get("url", ""),
+            "hint": spec.get("hint", ""),
             "count": normalized_totals[result],
         }
         for result, spec in PORTAL_RESULTS.items()
@@ -528,18 +512,4 @@ def _is_human_self_match(
         return False
     return True
 
-
-def _build_google_lens_link(metadata: dict[str, Any] | None, analysis_id: str | None) -> str | None:
-    metadata = metadata or {}
-    public_url = metadata.get("public_url")
-    target_url = public_url
-
-    if not target_url and analysis_id:
-        target_url = url_for("main.serve_analysis_image", analysis_id=analysis_id, _external=True)
-
-    if not target_url:
-        return "https://images.google.com/"
-
-    encoded = quote_plus(target_url)
-    return f"https://lens.google.com/upload?url={encoded}"
 

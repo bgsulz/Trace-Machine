@@ -1,3 +1,5 @@
+import json
+
 from flask import (
     Blueprint,
     abort,
@@ -10,7 +12,7 @@ from flask import (
     url_for,
 )
 
-from .analyzers.manager import get_active_analyzers, get_analyzer_spec
+from .analyzers.manager import get_active_analyzers
 from .services.config_service import DONATION_GOAL_CENTS, get_global_config
 from .web.routes.analysis import register_analysis_routes
 from .web.routes.batch_api import register_batch_api_routes
@@ -25,27 +27,16 @@ bp.add_app_template_global(graph_outline, "graph_outline")
 bp.add_app_template_filter(humanize_key, "humanize_key")
 
 EXPIRED_MESSAGE = "Analysis expired. Please submit the image again."
-RATE_LIMIT_MESSAGE = "Rate limit reached (5 per hour). Please wait before trying again."
+RATE_LIMIT_MESSAGE = "Rate limit reached. Please wait a minute before trying again."
 
 
 @bp.errorhandler(429)
 def handle_rate_limit(_error):
     """Handle rate limit exceeded errors."""
     if request.headers.get("HX-Request"):
-        analysis_id = request.view_args.get("analysis_id") if request.view_args else None
-        spec = get_analyzer_spec("tineye")
-        row = {
-            "name": spec.name,
-            "slug": spec.slug,
-            "status": "ERROR",
-            "summary": RATE_LIMIT_MESSAGE,
-            "data": {},
-            "template": spec.template,
-            "tooltip": spec.tooltip,
-            "info_id": f"info-{spec.slug}",
-            "context": {"analysis_id": analysis_id},
-        }
-        return render_template("partials/analyzer_row.html", row=row), 429
+        response = make_response("", 429)
+        response.headers["HX-Trigger"] = json.dumps({"showToast": RATE_LIMIT_MESSAGE})
+        return response
 
     flash(RATE_LIMIT_MESSAGE)
     return redirect(url_for("main.index"))

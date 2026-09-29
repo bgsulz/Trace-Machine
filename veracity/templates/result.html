@@ -76,6 +76,14 @@
       <dt class="tech-only">Crop box</dt>
       <dd class="tech-only mono">{% for v in crop_box %}{{ "%.3f"|format(v) }}{% if not loop.last %}, {% endif %}{% endfor %}</dd>
       {% endif %}
+      {% for tool in tools or [] %}
+      <dt>Search the web</dt>
+      <dd class="media-search">
+        {% for link in tool.links %}
+        <a href="{{ link.url }}" target="_blank" rel="noopener noreferrer">{{ link.label }} {{ icon("external") }}</a>
+        {% endfor %}
+      </dd>
+      {% endfor %}
       <dt class="tech-only">Analysis</dt>
       <dd class="tech-only mono">{{ analysis_id }}</dd>
     </dl>

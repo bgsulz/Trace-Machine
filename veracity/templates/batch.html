@@ -41,16 +41,12 @@
     <h2 class="eyebrow" id="batch-scope-title">Checks per image</h2>
     <dl class="kv">
       <dt>C2PA</dt><dd>Content Credentials manifest</dd>
-      <dt>METADATA</dt><dd>EXIF/XMP tags left by AI tools</dd>
+      <dt>Metadata</dt><dd>EXIF/XMP tags left by AI tools</dd>
       {% if config.get("INVISIBLE_WATERMARK_DECODERS") %}
-      <dt>WATERMARKS</dt><dd>Open invisible-watermark schemes</dd>
+      <dt>Watermarks</dt><dd>Open invisible-watermark schemes</dd>
       {% endif %}
-      <dt>PORTALS</dt><dd>Links to Google, OpenAI, and Meta checkers; you report back</dd>
-      <dt>COMMUNITY</dt><dd>Existing votes for the image</dd>
-    </dl>
-    <h2 class="eyebrow">Skipped</h2>
-    <dl class="kv">
-      <dt>TINEYE</dt><dd>Reverse search is off in batch mode to stay within rate limits. Run it from any image&rsquo;s full analysis.</dd>
+      <dt>Portals</dt><dd>Links to Google, OpenAI, and Meta checkers; you report back</dd>
+      <dt>Community</dt><dd>Existing votes for the image</dd>
     </dl>
   </aside>
 </div>

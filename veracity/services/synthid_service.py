@@ -10,24 +10,36 @@ META_POSITIVE = "meta_positive"
 NEGATIVE = "negative"
 
 SYNTHID_CHOICES = {GOOGLE_POSITIVE, OPENAI_POSITIVE, META_POSITIVE, NEGATIVE}
+# Each provider-positive result doubles as the description of that provider's
+# public checker ("portal"). Result keys are stored in the database; labels,
+# URLs, and hints are display-only and safe to change.
 PORTAL_RESULTS = {
     GOOGLE_POSITIVE: {
         "provider": "google",
         "label": "Google Positive",
         "short_label": "Google",
-        "check_label": "Check Google",
+        "check_label": "Open Gemini",
+        "tool": "Gemini",
+        "url": "https://gemini.google.com/app",
+        "hint": "Sign in, upload the image, and ask whether it was made with Google AI. Gemini checks for SynthID.",
     },
     OPENAI_POSITIVE: {
         "provider": "openai",
         "label": "OpenAI Positive",
         "short_label": "OpenAI",
         "check_label": "OpenAI Verify",
+        "tool": "Verify",
+        "url": "https://openai.com/verify",
+        "hint": "Upload the image. Verify checks for OpenAI's C2PA manifest and SynthID watermark.",
     },
     META_POSITIVE: {
         "provider": "meta",
         "label": "Meta Positive",
         "short_label": "Meta",
         "check_label": "Meta Identify",
+        "tool": "Identify",
+        "url": "https://meta.ai/identification",
+        "hint": "Upload the image and look for a Content Seal watermark match.",
     },
     NEGATIVE: {
         "provider": "portal",
@@ -41,9 +53,9 @@ PORTAL_RESULTS = {
 SYNTHID_DETECTORS = {
     "google_about_this_image": {
         "provider": "google",
-        "label": "Google About this image",
+        "label": "Google Gemini",
         "short_label": "Google",
-        "check_label": "Check Google",
+        "check_label": "Open Gemini",
     },
     "openai_verify": {
         "provider": "openai",
