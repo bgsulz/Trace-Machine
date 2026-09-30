@@ -1,11 +1,14 @@
 import base64
 import binascii
 from io import BytesIO
-from urllib.parse import urlparse, unquote_to_bytes
+import os
+from urllib.parse import unquote, unquote_to_bytes, urlparse
 
-import requests
 from flask import current_app, has_app_context
+from werkzeug.security import safe_join
 from PIL import Image, UnidentifiedImageError
+
+from .safe_fetch import FetchError, UnsafeURLError, safe_get
 
 
 class IngestionError(Exception):
@@ -107,38 +110,51 @@ def fetch_image_bytes(url: str) -> tuple[bytes, str]:
     if parsed.scheme not in {"http", "https"}:
         raise IngestionError("Only HTTP/HTTPS URLs are supported.")
 
-    try:
-        with requests.get(url, timeout=5, stream=True) as resp:
-            if resp.status_code != 200:
-                raise IngestionError("Image URL returned a non-200 status code.")
+    data = _read_own_static_file(parsed)
+    if data is not None:
+        content_type = ""
+    else:
+        try:
+            result = safe_get(url, max_bytes=max_bytes)
+        except UnsafeURLError as exc:
+            raise IngestionError(f"Can't analyze that URL: {exc}") from None
+        except FetchError as exc:
+            message = str(exc)
+            if "too large" in message:
+                raise IngestionError("Downloaded image is too large.") from None
+            if "HTTP" in message:
+                raise IngestionError("Image URL returned a non-200 status code.") from None
+            raise IngestionError("Failed to download image from URL.") from None
+        content_type = result.content_type
+        if "image" not in content_type:
+            raise IngestionError("URL does not point to an image.")
+        data = result.content
 
-            content_type = resp.headers.get("Content-Type", "")
-            if "image" not in content_type:
-                raise IngestionError("URL does not point to an image.")
-
-            content_length = resp.headers.get("Content-Length")
-            if content_length is not None:
-                try:
-                    length_val = int(content_length)
-                except ValueError:
-                    length_val = None
-                else:
-                    if length_val > max_bytes:
-                        raise IngestionError("Downloaded image is too large.")
-
-            buf = bytearray()
-
-            for chunk in resp.iter_content(chunk_size=8192):
-                if not chunk:
-                    continue
-                if len(buf) + len(chunk) > max_bytes:
-                    raise IngestionError("Downloaded image is too large.")
-                buf.extend(chunk)
-
-    except requests.RequestException:
-        raise IngestionError("Failed to download image from URL.") from None
-
-    data = bytes(buf)
     validate_image_bytes(data)
 
     return data, sniff_mime_type(data, content_type)
+
+
+def _read_own_static_file(parsed) -> bytes | None:
+    """Read this app's own static files from disk instead of over HTTP.
+
+    The home page's sample images link to our own host, which the safe
+    fetcher (rightly) won't reach when it's localhost or a private address.
+    """
+    if not has_app_context():
+        return None
+    from flask import request  # local: only meaningful inside a request
+
+    try:
+        own_host = request.host
+    except RuntimeError:
+        return None
+    static_prefix = (current_app.static_url_path or "/static").rstrip("/") + "/"
+    if parsed.netloc != own_host or not parsed.path.startswith(static_prefix):
+        return None
+    relative = unquote(parsed.path[len(static_prefix):])
+    path = safe_join(current_app.static_folder, relative)
+    if not path or not os.path.isfile(path):
+        return None
+    with open(path, "rb") as handle:
+        return handle.read()

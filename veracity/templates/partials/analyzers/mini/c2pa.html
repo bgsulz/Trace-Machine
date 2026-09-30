@@ -25,6 +25,10 @@
   </div>
   <div class="mini-card-detail">{{ row.data.matches|length }} similar image{{ 's' if row.data.matches|length != 1 else '' }} with C2PA</div>
 
+  {% elif row.status == "REFERENCED" %}
+  <div class="mini-card-status similar">Referenced, missing</div>
+  <div class="mini-card-detail">Online credentials couldn't be retrieved</div>
+
   {% elif row.status == "NOT FOUND" %}
   <div class="mini-card-status not-found">Not found</div>
 

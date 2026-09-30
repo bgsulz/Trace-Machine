@@ -60,6 +60,11 @@ def create_app(test_config=None):
     )
     proxy_fix_x_for = int(os.environ.get("PROXY_FIX_X_FOR", "1"))
     proxy_fix_x_proto = int(os.environ.get("PROXY_FIX_X_PROTO", "1"))
+    # Let outbound fetches reach private/LAN addresses. Local development only:
+    # in production this reopens server-side request forgery.
+    safe_fetch_allow_private = os.environ.get("SAFE_FETCH_ALLOW_PRIVATE", "").strip().lower() in (
+        "1", "true", "yes", "on",
+    )
     # Trust X-Forwarded-Host only when the proxy sets it (off by default).
     proxy_fix_x_host = int(os.environ.get("PROXY_FIX_X_HOST", "0"))
     local_matching_enabled = os.environ.get("LOCAL_MATCHING_ENABLED", "1").strip().lower() in (
@@ -90,6 +95,7 @@ def create_app(test_config=None):
         PROXY_FIX_X_FOR=proxy_fix_x_for,
         PROXY_FIX_X_PROTO=proxy_fix_x_proto,
         PROXY_FIX_X_HOST=proxy_fix_x_host,
+        SAFE_FETCH_ALLOW_PRIVATE=safe_fetch_allow_private,
         LOCAL_MATCHING_ENABLED=local_matching_enabled,
         LOCAL_MATCH_MAX_CANDIDATES=local_match_max_candidates,
         INVISIBLE_WATERMARK_DECODERS=invisible_watermark_decoders,
