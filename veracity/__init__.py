@@ -130,6 +130,15 @@ def create_app(test_config=None):
 
     app.register_blueprint(main_bp)
 
+    if os.environ.get("OPENAI_API_KEY") and os.environ.get(
+        "LIMITER_STORAGE_URL", "memory://"
+    ).startswith("memory://") and not app.config.get("TESTING"):
+        app.logger.warning(
+            "OPENAI_API_KEY is set but LIMITER_STORAGE_URL is in-memory: the "
+            "daily cap on automated OpenAI checks applies per worker process "
+            "and resets on restart. Use Redis (e.g. redis://localhost:6379)."
+        )
+
     @app.cli.command("download-models")
     def download_models():
         """Fetch watermark decoder models now instead of on the first analysis."""

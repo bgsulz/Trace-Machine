@@ -12,7 +12,14 @@
     {% endfor %}
   </div>
 
-  {% if display_state == "detected" %}
+  {% set automated = row.data.automated %}
+  {% if automated and automated.detected and automated.source == "this image" %}
+  <div class="mini-card-status found">
+    <span class="mini-icon">&#9888;</span> Detected (automated)
+  </div>
+  <div class="mini-card-detail">OpenAI Verify API</div>
+
+  {% elif display_state == "detected" %}
   <div class="mini-card-status found">
     <span class="mini-icon">&#9888;</span> Positive
   </div>

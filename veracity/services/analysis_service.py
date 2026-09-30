@@ -31,7 +31,7 @@ from .remote_image_service import fetch_remote_image
 from ..registry import prepare_analysis_context
 from .trace_service import build_direct_and_distant_traces
 from ..tools import generate_external_tools
-from . import voting_service
+from . import openai_verify_service, voting_service
 from .synthid_service import PORTAL_RESULTS
 from ..analyzers.human import _build_vote_breakdown
 
@@ -130,6 +130,7 @@ def perform_analysis(
         "public_url_display": public_url_display,
     }
     analysis_id = store_analysis_payload(None, image_bytes, metadata)
+    openai_verify_service.remember_owner(analysis_id)
     analyzer_rows = _prime_analyzer_rows(analysis_id, context, get_active_analyzers())
     direct_distant = build_direct_and_distant_traces(
         context,
@@ -335,6 +336,7 @@ def _prepare_row_for_render(
 
     if slug == "synthid":
         _ensure_synthid_detector_defaults(row_data)
+        row["context"]["openai_check"] = openai_verify_service.may_check(analysis_id, metadata)
         registry_id = metadata.get("registry_id")
         if registry_id is not None:
             _attach_synthid_report(row, registry_id)
