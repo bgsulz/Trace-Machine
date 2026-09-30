@@ -102,24 +102,100 @@ def test_unmarked_image_has_no_mark():
     assert decoder.decode(Image.open(FIXTURES / "trustmark_none.jpg")) is None
 
 
-@needs_models
-def test_invisible_analyzer_reports_trustmark(app):
-    from veracity.analyzers.invisible import run_invisible_watermarks
-    from veracity.analyzers.context import AnalysisContext
+def _run_invisible(app, image_bytes, **config):
+    """Run the real analyzer path (context + manager) with temporary config."""
+    from veracity.analyzers.manager import run_single_analyzer
+    from veracity.registry import prepare_analysis_context
 
-    app.config["INVISIBLE_WATERMARK_DECODERS"] = {"adobe_trustmark"}
-    app.config["TRUSTMARK_MODEL_DIR"] = str(_model_dir())
+    saved = {k: app.config.get(k) for k in config}
+    app.config.update(config)
     try:
         with app.app_context():
-            image_bytes = (FIXTURES / "trustmark_Q.jpg").read_bytes()
-            context = AnalysisContext.__new__(AnalysisContext)
-            context.image_bytes = image_bytes
-            result = run_invisible_watermarks(context)
+            return run_single_analyzer(prepare_analysis_context(image_bytes), "invisible")
     finally:
-        app.config["INVISIBLE_WATERMARK_DECODERS"] = set()
-        app.config.pop("TRUSTMARK_MODEL_DIR", None)
+        app.config.update(saved)
 
+
+@needs_models
+def test_invisible_analyzer_reports_trustmark(app):
+    result = _run_invisible(
+        app,
+        (FIXTURES / "trustmark_Q.jpg").read_bytes(),
+        INVISIBLE_WATERMARK_DECODERS={"adobe_trustmark"},
+        TRUSTMARK_MODEL_DIR=str(_model_dir()),
+    )
     assert result["status"] == "FOUND"
     finding = result["data"]["findings"][0]
     assert finding["label"] == "Adobe TrustMark"
     assert "Durable Content Credentials" in finding["note"]
+    assert len(finding["payload"]) == 17  # 68 bits -> 17 hex digits, zero-padded
+
+
+def test_missing_models_show_as_unavailable_without_blocking(app, tmp_path):
+    result = _run_invisible(
+        app,
+        (FIXTURES / "trustmark_none.jpg").read_bytes(),
+        INVISIBLE_WATERMARK_DECODERS={"adobe_trustmark"},
+        TRUSTMARK_MODEL_DIR=str(tmp_path),
+        TRUSTMARK_AUTO_DOWNLOAD=False,
+    )
+    assert result["status"] == "NOT AVAILABLE"
+
+
+def test_missing_model_downloads_in_the_background(tmp_path, monkeypatch):
+    import threading
+    import veracity.watermarks.trustmark as trustmark
+
+    started = threading.Event()
+    release = threading.Event()
+    real_ensure = trustmark.ensure_model
+
+    def slow_ensure(model_dir, variant, *, download):
+        if not download:
+            return real_ensure(model_dir, variant, download=False)
+        started.set()
+        release.wait(5)  # a slow download
+        raise trustmark.ModelUnavailable("offline")
+
+    monkeypatch.setattr(trustmark, "ensure_model", slow_ensure)
+    decoder = TrustMarkDecoder(tmp_path, download=True)
+    with pytest.raises(ModelUnavailable, match="downloading"):
+        decoder.decode(Image.open(FIXTURES / "trustmark_none.jpg"))  # returns immediately
+    assert started.wait(2)
+    release.set()
+    decoder._download_thread.join(5)
+    # After a failure it backs off instead of retrying on every request.
+    assert decoder._download_failed_at > 0
+    decoder._start_background_download()
+    assert not decoder._download_thread.is_alive()
+
+
+@needs_models
+def test_concurrent_decodes_are_consistent():
+    """The shared error-correction state must not corrupt parallel decodes."""
+    import sys
+    from concurrent.futures import ThreadPoolExecutor
+
+    decoder = TrustMarkDecoder(_model_dir(), download=False)
+    images = [Image.open(FIXTURES / name).convert("RGB") for name in ("trustmark_Q.jpg", "trustmark_P.jpg")]
+    expected = [decoder.decode(img) for img in images]
+    old = sys.getswitchinterval()
+    sys.setswitchinterval(1e-6)  # maximize thread interleaving
+    try:
+        with ThreadPoolExecutor(max_workers=8) as pool:
+            results = list(pool.map(lambda i: decoder.decode(images[i % 2]), range(32)))
+    finally:
+        sys.setswitchinterval(old)
+    assert results == [expected[i % 2] for i in range(32)]
+
+
+def test_positive_int_settings_fall_back_safely():
+    import logging
+
+    from veracity import _positive_int
+
+    log = logging.getLogger("test")
+    assert _positive_int(None, default=2, logger=log) == 2
+    assert _positive_int("4", default=2, logger=log) == 4
+    assert _positive_int("abc", default=2, logger=log) == 2
+    assert _positive_int("0", default=2, logger=log) == 2

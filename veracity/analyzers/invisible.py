@@ -28,7 +28,7 @@ _SD1_STRING = b"StableDiffusionV1"
 _MATCH_48 = 44
 _MATCH_SD1_FRAC = 0.92
 
-_trustmark_decoders: dict[str, Any] = {}
+_trustmark_decoders: dict[tuple[str, bool, int], Any] = {}
 _trustmark_lock = threading.Lock()
 
 
@@ -227,7 +227,8 @@ def _detect_trustmark(image_bytes: bytes) -> dict[str, object] | None:
         raise DecoderUnavailable from exc
     if hit is None:
         return None
-    payload_hex = f"{int(hit.payload, 2):x}" if hit.payload else ""
+    # Fixed width, so identifiers with leading zeros still match a database.
+    payload_hex = f"{int(hit.payload, 2):0{(len(hit.payload) + 3) // 4}x}" if hit.payload else ""
     return {
         "label": "Adobe TrustMark",
         "scheme": f"variant {hit.variant}, {SCHEMA_NAMES.get(hit.schema, hit.schema)}",
@@ -250,17 +251,16 @@ def _get_trustmark_decoder():
     model_dir = config.get("TRUSTMARK_MODEL_DIR") or os.path.join(
         current_app.instance_path, "models", "trustmark"
     )
-    decoder = _trustmark_decoders.get(model_dir)
+    download = bool(config.get("TRUSTMARK_AUTO_DOWNLOAD", True))
+    threads = int(config.get("TRUSTMARK_THREADS", 2))
+    key = (str(model_dir), download, threads)
+    decoder = _trustmark_decoders.get(key)
     if decoder is None:
         with _trustmark_lock:
-            decoder = _trustmark_decoders.get(model_dir)
+            decoder = _trustmark_decoders.get(key)
             if decoder is None:
-                decoder = TrustMarkDecoder(
-                    Path(model_dir),
-                    download=bool(config.get("TRUSTMARK_AUTO_DOWNLOAD", True)),
-                    threads=int(config.get("TRUSTMARK_THREADS", 2)),
-                )
-                _trustmark_decoders[model_dir] = decoder
+                decoder = TrustMarkDecoder(Path(model_dir), download=download, threads=threads)
+                _trustmark_decoders[key] = decoder
     return decoder
 
 

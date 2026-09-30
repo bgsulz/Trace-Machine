@@ -98,7 +98,7 @@ def create_app(test_config=None):
         SAFE_FETCH_ALLOW_PRIVATE=safe_fetch_allow_private,
         TRUSTMARK_AUTO_DOWNLOAD=os.environ.get("TRUSTMARK_AUTO_DOWNLOAD", "1").strip().lower()
         not in ("0", "false", "no", "off"),
-        TRUSTMARK_THREADS=int(os.environ.get("TRUSTMARK_THREADS", "2") or 2),
+        TRUSTMARK_THREADS=_positive_int(os.environ.get("TRUSTMARK_THREADS"), default=2, logger=app.logger),
         LOCAL_MATCHING_ENABLED=local_matching_enabled,
         LOCAL_MATCH_MAX_CANDIDATES=local_match_max_candidates,
         INVISIBLE_WATERMARK_DECODERS=invisible_watermark_decoders,
@@ -135,11 +135,14 @@ def create_app(test_config=None):
         """Fetch watermark decoder models now instead of on the first analysis."""
         from pathlib import Path
 
-        from .watermarks.trustmark import VARIANTS, ensure_model
+        from .watermarks.trustmark import VARIANTS, ModelUnavailable, ensure_model
 
         model_dir = Path(app.config.get("TRUSTMARK_MODEL_DIR") or os.path.join(app.instance_path, "models", "trustmark"))
         for variant in VARIANTS:
-            path = ensure_model(model_dir, variant, download=True)
+            try:
+                path = ensure_model(model_dir, variant, download=True)
+            except ModelUnavailable as exc:
+                raise SystemExit(f"TrustMark {variant}: {exc}") from None
             print(f"TrustMark {variant}: {path}")
 
     @app.after_request
@@ -149,6 +152,20 @@ def create_app(test_config=None):
         return response
 
     return app
+
+
+def _positive_int(raw: str | None, *, default: int, logger) -> int:
+    """Parse a positive integer setting, falling back (with a warning) if invalid."""
+    if raw is None or not raw.strip():
+        return default
+    try:
+        value = int(raw)
+    except ValueError:
+        value = 0
+    if value < 1:
+        logger.warning("Ignoring invalid setting %r; using %d", raw, default)
+        return default
+    return value
 
 
 def _parse_invisible_watermark_decoders(raw_value: str, *, logger) -> set[str]:
