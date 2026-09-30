@@ -53,6 +53,8 @@ def create_app(test_config=None):
     )
     proxy_fix_x_for = int(os.environ.get("PROXY_FIX_X_FOR", "1"))
     proxy_fix_x_proto = int(os.environ.get("PROXY_FIX_X_PROTO", "1"))
+    # Trust X-Forwarded-Host only when the proxy sets it (off by default).
+    proxy_fix_x_host = int(os.environ.get("PROXY_FIX_X_HOST", "0"))
     local_matching_enabled = os.environ.get("LOCAL_MATCHING_ENABLED", "1").strip().lower() in (
         "1",
         "true",
@@ -80,6 +82,7 @@ def create_app(test_config=None):
         PROXY_FIX_ENABLED=proxy_fix_enabled,
         PROXY_FIX_X_FOR=proxy_fix_x_for,
         PROXY_FIX_X_PROTO=proxy_fix_x_proto,
+        PROXY_FIX_X_HOST=proxy_fix_x_host,
         LOCAL_MATCHING_ENABLED=local_matching_enabled,
         LOCAL_MATCH_MAX_CANDIDATES=local_match_max_candidates,
         INVISIBLE_WATERMARK_DECODERS=invisible_watermark_decoders,
@@ -91,6 +94,7 @@ def create_app(test_config=None):
             app.wsgi_app,
             x_for=int(app.config.get("PROXY_FIX_X_FOR") or 1),
             x_proto=int(app.config.get("PROXY_FIX_X_PROTO") or 1),
+            x_host=int(app.config.get("PROXY_FIX_X_HOST") or 0),
         )
 
     if test_config is not None:

@@ -1,5 +1,7 @@
 import json
 
+from urllib.parse import urlparse
+
 from flask import (
     Blueprint,
     abort,
@@ -11,6 +13,8 @@ from flask import (
     request,
     url_for,
 )
+
+from flask_wtf.csrf import CSRFError
 
 from .analyzers.manager import get_active_analyzers
 from .services.config_service import DONATION_GOAL_CENTS, get_global_config
@@ -29,6 +33,42 @@ bp.add_app_template_filter(humanize_key, "humanize_key")
 
 EXPIRED_MESSAGE = "Analysis expired. Please submit the image again."
 RATE_LIMIT_MESSAGE = "Rate limit reached. Please wait a minute before trying again."
+
+
+STALE_FORM_MESSAGE = "This page was open for a while, so that didn't go through. Please try again."
+NO_SESSION_MESSAGE = (
+    "Your browser didn't send this site's session cookie, so that didn't go "
+    "through. Try again from the full Trace Machine page."
+)
+
+
+@bp.app_errorhandler(CSRFError)
+def handle_csrf_error(error):
+    """Recover from rejected form tokens instead of showing a bare 400.
+
+    A stale or mismatched token (e.g. a tab left open overnight) is fixed by
+    reloading the page, which issues a fresh one. A missing session cookie
+    (e.g. third-party cookies blocked in an embedded view) isn't, so it gets
+    an explanation without a pointless reload.
+    """
+    session_missing = "session token is missing" in (error.description or "")
+    message = NO_SESSION_MESSAGE if session_missing else STALE_FORM_MESSAGE
+
+    if request.headers.get("HX-Request"):
+        response = make_response("", 200)
+        if session_missing:
+            # Leave the page as-is; the flash cookie wouldn't survive a reload.
+            response.headers["HX-Reswap"] = "none"
+            response.headers["HX-Trigger"] = json.dumps({"showToast": message})
+        else:
+            flash(message)
+            response.headers["HX-Refresh"] = "true"
+        return response
+
+    flash(message)
+    referrer = urlparse(request.referrer or "")
+    same_origin = (referrer.scheme, referrer.netloc) == (request.scheme, request.host)
+    return redirect(request.referrer if same_origin else url_for("main.index"))
 
 
 @bp.errorhandler(429)
