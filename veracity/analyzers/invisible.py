@@ -3,7 +3,9 @@ from __future__ import annotations
 import importlib.util
 import io
 import logging
+import os
 import threading
+from pathlib import Path
 from typing import Any, cast
 
 from flask import current_app
@@ -26,7 +28,7 @@ _SD1_STRING = b"StableDiffusionV1"
 _MATCH_48 = 44
 _MATCH_SD1_FRAC = 0.92
 
-_trustmark_decoder: Any = None
+_trustmark_decoders: dict[tuple[str, bool, int], Any] = {}
 _trustmark_lock = threading.Lock()
 
 
@@ -151,8 +153,7 @@ def _not_available_summary(
 ) -> str:
     if not enabled_decoders or len(disabled) >= 2:
         return (
-            "No local invisible-watermark decoders are enabled. Set "
-            "INVISIBLE_WATERMARK_DECODERS=imwatermark,trustmark to opt in."
+            "No local invisible-watermark decoders are enabled on this server."
         )
     if unavailable:
         return "Enabled local invisible-watermark decoders are not installed or failed to load."
@@ -213,42 +214,54 @@ def _detect_open_dwt_dct_watermark(image_bytes: bytes) -> dict[str, object] | No
 
 
 def _detect_trustmark(image_bytes: bytes) -> dict[str, object] | None:
-    if not _module_available("trustmark"):
+    if not _module_available("onnxruntime"):
         raise DecoderUnavailable
-    from trustmark import TrustMark
+    from ..watermarks.trustmark import SCHEMA_NAMES, ModelUnavailable
 
-    with Image.open(io.BytesIO(image_bytes)) as img:
-        cover = img.convert("RGB")
-    decoder = _get_trustmark_decoder(TrustMark)
-    _secret, present, schema = decoder.decode(cover)
-    if not present:
+    try:
+        decoder = _get_trustmark_decoder()
+        with Image.open(io.BytesIO(image_bytes)) as img:
+            hit = decoder.decode(img)
+    except ModelUnavailable as exc:
+        logger.warning("TrustMark decoder unavailable: %s", exc)
+        raise DecoderUnavailable from exc
+    if hit is None:
         return None
-    if not _trustmark_survives_reencode(decoder, cover, schema):
-        return None
+    # Fixed width, so identifiers with leading zeros still match a database.
+    payload_hex = f"{int(hit.payload, 2):0{(len(hit.payload) + 3) // 4}x}" if hit.payload else ""
     return {
         "label": "Adobe TrustMark",
-        "scheme": f"Adobe TrustMark variant P, schema {schema}",
+        "scheme": f"variant {hit.variant}, {SCHEMA_NAMES.get(hit.schema, hit.schema)}",
+        "match": f"confirmed on {hit.confirmations} of 3 re-checks",
+        "payload": payload_hex,
         "category": "trustmark",
-        "note": "TrustMark marks Content Credentials provenance, not AI generation by itself.",
+        "note": (
+            "TrustMark is the watermark behind Adobe's Durable Content Credentials. "
+            "It means this image was registered for Content Credentials, so a signed "
+            "manifest may exist even if it isn't attached to this file. It marks "
+            "provenance, not AI generation by itself."
+        ),
     }
 
 
-def _get_trustmark_decoder(trustmark_class):
-    global _trustmark_decoder
-    if _trustmark_decoder is None:
+def _get_trustmark_decoder():
+    from ..watermarks.trustmark import TrustMarkDecoder
+
+    config = current_app.config
+    model_dir = config.get("TRUSTMARK_MODEL_DIR") or os.path.join(
+        current_app.instance_path, "models", "trustmark"
+    )
+    download = bool(config.get("TRUSTMARK_AUTO_DOWNLOAD", True))
+    threads = int(config.get("TRUSTMARK_THREADS", 2))
+    key = (str(model_dir), download, threads)
+    decoder = _trustmark_decoders.get(key)
+    if decoder is None:
         with _trustmark_lock:
-            if _trustmark_decoder is None:
-                _trustmark_decoder = trustmark_class(verbose=False, model_type="P")
-    return _trustmark_decoder
-
-
-def _trustmark_survives_reencode(decoder, cover, schema: int) -> bool:
-    buffer = io.BytesIO()
-    cover.save(buffer, "JPEG", quality=95)
-    buffer.seek(0)
-    with Image.open(buffer) as reencoded:
-        _secret, present, reencoded_schema = decoder.decode(reencoded.convert("RGB"))
-    return bool(present) and reencoded_schema == schema
+            decoder = _trustmark_decoders.get(key)
+            if decoder is None:
+                decoder = TrustMarkDecoder(Path(model_dir), download=download, threads=threads)
+                _trustmark_decoders[key] = decoder
+    return decoder
 
 
 def _bits_match(value: int, ref: int, width: int = 48) -> int:

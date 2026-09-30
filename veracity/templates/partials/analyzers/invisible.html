@@ -20,6 +20,7 @@
         </summary>
         <div class="finding__body stack-sm">
           {% if finding.match %}<p><strong>Match:</strong> {{ finding.match }}</p>{% endif %}
+          {% if finding.payload %}<p class="tech-only"><strong>Identifier:</strong> <code>{{ finding.payload }}</code></p>{% endif %}
           {% if finding.note %}<p class="muted">{{ finding.note }}</p>{% endif %}
         </div>
       </details>
@@ -28,7 +29,7 @@
   </ul>
   {% endif %}
 
-  <dl class="kv">
+  <dl class="kv tech-only">
     <dt>Ran locally</dt>
     <dd>{{ attempted|join(", ") if attempted else "No optional decoders installed" }}</dd>
     <dt>Disabled</dt>

@@ -1,21 +1,37 @@
 <p>
-  <strong>Invisible Watermarks</strong> runs local pixel-watermark decoders when
-  optional decoder packages are installed. It does not call Google, OpenAI, AWS,
-  or other external portals.
+  Some watermarks can be read without asking the company that made them. Trace
+  Machine checks for these on every image, on its own server.
+</p>
+
+<h3>Adobe TrustMark</h3>
+<p>
+  TrustMark is the open watermark behind Adobe's <strong>Durable Content
+  Credentials</strong>. It hides a short identifier in the pixels that survives
+  screenshots, re-compression, and metadata stripping. The identifier links the
+  image back to its C2PA manifest in a Content Credentials database, so finding
+  one means the image was registered for Content Credentials even if the
+  manifest has since been stripped from the file.
 </p>
 <p>
-  The first supported local checks are open DWT-DCT watermarks used by some
-  Stable Diffusion / SDXL / FLUX pipelines and Adobe TrustMark. TrustMark marks
-  Content Credentials provenance, not AI generation by itself.
+  A TrustMark marks provenance, not AI generation: cameras, editors, and AI
+  tools can all apply one. Because a decoder can occasionally "find" a mark in
+  an ordinary photo by chance, Trace Machine only reports a mark when it also
+  reads the same identifier from slightly edited copies of the image.
 </p>
-<p>
-  Optional decoders are disabled by default. A server operator must set
-  <code>INVISIBLE_WATERMARK_DECODERS=imwatermark,trustmark</code> or
-  <code>INVISIBLE_WATERMARK_DECODERS=all</code> after installing the matching
-  packages.
-</p>
+
 <div class="flash-warning">
-  <strong>Important limitation:</strong> These checks are positive-only. A local
-  hit is useful evidence, but a miss does not mean the image is clean; many
-  invisible watermarks are proprietary, fragile, or unavailable to local decoders.
+  <strong>Important limitation:</strong> These checks are positive-only. A hit
+  is useful evidence, but a miss does not mean the image is clean: most
+  invisible watermarks (including Google's SynthID and Meta's Content Seal)
+  can only be read by their makers, and heavy edits can erase any of them.
 </div>
+
+<p><strong>Learn more:</strong></p>
+<ul>
+  <li>
+    <a href="https://contentauthenticity.org/blog/durable-content-credentials" target="_blank" rel="noopener noreferrer">Content Authenticity Initiative: Durable Content Credentials</a>
+  </li>
+  <li>
+    <a href="https://github.com/adobe/trustmark" target="_blank" rel="noopener noreferrer">Adobe TrustMark (open source)</a>
+  </li>
+</ul>

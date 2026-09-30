@@ -6,6 +6,7 @@ Flask-Limiter
 Flask-Compress
 Pillow
 pillow-heif>=1.8,<2
+onnxruntime
 requests
 python-dotenv
 pytest
