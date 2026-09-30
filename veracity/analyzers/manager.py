@@ -48,7 +48,7 @@ ANALYZERS: Sequence[AnalyzerSpec] = (
         slug="invisible",
         func=run_invisible_watermarks,
         template="partials/analyzers/invisible.html",
-        tooltip="Runs optional local pixel-watermark decoders when available.",
+        tooltip="Looks for invisible watermarks we can read locally, like Adobe's TrustMark.",
     ),
     AnalyzerSpec(
         name="Verification Portals",

@@ -42,6 +42,9 @@ def _create_testing_app(*, enable_csrf=False, enable_ratelimit=False, instance_p
         "SERVER_NAME": "localhost.localdomain",
         "APPLICATION_ROOT": "/",
         "PREFERRED_URL_SCHEME": "http",
+        # Keep the suite offline and fast: no watermark models by default.
+        "INVISIBLE_WATERMARK_DECODERS": set(),
+        "TRUSTMARK_AUTO_DOWNLOAD": False,
     }
     app = create_app(test_config)
     with app.app_context():
