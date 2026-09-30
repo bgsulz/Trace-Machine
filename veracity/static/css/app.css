@@ -285,7 +285,9 @@
   * {
     scrollbar-width: thin;
   }
-  @supports not (scrollbar-color: auto) {
+  /* Only where `scrollbar-width` is unsupported, so Safari keeps its native
+     overlay scrollbars instead of forced always-visible ones. */
+  @supports not (scrollbar-width: thin) {
     ::-webkit-scrollbar { width: 10px; height: 10px; }
     ::-webkit-scrollbar-track { background: transparent; }
     ::-webkit-scrollbar-thumb {
@@ -566,7 +568,7 @@
 
   /* Selects: fully customizable dropdowns where `appearance: base-select`
      is supported, and a matching closed control everywhere else. */
-  select {
+  select:not([multiple]):not([size]) {
     appearance: none;
     min-height: 2.25rem;
     padding: 0.4rem 2rem 0.4rem 0.7rem;
@@ -583,18 +585,18 @@
     background-size: 0.3rem 0.3rem;
     background-repeat: no-repeat;
   }
-  select:hover { border-color: var(--text-3); }
-  select:focus-visible {
+  select:not([multiple]):not([size]):hover { border-color: var(--text-3); }
+  select:not([multiple]):not([size]):focus-visible {
     outline: 2px solid var(--focus);
     outline-offset: -1px;
     border-color: transparent;
   }
   @supports (appearance: base-select) {
-    select,
+    select:not([multiple]):not([size]),
     ::picker(select) {
       appearance: base-select;
     }
-    select {
+    select:not([multiple]):not([size]) {
       display: inline-flex;
       align-items: center;
       gap: var(--space-2);
