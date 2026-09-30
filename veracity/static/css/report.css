@@ -612,15 +612,23 @@
     padding: 0;
     margin: 0;
   }
+  /* Section heading followed by a hairline rule, with space on both sides. */
   .vote legend {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    width: 100%;
+    margin-bottom: var(--space-1);
+    padding: 0;
     font-weight: 600;
     font-size: var(--text-sm);
-    padding: 0;
   }
-  .vote {
-    padding-top: var(--space-4);
+  .vote legend::after {
+    content: "";
+    flex: 1;
     border-top: var(--hairline);
   }
+  .stack > .vote { margin-top: var(--space-6); }
 
   .vote > p { font-size: var(--text-sm); margin-bottom: var(--space-3); }
   .vote > p:last-child { margin: var(--space-3) 0 0; }
@@ -794,7 +802,7 @@
   .batch-form > .cluster { margin-top: var(--space-4); }
   .batch-form__head {
     display: flex;
-    justify-content: space-between;
+    justify-content: flex-end;
     align-items: baseline;
     gap: var(--space-3);
   }

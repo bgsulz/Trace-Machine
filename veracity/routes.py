@@ -1,5 +1,7 @@
 import json
 
+from urllib.parse import urlparse
+
 from flask import (
     Blueprint,
     abort,
@@ -11,6 +13,8 @@ from flask import (
     request,
     url_for,
 )
+
+from flask_wtf.csrf import CSRFError
 
 from .analyzers.manager import get_active_analyzers
 from .services.config_service import DONATION_GOAL_CENTS, get_global_config
@@ -29,6 +33,26 @@ bp.add_app_template_filter(humanize_key, "humanize_key")
 
 EXPIRED_MESSAGE = "Analysis expired. Please submit the image again."
 RATE_LIMIT_MESSAGE = "Rate limit reached. Please wait a minute before trying again."
+
+
+STALE_FORM_MESSAGE = "This page was open for a while, so that didn't go through. Please try again."
+
+
+@bp.app_errorhandler(CSRFError)
+def handle_csrf_error(_error):
+    """Recover from expired form tokens (e.g. a result tab left open overnight).
+
+    Reload the page the request came from, which issues a fresh token, and
+    explain why the action didn't happen.
+    """
+    flash(STALE_FORM_MESSAGE)
+    if request.headers.get("HX-Request"):
+        response = make_response("", 200)
+        response.headers["HX-Refresh"] = "true"
+        return response
+    referrer = request.referrer or ""
+    same_host = urlparse(referrer).netloc == request.host
+    return redirect(referrer if same_host else url_for("main.index"))
 
 
 @bp.errorhandler(429)

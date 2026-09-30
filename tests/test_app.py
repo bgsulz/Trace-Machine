@@ -1,5 +1,6 @@
 import io
 import re
+from urllib.parse import urlparse
 
 import imagehash
 from PIL import Image
@@ -194,9 +195,11 @@ def test_csrf_protection_enabled_by_default(app_csrf):
         "file": (io.BytesIO(image_bytes), "test.png"),
         "image_url": "",
     }
-    # Missing csrf_token should be rejected with 400 from Flask-WTF
+    # Missing csrf_token is rejected: nothing is analyzed, and the user is
+    # sent back with a message instead of a bare 400 page.
     resp = client.post("/analyze", data=data, content_type="multipart/form-data")
-    assert resp.status_code == 400
+    assert resp.status_code == 302
+    assert "/analysis/" not in resp.headers["Location"]
 
 
 def test_analyze_auto_vote_records_and_updates(client, app, monkeypatch):
@@ -502,3 +505,23 @@ def test_status_ui_maps_statuses_to_display_states():
     assert status_ui("ERROR")["state"] == "error"
     assert status_ui(None)["state"] == "loading"
     assert status_ui("FOUND", "human")["label"] == "Has votes"
+
+
+def test_expired_csrf_token_redirects_back_with_message(app_csrf):
+    client = app_csrf.test_client()
+    resp = client.post(
+        "/analysis/deadbeef/crop",
+        data={"csrf_token": "stale"},
+        headers={"Referer": "http://localhost.localdomain/analysis/deadbeef"},
+    )
+    assert resp.status_code == 302
+    assert resp.headers["Location"].endswith("/analysis/deadbeef")
+
+    htmx = client.post("/vote", data={"csrf_token": "stale"}, headers={"HX-Request": "true"})
+    assert htmx.status_code == 200
+    assert htmx.headers["HX-Refresh"] == "true"
+
+    # Off-site referrers fall back to the home page.
+    other = client.post("/vote", data={}, headers={"Referer": "https://evil.example/x"})
+    assert other.status_code == 302
+    assert urlparse(other.headers["Location"]).path == "/"

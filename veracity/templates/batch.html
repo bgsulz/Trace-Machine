@@ -13,7 +13,7 @@
   <form class="batch-form" method="post" action="{{ url_for('main.batch_submit') }}" data-analyzing data-batch-form>
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
     <div class="batch-form__head">
-      <label class="eyebrow" for="batch-urls">Image URLs, one per line</label>
+      <label class="sr-only" for="batch-urls">Image URLs, one per line</label>
       <span class="batch-form__count" data-batch-count aria-hidden="true">0 / 10</span>
     </div>
     <textarea
@@ -28,9 +28,7 @@
       aria-describedby="batch-status"
       required
     ></textarea>
-    <p class="batch-form__status" id="batch-status" data-batch-status aria-live="polite">
-      Paste direct links to image files. Blank lines are ignored.
-    </p>
+    <p class="batch-form__status" id="batch-status" data-batch-status aria-live="polite"></p>
     <div class="cluster">
       <button type="submit" class="btn btn--primary" data-batch-submit>Analyze batch</button>
       <button type="button" class="btn btn--ghost" data-batch-clear hidden>Clear</button>
