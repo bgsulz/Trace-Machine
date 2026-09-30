@@ -1,4 +1,5 @@
 import json
+import re
 import time
 import uuid
 from pathlib import Path
@@ -17,16 +18,30 @@ def analysis_dir() -> Path:
     return base
 
 
+_ANALYSIS_ID_RE = re.compile(r"^[0-9a-f]{32}$")
+
+
+def is_valid_analysis_id(analysis_id: str) -> bool:
+    return bool(_ANALYSIS_ID_RE.fullmatch(str(analysis_id)))
+
+
+def _checked_id(analysis_id: str) -> str:
+    """IDs come from URLs and become file names; only accept our own format."""
+    if not is_valid_analysis_id(analysis_id):
+        raise ValueError(f"Invalid analysis id: {analysis_id!r}")
+    return analysis_id
+
+
 def analysis_bytes_path(analysis_id: str) -> Path:
-    return analysis_dir() / f"{analysis_id}{ANALYSIS_BYTES_SUFFIX}"
+    return analysis_dir() / f"{_checked_id(analysis_id)}{ANALYSIS_BYTES_SUFFIX}"
 
 
 def analysis_meta_path(analysis_id: str) -> Path:
-    return analysis_dir() / f"{analysis_id}{ANALYSIS_META_SUFFIX}"
+    return analysis_dir() / f"{_checked_id(analysis_id)}{ANALYSIS_META_SUFFIX}"
 
 
 def analysis_row_path(analysis_id: str, slug: str) -> Path:
-    return analysis_dir() / f"{analysis_id}-{slug}.row.json"
+    return analysis_dir() / f"{_checked_id(analysis_id)}-{slug}.row.json"
 
 
 def store_analysis_payload(
@@ -45,6 +60,8 @@ def store_analysis_payload(
 
 def load_analysis_metadata(analysis_id: str) -> dict[str, Any] | None:
     """Load only the JSON metadata for an analysis (no image bytes)."""
+    if not is_valid_analysis_id(analysis_id):
+        return None
     meta_path = analysis_meta_path(analysis_id)
     try:
         return json.loads(meta_path.read_text(encoding="utf-8"))
@@ -54,6 +71,8 @@ def load_analysis_metadata(analysis_id: str) -> dict[str, Any] | None:
 
 def update_analysis_metadata(analysis_id: str, updates: dict[str, Any]) -> None:
     """Merge *updates* into existing metadata on disk."""
+    if not is_valid_analysis_id(analysis_id):
+        return None
     meta_path = analysis_meta_path(analysis_id)
     try:
         metadata = json.loads(meta_path.read_text(encoding="utf-8"))
@@ -66,6 +85,8 @@ def update_analysis_metadata(analysis_id: str, updates: dict[str, Any]) -> None:
 def load_analysis_payload(
     analysis_id: str,
 ) -> tuple[bytes, dict[str, Any]] | None:
+    if not is_valid_analysis_id(analysis_id):
+        return None
     data_path = analysis_bytes_path(analysis_id)
     meta_path = analysis_meta_path(analysis_id)
     try:
@@ -83,6 +104,8 @@ def store_cached_analyzer_row(analysis_id: str, slug: str, row: dict[str, Any]) 
 
 
 def load_cached_analyzer_row(analysis_id: str, slug: str) -> dict[str, Any] | None:
+    if not is_valid_analysis_id(analysis_id):
+        return None
     path = analysis_row_path(analysis_id, slug)
     try:
         return json.loads(path.read_text(encoding="utf-8"))

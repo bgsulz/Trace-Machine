@@ -9,7 +9,9 @@ from __future__ import annotations
 
 from .context import AnalysisContext
 from .hash_utils import iter_neighbor_views
-from ..services.openai_verify_service import results_from_facts
+from datetime import datetime, timezone
+
+from ..services.openai_verify_service import REUSE_WINDOW, results_from_facts
 from ..services.synthid_service import (
     GOOGLE_POSITIVE,
     META_POSITIVE,
@@ -78,6 +80,14 @@ def run_synthid(context: AnalysisContext) -> dict[str, object]:
             _add_weighted_scores(score_by_result, counts, weight)
             _append_similar(similar_images, neighbor_view, counts)
 
+    # An automated OpenAI check on this exact image outranks community reports
+    # about OpenAI: a clean negative (sent unconverted, so both C2PA and
+    # SynthID were checked) rules out OpenAI-positive reports.
+    automated = _automated_result(context)
+    own_automated = automated if automated and automated["source"] == "this image" else None
+    if own_automated and not own_automated["detected"] and not own_automated.get("converted"):
+        score_by_result[OPENAI_POSITIVE] = 0.0
+
     positive_results = [
         result
         for result, score in score_by_result.items()
@@ -128,20 +138,26 @@ def run_synthid(context: AnalysisContext) -> dict[str, object]:
             "vary across different copies of an image."
         )
 
-    # Automated results from OpenAI's API are more trustworthy than community
-    # reports, so a positive one decides the status.
-    automated = _automated_result(context)
+    # A positive automated check on this exact image decides the status. One
+    # on a near-identical copy is only a lead: the copy may be an AI-edited
+    # variant of an authentic photo, so it must not mark this image detected.
     if automated and automated["detected"]:
-        status = "DETECTED"
-        display_state = "detected"
-        found = [
+        found = " and ".join(
             label
             for key, label in (("synthid", "a SynthID watermark"), ("c2pa", "OpenAI Content Credentials"))
             if (automated.get(key) or {}).get("detected")
-        ]
-        summary = f"OpenAI's API detected {' and '.join(found)} on {automated['source']}."
-        caveat = None
-    elif automated and automated["source"] == "this image" and status == "MANUAL":
+        )
+        if own_automated:
+            status, display_state, contested, caveat = "DETECTED", "detected", False, None
+            summary = f"OpenAI's API detected {found} on this image."
+        elif status not in ("DETECTED",):
+            status, display_state = "REPORTED", "reported"
+            summary = f"OpenAI's API detected {found} on a near-identical copy."
+            caveat = (
+                "A near-identical copy tested positive. That copy may be an edited "
+                "variant, so check this image itself."
+            )
+    elif own_automated and status in ("MANUAL", "CHECKED"):
         summary = "OpenAI's API found no OpenAI signals. Google and Meta still need a manual check."
 
     return {
@@ -179,9 +195,15 @@ def _automated_result(context: AnalysisContext) -> dict[str, object] | None:
             continue
         if view["is_self_match"]:
             own = {**results[0], "source": "this image"}
-        else:
+        elif str(view.get("match_method") or "hash") != "local":
+            # Feature-point-only matches (crops, composites) aren't copies.
             similar.append({**results[0], "source": "a similar image"})
     if own:
+        try:
+            checked = datetime.fromisoformat(str(own.get("checked_at")))
+            own["recent"] = datetime.now(timezone.utc) - checked < REUSE_WINDOW
+        except ValueError:
+            own["recent"] = False
         return own
     positive = [result for result in similar if result.get("detected")]
     return (positive or similar or [None])[0]
