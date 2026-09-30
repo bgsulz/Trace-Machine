@@ -23,6 +23,13 @@
   camera captured it. Trace Machine surfaces these signals for you.
 </p>
 
+<p>
+  A manifest can also live online instead of inside the file, with the image's
+  metadata pointing to it. Trace Machine follows that pointer and validates the
+  manifest the same way. If the pointer leads nowhere, the report says the image
+  references Content Credentials that couldn't be retrieved.
+</p>
+
 <h5>What C2PA can show</h5>
 <ul>
   <li>

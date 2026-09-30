@@ -21,6 +21,8 @@ _STATUS_STATES: dict[str, tuple[str, str]] = {
     "DETECTED": ("found", "Detected"),
     "REPORTED": ("found", "Reported"),
     "SIMILAR": ("found", "On similar image"),
+    # The image points to Content Credentials that couldn't be retrieved.
+    "REFERENCED": ("found", "Referenced, missing"),
     "NOT FOUND": ("none", "None found"),
     "CHECKED": ("none", "Checked, none"),
     "MANUAL": ("action", "Needs you"),

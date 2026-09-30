@@ -2,6 +2,7 @@ from __future__ import annotations
 import json
 import re
 import logging
+import threading
 from io import BytesIO
 from typing import Any
 
@@ -14,12 +15,15 @@ from .hash_utils import (
     iter_neighbor_views,
 )
 from ..ingestion import sniff_mime_type
+from ..safe_fetch import FetchError, UnsafeURLError, safe_get
 from .trust_assessment import build_trust_assessment, extract_validation_codes
 
 try:  # pragma: no cover - import guard
     from c2pa import Reader
+    from c2pa.c2pa import load_settings
 except ImportError:  # pragma: no cover - handled at runtime
     Reader = None
+    load_settings = None
 
 logger = logging.getLogger(__name__)
 
@@ -84,6 +88,52 @@ _ACTION_NAME_OVERRIDES = {
 }
 
 
+_REMOTE_MANIFEST_MAX_BYTES = 5 * 1024 * 1024
+_REMOTE_URL_IN_ERROR = re.compile(r"remote manifests? from url (\S+)", re.IGNORECASE)
+_PROVENANCE_XMP = re.compile(
+    rb"dcterms:provenance(?:=\"([^\"]+)\"|>\s*([^<\s]+)\s*<)"
+)
+_thread_state = threading.local()
+
+
+def _disable_remote_fetch_for_this_thread() -> None:
+    """Stop the c2pa library from fetching remote manifests itself.
+
+    Left on, it requests any URL an image's XMP names, from our server
+    (server-side request forgery). Settings are per-thread in c2pa-rs and
+    analyzers run in a thread pool, so apply them in every thread.
+    """
+    if getattr(_thread_state, "settings_loaded", False) or load_settings is None:
+        return
+    load_settings({"verify": {"remote_manifest_fetch": False}})
+    _thread_state.settings_loaded = True
+
+
+def _remote_manifest_url(error_message: str, image_bytes: bytes) -> str | None:
+    """The remote manifest URL an image declares, if that's why reading failed."""
+    if match := _REMOTE_URL_IN_ERROR.search(error_message):
+        return match.group(1)
+    if "remote" not in error_message.lower():
+        return None
+    if match := _PROVENANCE_XMP.search(image_bytes):
+        return (match.group(1) or match.group(2)).decode("utf-8", "replace")
+    return None
+
+
+def _read_remote_manifest(url: str, mime_type: str, image_bytes: bytes) -> dict[str, Any] | str:
+    """Fetch and validate a remote manifest; return its store or an error."""
+    try:
+        result = safe_get(url, max_bytes=_REMOTE_MANIFEST_MAX_BYTES)
+    except (UnsafeURLError, FetchError) as exc:
+        return str(exc)
+    try:
+        with Reader(mime_type, BytesIO(image_bytes), manifest_data=result.content) as reader:  # type: ignore[arg-type]
+            return json.loads(reader.json())
+    except Exception as exc:
+        logger.info("Remote C2PA manifest at %s didn't validate: %s", url, exc)
+        return "The referenced manifest couldn't be read."
+
+
 def _detect_mime_type(image_bytes: bytes) -> str:
     mime_type = sniff_mime_type(image_bytes)
     if mime_type != "application/octet-stream":
@@ -118,6 +168,8 @@ def _run_c2pa_tool(image_bytes: bytes) -> dict[str, object]:
         }
 
     mime_type = _detect_mime_type(image_bytes)
+    remote_url: str | None = None
+    _disable_remote_fetch_for_this_thread()
     try:
         with Reader(mime_type, BytesIO(image_bytes)) as reader:  # type: ignore[arg-type]
             manifest_store = json.loads(reader.json())
@@ -135,12 +187,26 @@ def _run_c2pa_tool(image_bytes: bytes) -> dict[str, object]:
                 "data": {"has_manifest": False},
             }
 
-        logger.exception("C2PA analyzer failed")
-        return {
-            "status": "ERROR",
-            "summary": f"Failed to read C2PA manifest: {exc}",
-            "data": {},
-        }
+        remote_url = _remote_manifest_url(message, image_bytes)
+        if remote_url is None:
+            logger.exception("C2PA analyzer failed")
+            return {
+                "status": "ERROR",
+                "summary": f"Failed to read C2PA manifest: {exc}",
+                "data": {},
+            }
+        fetched = _read_remote_manifest(remote_url, mime_type, image_bytes)
+        if isinstance(fetched, str):
+            return {
+                "status": "REFERENCED",
+                "summary": "Content Credentials are referenced but couldn't be retrieved.",
+                "data": {
+                    "has_manifest": False,
+                    "remote_manifest_url": remote_url,
+                    "remote_error": fetched,
+                },
+            }
+        manifest_store = fetched
 
     manifests = manifest_store.get("manifests") or {}
     active_id = manifest_store.get("active_manifest")
@@ -203,6 +269,7 @@ def _run_c2pa_tool(image_bytes: bytes) -> dict[str, object]:
         summary += f" ({origin_label})"
 
     data: dict[str, object] = {
+        "remote_manifest_url": remote_url,
         "signer": signer,
         "producer": producer,
         "tool": claim_generator,
