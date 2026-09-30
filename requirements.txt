@@ -5,6 +5,7 @@ Flask-Migrate
 Flask-Limiter
 Flask-Compress
 Pillow
+pillow-heif
 requests
 python-dotenv
 pytest

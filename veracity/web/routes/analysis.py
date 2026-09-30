@@ -67,6 +67,32 @@ def register_analysis_routes(
         mime_type = metadata.get("mime_type", "application/octet-stream")
         return send_file(BytesIO(image_bytes), mimetype=mime_type, max_age=3600)
 
+    @bp.route("/analysis/<analysis_id>/preview")
+    def serve_analysis_preview(analysis_id: str):
+        """Serve a browser-displayable version of the analyzed image.
+
+        Formats browsers can't show (e.g. HEIC) are converted to JPEG with the
+        EXIF orientation applied, so crop coordinates line up with /raw.
+        """
+        payload = load_analysis_payload(analysis_id)
+        if payload is None:
+            abort(404)
+
+        image_bytes, metadata = payload
+        mime_type = metadata.get("mime_type", "application/octet-stream")
+        if mime_type in ingestion.BROWSER_DISPLAYABLE:
+            return send_file(BytesIO(image_bytes), mimetype=mime_type, max_age=3600)
+
+        try:
+            with Image.open(BytesIO(image_bytes)) as img:
+                img = ImageOps.exif_transpose(img)
+                buffer = BytesIO()
+                img.convert("RGB").save(buffer, format="JPEG", quality=90)
+        except (OSError, ValueError):
+            abort(415)
+        buffer.seek(0)
+        return send_file(buffer, mimetype="image/jpeg", max_age=3600)
+
     @bp.route("/analysis/<analysis_id>/export.json")
     def export_analysis_json(analysis_id: str):
         try:
@@ -195,7 +221,7 @@ def register_analysis_routes(
                 source = "file"
                 image_bytes = file.read()
                 ingestion.validate_image_bytes(image_bytes)
-                mime_type = file.mimetype or "application/octet-stream"
+                mime_type = ingestion.sniff_mime_type(image_bytes, file.mimetype)
             else:
                 flash("Please provide an image file or a URL.")
                 return redirect(url_for("main.index"))

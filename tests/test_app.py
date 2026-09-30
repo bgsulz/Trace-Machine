@@ -542,3 +542,54 @@ def test_csrf_without_session_cookie_explains_instead_of_reloading(app_csrf):
     assert "HX-Refresh" not in resp.headers
     assert resp.headers["HX-Reswap"] == "none"
     assert "session cookie" in json.loads(resp.headers["HX-Trigger"])["showToast"]
+
+
+def _make_heic_bytes() -> bytes:
+    import pillow_heif  # noqa: F401  (registered by the app; import to be explicit)
+
+    img = Image.new("RGB", (320, 240), color=(40, 120, 200))
+    buf = io.BytesIO()
+    img.save(buf, format="HEIF")
+    return buf.getvalue()
+
+
+def test_heic_upload_is_analyzed_and_previewed_as_jpeg(client, app):
+    heic = _make_heic_bytes()
+    # Windows browsers often send HEIC without a useful content type.
+    data = {"file": (io.BytesIO(heic), "IMG_0001.HEIC", "application/octet-stream"), "image_url": ""}
+    resp = client.post("/analyze", data=data, content_type="multipart/form-data")
+    assert resp.status_code == 302
+    analysis_id = resp.headers["Location"].rsplit("/", 1)[-1]
+
+    page = client.get(f"/analysis/{analysis_id}").data.decode("utf-8")
+    assert f"/analysis/{analysis_id}/preview" in page
+    assert "HEIC" in page  # format row
+
+    raw = client.get(f"/analysis/{analysis_id}/raw")
+    assert raw.headers["Content-Type"] == "image/heic"
+    assert raw.data == heic
+
+    preview = client.get(f"/analysis/{analysis_id}/preview")
+    assert preview.headers["Content-Type"] == "image/jpeg"
+    with Image.open(io.BytesIO(preview.data)) as img:
+        assert img.size == (320, 240)
+
+    c2pa = client.get(f"/analysis/{analysis_id}/analyzers/c2pa").data.decode("utf-8")
+    assert "Failed to read C2PA" not in c2pa
+
+
+def test_preview_passes_browser_formats_through(client):
+    png = _make_test_image_bytes()
+    resp = client.post("/analyze", data={"file": (io.BytesIO(png), "a.png"), "image_url": ""}, content_type="multipart/form-data")
+    analysis_id = resp.headers["Location"].rsplit("/", 1)[-1]
+    preview = client.get(f"/analysis/{analysis_id}/preview")
+    assert preview.headers["Content-Type"] == "image/png"
+    assert preview.data == png
+
+
+def test_sniff_mime_type_prefers_detected_format():
+    from veracity.ingestion import sniff_mime_type
+
+    assert sniff_mime_type(_make_heic_bytes(), "application/octet-stream") == "image/heic"
+    assert sniff_mime_type(_make_test_image_bytes(), "image/jpeg") == "image/png"
+    assert sniff_mime_type(b"not an image", "image/x-foo") == "image/x-foo"

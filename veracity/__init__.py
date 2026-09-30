@@ -11,6 +11,13 @@ import os
 import logging
 
 load_dotenv()
+
+try:  # HEIC/HEIF support (e.g. iPhone photos) for every Pillow call in the app
+    from pillow_heif import register_heif_opener
+except ImportError:  # pragma: no cover - optional at import time
+    pass
+else:
+    register_heif_opener()
 csrf = CSRFProtect()
 db = SQLAlchemy()
 migrate = Migrate()

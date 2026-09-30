@@ -1141,3 +1141,39 @@ def test_build_vote_breakdown_handles_zero_totals():
     for segment in breakdown["segments"]:
         assert segment["count"] == 0
         assert segment["percent"] == 0
+
+
+def test_identify_producer_prefers_specific_sources():
+    from veracity.analyzers.c2pa import identify_producer
+
+    # Software on the action wins over the certificate issuer.
+    assert identify_producer(
+        software_agents=["Claude 5"], claim_generators=[], issuer="Anthropic, PBC"
+    ) == "Claude (Anthropic)"
+    # A Pixel camera signed by Google isn't mistaken for Gemini.
+    assert identify_producer(
+        software_agents=[], claim_generators=["Google Pixel Camera 10"], issuer="Google LLC"
+    ) == "Google Pixel camera"
+    assert identify_producer(
+        software_agents=[], claim_generators=["ChatGPT"], issuer="OpenAI"
+    ) == "ChatGPT (OpenAI)"
+    assert identify_producer(software_agents=[], claim_generators=["GIMP"], issuer="") == ""
+
+
+def test_generator_vocabulary_scopes_ambiguous_names_to_software_fields():
+    from veracity.analyzers.exif import _detect_ai_metadata
+
+    def tools(chunks):
+        return [f["tool"] for f in _detect_ai_metadata(chunks, b"")]
+
+    # Unambiguous product names count in free-text generator fields.
+    assert tools({"ImageDescription": "Made with Recraft v3"})
+    assert tools({"Title": "Sora render"}) == []
+    # Ambiguous names only count where the field names the software.
+    assert tools({"Title": "Firefly season at the lake"}) == []
+    assert tools({"Artist": "Leonardo da Vinci"}) == []
+    assert tools({"Software": "Adobe Firefly"})
+    assert tools({"Software": "Sora"})
+    assert tools({"Creator": "Kling 2.1"})
+    # Whole words only: "Fluxus" isn't FLUX.
+    assert tools({"Software": "Fluxus Editor"}) == []

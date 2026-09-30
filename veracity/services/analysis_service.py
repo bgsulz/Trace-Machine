@@ -170,6 +170,7 @@ def render_analysis_page(analysis_id: str, template_name: str = "result.html"):
     return render_template(
         template_name,
         image_url=url_for("main.serve_analysis_image", analysis_id=analysis_id),
+        preview_url=url_for("main.serve_analysis_preview", analysis_id=analysis_id),
         mime_type=metadata.get("mime_type"),
         source=metadata.get("source", "file"),
         analyzers=active_analyzers,

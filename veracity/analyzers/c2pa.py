@@ -1,5 +1,6 @@
 from __future__ import annotations
 import json
+import re
 import logging
 from io import BytesIO
 from typing import Any
@@ -28,10 +29,35 @@ _FORMAT_TO_MIME = {
     "PNG": "image/png",
     "WEBP": "image/webp",
     "GIF": "image/gif",
-    "AVIF": "image/avif",  # in case Pillow supports it
+    "AVIF": "image/avif",
+    "HEIF": "image/heic",  # via pillow-heif
 }
 
-_AVIF_BRANDS = {b"avif", b"avis", b"av01", b"mif1", b"msf1"}
+_AVIF_BRANDS = {b"avif", b"avis", b"av01"}
+_HEIF_BRANDS = {b"heic", b"heix", b"hevc", b"hevx", b"heim", b"heis", b"mif1", b"msf1"}
+
+# Known producers, checked in order against the manifest's generator fields.
+# More specific names come first so e.g. a Pixel camera isn't read as Gemini.
+_KNOWN_PRODUCERS: tuple[tuple[tuple[str, ...], str], ...] = (
+    (("claude", "anthropic"), "Claude (Anthropic)"),
+    (("chatgpt",), "ChatGPT (OpenAI)"),
+    (("gpt-image", "dall-e", "dall·e", "dalle"), "OpenAI image model"),
+    (("sora",), "Sora (OpenAI)"),
+    (("openai",), "OpenAI"),
+    (("pixel",), "Google Pixel camera"),
+    (("nano banana", "gemini", "imagen"), "Google Gemini"),
+    (("firefly",), "Adobe Firefly"),
+    (("photoshop",), "Adobe Photoshop"),
+    (("lightroom",), "Adobe Lightroom"),
+    (("designer", "bing image creator", "copilot"), "Microsoft"),
+    (("meta ai", "muse image"), "Meta AI"),
+    (("leica",), "Leica camera"),
+    (("nikon",), "Nikon camera"),
+    (("canon",), "Canon camera"),
+    (("sony",), "Sony camera"),
+    (("samsung", "galaxy"), "Samsung Galaxy"),
+    (("truepic",), "Truepic"),
+)
 _AI_SOURCE_TYPES = {
     "trainedalgorithmicmedia",
     "compositewithtrainedalgorithmicmedia",
@@ -76,9 +102,12 @@ def _detect_mime_type(image_bytes: bytes) -> str:
         return _FORMAT_TO_MIME.get(fmt, "application/octet-stream")
 
     # ISO-BMFF header check for AVIF/HEIF
-    if len(image_bytes) >= 12:
-        if image_bytes[4:8] == b"ftyp" and image_bytes[8:12] in _AVIF_BRANDS:
+    if len(image_bytes) >= 12 and image_bytes[4:8] == b"ftyp":
+        brand = image_bytes[8:12]
+        if brand in _AVIF_BRANDS:
             return "image/avif"
+        if brand in _HEIF_BRANDS:
+            return "image/heic"
 
     return "application/octet-stream"
 
@@ -168,13 +197,21 @@ def _run_c2pa_tool(image_bytes: bytes) -> dict[str, object]:
     origin_label = _build_origin_label(origin_signals)
     claim_generator_info = _extract_claim_generator_info(active_manifest)
     signature_info = _extract_signature_info(active_manifest)
+    producer = identify_producer(
+        software_agents=[a["software_agent"] for a in actions if a.get("software_agent")],
+        claim_generators=[claim_generator, *claim_generator_info],
+        issuer=signature_info.get("issuer", ""),
+    )
 
     summary = f"Signed by {signer}"
+    if producer and not _names_overlap(producer, signer):
+        summary += f" · {producer}"
     if origin_label:
         summary += f" ({origin_label})"
 
     data: dict[str, object] = {
         "signer": signer,
+        "producer": producer,
         "tool": claim_generator,
         "has_manifest": True,
         "provenance_depth": provenance_depth,
@@ -345,6 +382,34 @@ def _extract_actions_and_origin_signals(
                 actions.append(action_entry)
 
     return actions, sorted(source_signals)
+
+
+def _names_overlap(a: str, b: str) -> bool:
+    """True when two labels share a meaningful word (e.g. "Google")."""
+    words = lambda text: {w for w in re.findall(r"[a-z]+", text.lower()) if len(w) > 3}
+    return bool(words(a) & words(b))
+
+
+def identify_producer(
+    *,
+    software_agents: list[str],
+    claim_generators: list[str],
+    issuer: str,
+) -> str:
+    """Name the product behind a manifest, if it's one we recognize.
+
+    Sources are checked from most to least specific: the software recorded on
+    actions (what actually made the image), the claim generator (what wrote
+    the manifest), then the certificate issuer.
+    """
+    for source in (software_agents, claim_generators, [issuer]):
+        text = " ".join(str(value) for value in source if value).lower()
+        if not text:
+            continue
+        for tokens, label in _KNOWN_PRODUCERS:
+            if any(token in text for token in tokens):
+                return label
+    return ""
 
 
 def _extract_digital_source_type(action: dict[str, Any]) -> str:
