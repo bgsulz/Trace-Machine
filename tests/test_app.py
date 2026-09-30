@@ -542,3 +542,111 @@ def test_csrf_without_session_cookie_explains_instead_of_reloading(app_csrf):
     assert "HX-Refresh" not in resp.headers
     assert resp.headers["HX-Reswap"] == "none"
     assert "session cookie" in json.loads(resp.headers["HX-Trigger"])["showToast"]
+
+
+def _make_heic_bytes() -> bytes:
+    import pillow_heif  # noqa: F401  (registered by the app; import to be explicit)
+
+    img = Image.new("RGB", (320, 240), color=(40, 120, 200))
+    buf = io.BytesIO()
+    img.save(buf, format="HEIF")
+    return buf.getvalue()
+
+
+def test_heic_upload_is_analyzed_and_previewed_as_jpeg(client, app):
+    heic = _make_heic_bytes()
+    # Windows browsers often send HEIC without a useful content type.
+    data = {"file": (io.BytesIO(heic), "IMG_0001.HEIC", "application/octet-stream"), "image_url": ""}
+    resp = client.post("/analyze", data=data, content_type="multipart/form-data")
+    assert resp.status_code == 302
+    analysis_id = resp.headers["Location"].rsplit("/", 1)[-1]
+
+    page = client.get(f"/analysis/{analysis_id}").data.decode("utf-8")
+    assert f"/analysis/{analysis_id}/preview" in page
+    assert "HEIC" in page  # format row
+
+    raw = client.get(f"/analysis/{analysis_id}/raw")
+    assert raw.headers["Content-Type"] == "image/heic"
+    assert raw.data == heic
+
+    preview = client.get(f"/analysis/{analysis_id}/preview")
+    assert preview.headers["Content-Type"] == "image/jpeg"
+    with Image.open(io.BytesIO(preview.data)) as img:
+        assert img.size == (320, 240)
+
+    c2pa = client.get(f"/analysis/{analysis_id}/analyzers/c2pa").data.decode("utf-8")
+    assert "Failed to read C2PA" not in c2pa
+
+
+def test_preview_passes_browser_formats_through(client):
+    png = _make_test_image_bytes()
+    resp = client.post("/analyze", data={"file": (io.BytesIO(png), "a.png"), "image_url": ""}, content_type="multipart/form-data")
+    analysis_id = resp.headers["Location"].rsplit("/", 1)[-1]
+    preview = client.get(f"/analysis/{analysis_id}/preview")
+    assert preview.headers["Content-Type"] == "image/png"
+    assert preview.data == png
+
+
+def test_sniff_mime_type_prefers_detected_format():
+    from veracity.ingestion import sniff_mime_type
+
+    assert sniff_mime_type(_make_heic_bytes(), "application/octet-stream") == "image/heic"
+    assert sniff_mime_type(_make_test_image_bytes(), "image/jpeg") == "image/png"
+    assert sniff_mime_type(b"not an image", "image/x-foo") == "image/x-foo"
+
+
+
+def test_uploads_never_served_as_non_image_types(client):
+    """An XBM file (plain text Pillow accepts) sent as text/html must not come
+    back as HTML: that would be stored XSS on our origin."""
+    xbm = (
+        b"#define im_width 8\n#define im_height 1\n"
+        b"static char im_bits[] = {0xff};\n<script>alert(1)</script>\n"
+    )
+    data = {"file": (io.BytesIO(xbm), "x.html", "text/html"), "image_url": ""}
+    resp = client.post("/analyze", data=data, content_type="multipart/form-data")
+    assert resp.status_code == 302
+    analysis_id = resp.headers["Location"].rsplit("/", 1)[-1]
+
+    raw = client.get(f"/analysis/{analysis_id}/raw")
+    assert not raw.headers["Content-Type"].startswith("text/")
+    assert raw.headers["X-Content-Type-Options"] == "nosniff"
+    assert raw.headers["Content-Disposition"].startswith("attachment")
+
+
+def test_sniff_mime_type_rejects_non_image_fallbacks():
+    from veracity.ingestion import sniff_mime_type
+
+    assert sniff_mime_type(b"junk", "text/html") == "application/octet-stream"
+    assert sniff_mime_type(b"junk", "image/svg+xml") == "application/octet-stream"
+    assert sniff_mime_type(b"junk", "image/x-foo; charset=x") == "image/x-foo"
+
+
+def test_preview_is_cached_and_handles_alpha_and_16bit(app):
+    import numpy as np
+    from veracity.services.preview_service import (
+        cached_display_jpeg,
+        preview_path,
+        render_display_jpeg,
+    )
+
+    def encode(img, fmt):
+        buf = io.BytesIO()
+        img.save(buf, format=fmt)
+        return buf.getvalue()
+
+    # Transparent pixels flatten to white, not black.
+    transparent = Image.new("RGBA", (8, 8), (0, 0, 0, 0))
+    with Image.open(io.BytesIO(render_display_jpeg(encode(transparent, "PNG")))) as out:
+        assert min(out.getpixel((4, 4))) > 240
+
+    # 16-bit grayscale scales down instead of clipping to white.
+    gray16 = Image.fromarray(np.full((8, 8), 30000, dtype=np.uint16))
+    with Image.open(io.BytesIO(render_display_jpeg(encode(gray16, "TIFF")))) as out:
+        assert 100 < out.getpixel((4, 4))[0] < 140
+
+    with app.app_context():
+        heic = _make_heic_bytes()
+        first = cached_display_jpeg("previewtest", heic)
+        assert preview_path("previewtest").exists()
+        assert cached_display_jpeg("previewtest", b"not used when cached") == first

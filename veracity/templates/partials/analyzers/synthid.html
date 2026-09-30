@@ -37,8 +37,9 @@
   </p>
   {% if analysis_id %}
   {% set raw_url = url_for('main.serve_analysis_image', analysis_id=analysis_id) %}
+  {% set preview_url = url_for('main.serve_analysis_preview', analysis_id=analysis_id) %}
   <div class="cluster portal-handoff">
-    {{ drag_chip(raw_url, "Drag into a portal", "Drag this image into the portal's upload area") }}
+    {{ drag_chip(preview_url, "Drag into a portal", "Drag this image into the portal's upload area") }}
     <span class="faint">or</span>
     <a href="{{ raw_url }}" download="trace-machine-{{ analysis_id[:8] }}">download the image</a>
   </div>

@@ -1,10 +1,10 @@
 from __future__ import annotations
 import json
+import re
 import logging
 from io import BytesIO
 from typing import Any
 
-from PIL import Image, UnidentifiedImageError
 from sqlalchemy.exc import IntegrityError
 
 from .. import db
@@ -13,6 +13,7 @@ from .context import AnalysisContext
 from .hash_utils import (
     iter_neighbor_views,
 )
+from ..ingestion import sniff_mime_type
 from .trust_assessment import build_trust_assessment, extract_validation_codes
 
 try:  # pragma: no cover - import guard
@@ -23,15 +24,32 @@ except ImportError:  # pragma: no cover - handled at runtime
 logger = logging.getLogger(__name__)
 
 
-_FORMAT_TO_MIME = {
-    "JPEG": "image/jpeg",
-    "PNG": "image/png",
-    "WEBP": "image/webp",
-    "GIF": "image/gif",
-    "AVIF": "image/avif",  # in case Pillow supports it
-}
 
-_AVIF_BRANDS = {b"avif", b"avis", b"av01", b"mif1", b"msf1"}
+_AVIF_BRANDS = {b"avif", b"avis", b"av01"}
+_HEIF_BRANDS = {b"heic", b"heix", b"hevc", b"hevx", b"heim", b"heis"}
+
+# Known producers, checked in order against the manifest's generator fields.
+# More specific names come first so e.g. a Pixel camera isn't read as Gemini.
+_KNOWN_PRODUCERS: tuple[tuple[tuple[str, ...], str], ...] = (
+    (("claude", "anthropic"), "Claude (Anthropic)"),
+    (("chatgpt",), "ChatGPT (OpenAI)"),
+    (("gpt-image", "dall-e", "dall·e", "dalle"), "OpenAI image model"),
+    (("sora",), "Sora (OpenAI)"),
+    (("openai",), "OpenAI"),
+    (("google pixel", "pixel camera"), "Google Pixel camera"),
+    (("nano banana", "gemini", "imagen"), "Google Gemini"),
+    (("firefly",), "Adobe Firefly"),
+    (("photoshop",), "Adobe Photoshop"),
+    (("lightroom",), "Adobe Lightroom"),
+    (("microsoft designer", "bing image creator", "microsoft copilot"), "Microsoft"),
+    (("meta ai", "muse image"), "Meta AI"),
+    (("leica",), "Leica camera"),
+    (("nikon",), "Nikon camera"),
+    (("canon",), "Canon camera"),
+    (("sony",), "Sony camera"),
+    (("samsung galaxy", "galaxy s", "galaxy z"), "Samsung Galaxy"),
+    (("truepic",), "Truepic"),
+)
 _AI_SOURCE_TYPES = {
     "trainedalgorithmicmedia",
     "compositewithtrainedalgorithmicmedia",
@@ -67,19 +85,23 @@ _ACTION_NAME_OVERRIDES = {
 
 
 def _detect_mime_type(image_bytes: bytes) -> str:
-    try:
-        with Image.open(BytesIO(image_bytes)) as img:
-            fmt = (img.format or "").upper()
-    except (UnidentifiedImageError, OSError):
-        pass
-    else:
-        return _FORMAT_TO_MIME.get(fmt, "application/octet-stream")
+    mime_type = sniff_mime_type(image_bytes)
+    if mime_type != "application/octet-stream":
+        return mime_type
 
-    # ISO-BMFF header check for AVIF/HEIF
-    if len(image_bytes) >= 12:
-        if image_bytes[4:8] == b"ftyp" and image_bytes[8:12] in _AVIF_BRANDS:
-            return "image/avif"
-
+    # Pillow couldn't open it; fall back to the ISO-BMFF brands (major brand
+    # first, then the compatible-brand list) for AVIF/HEIF.
+    if len(image_bytes) >= 16 and image_bytes[4:8] == b"ftyp":
+        box_size = int.from_bytes(image_bytes[0:4], "big")
+        brands = [image_bytes[8:12]] + [
+            image_bytes[i : i + 4]
+            for i in range(16, min(box_size, len(image_bytes), 64), 4)
+        ]
+        for brand in brands:
+            if brand in _AVIF_BRANDS:
+                return "image/avif"
+            if brand in _HEIF_BRANDS:
+                return "image/heic"
     return "application/octet-stream"
 
 
@@ -168,13 +190,21 @@ def _run_c2pa_tool(image_bytes: bytes) -> dict[str, object]:
     origin_label = _build_origin_label(origin_signals)
     claim_generator_info = _extract_claim_generator_info(active_manifest)
     signature_info = _extract_signature_info(active_manifest)
+    producer = identify_producer(
+        software_agents=[a["software_agent"] for a in actions if a.get("software_agent")],
+        claim_generators=[claim_generator, *claim_generator_info],
+        issuer=signature_info.get("issuer", ""),
+    )
 
     summary = f"Signed by {signer}"
+    if producer and not _names_overlap(producer, signer):
+        summary += f" · {producer}"
     if origin_label:
         summary += f" ({origin_label})"
 
     data: dict[str, object] = {
         "signer": signer,
+        "producer": producer,
         "tool": claim_generator,
         "has_manifest": True,
         "provenance_depth": provenance_depth,
@@ -345,6 +375,47 @@ def _extract_actions_and_origin_signals(
                 actions.append(action_entry)
 
     return actions, sorted(source_signals)
+
+
+def _names_overlap(a: str, b: str) -> bool:
+    """True when two labels share a meaningful word (e.g. "Google")."""
+    words = lambda text: {w for w in re.findall(r"[a-z]+", text.lower()) if len(w) > 3}
+    return bool(words(a) & words(b))
+
+
+# The certificate issuer names who signed, not what made the image (a camera
+# maker can sign its editing app), so it may only suggest these vendor labels.
+_ISSUER_LABELS = {"Claude (Anthropic)", "OpenAI", "Google Gemini", "Adobe Firefly", "Truepic"}
+
+
+def _match_producer(text: str) -> str:
+    normalized = re.sub(r"[_\-]+", " ", text.lower())
+    for tokens, label in _KNOWN_PRODUCERS:
+        for token in tokens:
+            if re.search(rf"(?<![a-z]){re.escape(token)}(?![a-z])", normalized):
+                return label
+    return ""
+
+
+def identify_producer(
+    *,
+    software_agents: list[str],
+    claim_generators: list[str],
+    issuer: str,
+) -> str:
+    """Name the product behind a manifest, if it's one we recognize.
+
+    Sources are checked from most to least specific, one value at a time and
+    in order: the software recorded on actions (the first action is usually
+    the one that created the image), then the claim generator (what wrote the
+    manifest). The certificate issuer is a last resort, and only for vendors.
+    Names are matched as whole words, so "Pixelmator" isn't a Pixel camera.
+    """
+    for value in [*software_agents, *claim_generators]:
+        if value and (label := _match_producer(str(value))):
+            return label
+    label = _match_producer(issuer or "")
+    return label if label in _ISSUER_LABELS else ""
 
 
 def _extract_digital_source_type(action: dict[str, Any]) -> str:

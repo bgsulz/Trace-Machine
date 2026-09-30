@@ -12,6 +12,47 @@ class IngestionError(Exception):
     pass
 
 
+_FORMAT_MIME_TYPES = {
+    "JPEG": "image/jpeg",
+    # Multi-picture JPEGs (Ultra HDR / gain-map photos from Pixel, Samsung,
+    # iPhone) are ordinary JPEGs as far as browsers and C2PA are concerned.
+    "MPO": "image/jpeg",
+    "PNG": "image/png",
+    "WEBP": "image/webp",
+    "GIF": "image/gif",
+    "AVIF": "image/avif",
+    "HEIF": "image/heic",
+    "TIFF": "image/tiff",
+    "BMP": "image/bmp",
+}
+
+# Formats every mainstream browser can display as-is.
+BROWSER_DISPLAYABLE = {
+    "image/jpeg", "image/png", "image/webp", "image/gif", "image/avif", "image/bmp",
+}
+
+
+def sniff_mime_type(data: bytes, fallback: str | None = None) -> str:
+    """Return the MIME type of image bytes, preferring what Pillow detects.
+
+    Browser-supplied and server-supplied types are unreliable (Windows often
+    sends HEIC as application/octet-stream), so they're only a fallback, and
+    only an ``image/*`` fallback is ever returned: the type is later used to
+    serve the bytes back, and e.g. ``text/html`` there would be stored XSS.
+    """
+    try:
+        with Image.open(BytesIO(data)) as img:
+            detected = _FORMAT_MIME_TYPES.get((img.format or "").upper())
+    except (UnidentifiedImageError, OSError, Image.DecompressionBombError):
+        detected = None
+    if detected:
+        return detected
+    fallback = (fallback or "").split(";")[0].strip().lower()
+    if fallback.startswith("image/") and "svg" not in fallback:
+        return fallback
+    return "application/octet-stream"
+
+
 def validate_image_bytes(data: bytes) -> None:
     """Validate that the given bytes represent a loadable image.
 
@@ -61,7 +102,7 @@ def fetch_image_bytes(url: str) -> tuple[bytes, str]:
             raise IngestionError("Provided data URL is too large.")
 
         validate_image_bytes(data_bytes)
-        return data_bytes, media_type
+        return data_bytes, sniff_mime_type(data_bytes, media_type)
 
     if parsed.scheme not in {"http", "https"}:
         raise IngestionError("Only HTTP/HTTPS URLs are supported.")
@@ -100,5 +141,4 @@ def fetch_image_bytes(url: str) -> tuple[bytes, str]:
     data = bytes(buf)
     validate_image_bytes(data)
 
-    mime_type = content_type or "application/octet-stream"
-    return data, mime_type
+    return data, sniff_mime_type(data, content_type)

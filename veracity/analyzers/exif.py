@@ -38,6 +38,7 @@ _LOCAL_GENERATION_KEYS = {
 }
 _GENERATOR_VALUE_FIELDS = {
     "software",
+    "creator",
     "make",
     "artist",
     "imagedescription",
@@ -46,8 +47,9 @@ _GENERATOR_VALUE_FIELDS = {
     "description",
     "xmp:xmp:creatortool",
 }
+# Product names that only ever mean the AI tool; counted in any generator field.
 _GENERATOR_TOKENS = (
-    "firefly",
+    "adobe firefly",
     "dall-e",
     "dall e",
     "dalle",
@@ -55,20 +57,57 @@ _GENERATOR_TOKENS = (
     "stable diffusion",
     "stable-diffusion",
     "stablediffusion",
+    "sdxl",
     "comfyui",
     "automatic1111",
     "invokeai",
-    "imagen",
     "gpt-image",
+    "chatgpt",
     "nightcafe",
     "ideogram",
-    "leonardo",
-    "flux",
+    "leonardo.ai",
+    "leonardo ai",
     "dreamstudio",
     "novelai",
     "reve.com",
     "aphrodite ai",
+    "craiyon",
+    "tensorart",
+    "tensor.art",
+    "recraft",
+    "clipdrop",
+    "bing image creator",
+    "image creator from microsoft designer",
+    "nano banana",
+    # Versioned FLUX names can't be ordinary words ("Fluxus", "in flux").
+    "flux.1",
+    "flux 1",
+    "flux1",
+    "flux pro",
+    "flux dev",
+    "flux schnell",
+    "flux kontext",
 )
+# Names that are also ordinary words or people ("Firefly season", "Leonardo
+# da Vinci", "Gemini"), so they only count in fields that name the software.
+_AMBIGUOUS_GENERATOR_TOKENS = (
+    "firefly",
+    "flux",
+    "leonardo",
+    "imagen",
+    "gemini",
+    "sora",
+    "veo",
+    "kling",
+    "runway",
+    "luma",
+    "qwen",
+    "grok",
+    "deepai",
+)
+# Fields that name the software. PNG "Creator" is deliberately excluded: it
+# often holds a person's name, so only unambiguous product names count there.
+_SOFTWARE_FIELDS = {"software", "xmp:xmp:creatortool"}
 _PREVIEW_LIMIT = 200
 _BASIC_METADATA_KEYS = {"FileType", "ImageSize", "ColorMode", "BitDepth"}
 
@@ -488,7 +527,7 @@ _AI_XMP_INDICATORS: dict[str, re.Pattern[str]] = {
         r"(ai[- ]generated|made.?with.?ai)", re.IGNORECASE
     ),
     "XMP:dc:description": re.compile(
-        r"(firefly|midjourney|dall[·\-\s]?e|stable.?diffusion)", re.IGNORECASE
+        r"(adobe firefly|midjourney|dall[·\-\s]?e|stable.?diffusion)", re.IGNORECASE
     ),
 }
 
@@ -525,7 +564,9 @@ def _detect_ai_metadata(
             findings.append(_build_local_metadata_finding(key, value))
             continue
 
-        if normalized_key in _GENERATOR_VALUE_FIELDS and _matches_generator_token(value):
+        if normalized_key in _GENERATOR_VALUE_FIELDS and _matches_generator_token(
+            value, software_field=normalized_key in _SOFTWARE_FIELDS
+        ):
             findings.append(_build_generator_tag_finding(key, value))
 
     for xmp_key, pattern in _AI_XMP_INDICATORS.items():
@@ -552,9 +593,22 @@ def _looks_like_json_object(value: str) -> bool:
     return value.strip().startswith("{")
 
 
-def _matches_generator_token(value: str) -> bool:
-    normalized = value.lower().replace("·", "-")
-    return any(token in normalized for token in _GENERATOR_TOKENS)
+def _normalize_generator_text(value: str) -> str:
+    # "nano-banana", "Stable_Diffusion", "DALL·E" -> spaced words
+    return re.sub(r"[\s_\-·]+", " ", value.lower())
+
+
+def _matches_generator_token(value: str, *, software_field: bool = False) -> bool:
+    normalized = _normalize_generator_text(value)
+    if any(_normalize_generator_text(token) in normalized for token in _GENERATOR_TOKENS):
+        return True
+    if not software_field:
+        return False
+    # Whole-word match so e.g. "Fluxus" or "Soraya" don't count.
+    return any(
+        re.search(rf"(?<![a-z]){re.escape(token)}(?![a-z])", normalized)
+        for token in _AMBIGUOUS_GENERATOR_TOKENS
+    )
 
 
 def _detect_iptc_findings(

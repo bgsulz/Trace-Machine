@@ -1141,3 +1141,86 @@ def test_build_vote_breakdown_handles_zero_totals():
     for segment in breakdown["segments"]:
         assert segment["count"] == 0
         assert segment["percent"] == 0
+
+
+def test_identify_producer_prefers_specific_sources():
+    from veracity.analyzers.c2pa import identify_producer
+
+    # Software on the action wins over the certificate issuer.
+    assert identify_producer(
+        software_agents=["Claude 5"], claim_generators=[], issuer="Anthropic, PBC"
+    ) == "Claude (Anthropic)"
+    # A Pixel camera signed by Google isn't mistaken for Gemini.
+    assert identify_producer(
+        software_agents=[], claim_generators=["Google Pixel Camera 10"], issuer="Google LLC"
+    ) == "Google Pixel camera"
+    assert identify_producer(
+        software_agents=[], claim_generators=["ChatGPT"], issuer="OpenAI"
+    ) == "ChatGPT (OpenAI)"
+    assert identify_producer(software_agents=[], claim_generators=["GIMP"], issuer="") == ""
+
+
+def test_generator_vocabulary_scopes_ambiguous_names_to_software_fields():
+    from veracity.analyzers.exif import _detect_ai_metadata
+
+    def tools(chunks):
+        return [f["tool"] for f in _detect_ai_metadata(chunks, b"")]
+
+    # Unambiguous product names count in free-text generator fields.
+    assert tools({"ImageDescription": "Made with Recraft v3"})
+    assert tools({"Title": "Sora render"}) == []
+    # Ambiguous names only count where the field names the software.
+    assert tools({"Title": "Firefly season at the lake"}) == []
+    assert tools({"Artist": "Leonardo da Vinci"}) == []
+    assert tools({"Software": "Adobe Firefly"})
+    assert tools({"Software": "Sora"})
+    # PNG "Creator" often holds a person's name, so only unambiguous names count.
+    assert tools({"Creator": "Luma Chen"}) == []
+    assert tools({"Creator": "Midjourney"})
+    # Versioned names and hyphenated spellings.
+    assert tools({"ImageDescription": "Generated with FLUX.1 [dev]"})
+    assert tools({"Software": "nano-banana"})
+    # Whole words only: "Fluxus" isn't FLUX.
+    assert tools({"Software": "Fluxus Editor"}) == []
+
+
+
+def test_identify_producer_matches_whole_words_only():
+    from veracity.analyzers.c2pa import identify_producer
+
+    def label(agent="", generator="", issuer=""):
+        return identify_producer(
+            software_agents=[agent] if agent else [],
+            claim_generators=[generator] if generator else [],
+            issuer=issuer,
+        )
+
+    assert label("Pixelmator Pro") == ""
+    assert label("Affinity Designer 2") == ""
+    assert label("Soraya Studio") == ""
+    assert label(generator="CanonicalCorp") == ""
+    assert label(generator="Microsoft Designer") == "Microsoft"
+    # The first action (usually "created") wins over later edits.
+    assert identify_producer(
+        software_agents=["Google Pixel Camera", "Gemini"], claim_generators=[], issuer=""
+    ) == "Google Pixel camera"
+    # The issuer can name a vendor but never implies a device.
+    assert label(issuer="Sony Corporation") == ""
+    assert label(issuer="OpenAI") == "OpenAI"
+
+
+def test_c2pa_mime_detection_handles_mpo_and_tiff():
+    import io
+    from PIL import Image
+    from veracity.analyzers.c2pa import _detect_mime_type
+
+    def encode(fmt, **kwargs):
+        buf = io.BytesIO()
+        Image.new("RGB", (32, 32)).save(buf, format=fmt, **kwargs)
+        return buf.getvalue()
+
+    frames = [Image.new("RGB", (32, 32)), Image.new("RGB", (32, 32), (9, 9, 9))]
+    mpo = io.BytesIO()
+    frames[0].save(mpo, format="MPO", save_all=True, append_images=frames[1:])
+    assert _detect_mime_type(mpo.getvalue()) == "image/jpeg"
+    assert _detect_mime_type(encode("TIFF")) == "image/tiff"

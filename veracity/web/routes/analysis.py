@@ -21,6 +21,7 @@ from ...analyzers.manager import _format_result, get_analyzer_spec
 from ...services.containment_service import save_containment_link
 from ...services.remote_image_service import fetch_remote_image
 from ...registry import prepare_analysis_context
+from ...services.preview_service import PreviewError, cached_display_jpeg
 from ...services.reporting import build_report_payload
 from ...services.voting_service import VOTE_CHOICES
 
@@ -65,7 +66,38 @@ def register_analysis_routes(
 
         image_bytes, metadata = payload
         mime_type = metadata.get("mime_type", "application/octet-stream")
-        return send_file(BytesIO(image_bytes), mimetype=mime_type, max_age=3600)
+        if not mime_type.startswith("image/") or "svg" in mime_type:
+            mime_type = "application/octet-stream"
+        return send_file(
+            BytesIO(image_bytes),
+            mimetype=mime_type,
+            max_age=3600,
+            # Anything a browser can't show inline is offered as a download.
+            as_attachment=mime_type not in ingestion.BROWSER_DISPLAYABLE,
+            download_name=f"trace-machine-{analysis_id[:8]}",
+        )
+
+    @bp.route("/analysis/<analysis_id>/preview")
+    def serve_analysis_preview(analysis_id: str):
+        """Serve a browser-displayable version of the analyzed image.
+
+        Formats browsers can't show (e.g. HEIC) are converted to JPEG with the
+        EXIF orientation applied, so crop coordinates line up with /raw.
+        """
+        payload = load_analysis_payload(analysis_id)
+        if payload is None:
+            abort(404)
+
+        image_bytes, metadata = payload
+        mime_type = metadata.get("mime_type", "application/octet-stream")
+        if mime_type in ingestion.BROWSER_DISPLAYABLE:
+            return send_file(BytesIO(image_bytes), mimetype=mime_type, max_age=3600)
+
+        try:
+            data = cached_display_jpeg(analysis_id, image_bytes)
+        except PreviewError:
+            abort(415)
+        return send_file(BytesIO(data), mimetype="image/jpeg", max_age=3600)
 
     @bp.route("/analysis/<analysis_id>/export.json")
     def export_analysis_json(analysis_id: str):
@@ -195,7 +227,7 @@ def register_analysis_routes(
                 source = "file"
                 image_bytes = file.read()
                 ingestion.validate_image_bytes(image_bytes)
-                mime_type = file.mimetype or "application/octet-stream"
+                mime_type = ingestion.sniff_mime_type(image_bytes, file.mimetype)
             else:
                 flash("Please provide an image file or a URL.")
                 return redirect(url_for("main.index"))

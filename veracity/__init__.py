@@ -11,6 +11,13 @@ import os
 import logging
 
 load_dotenv()
+
+try:  # HEIC/HEIF support (e.g. iPhone photos) for every Pillow call in the app
+    from pillow_heif import register_heif_opener
+except ImportError:  # pragma: no cover - optional at import time
+    pass
+else:
+    register_heif_opener()
 csrf = CSRFProtect()
 db = SQLAlchemy()
 migrate = Migrate()
@@ -113,6 +120,12 @@ def create_app(test_config=None):
     from .routes import bp as main_bp
 
     app.register_blueprint(main_bp)
+
+    @app.after_request
+    def _security_headers(response):
+        # Never let browsers reinterpret a served file (e.g. an upload) as HTML.
+        response.headers.setdefault("X-Content-Type-Options", "nosniff")
+        return response
 
     return app
 

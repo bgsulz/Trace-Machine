@@ -377,12 +377,17 @@ def deserialize_feature_payload(payload: bytes) -> LocalFeaturePayload | None:
     )
 
 
+_MIN_FEATURE_SIDE = 32
+
+
 def _load_grayscale_image(image_bytes: bytes, *, max_side: int) -> np.ndarray | None:
     try:
         with Image.open(BytesIO(image_bytes)) as img:
             img = ImageOps.exif_transpose(img).convert("L")
             width, height = img.size
-            if width <= 0 or height <= 0:
+            # Too small to hold meaningful features; OpenCV's detectors also
+            # fail outright when their image pyramid scales to zero.
+            if min(width, height) < _MIN_FEATURE_SIDE:
                 return None
 
             largest = max(width, height)

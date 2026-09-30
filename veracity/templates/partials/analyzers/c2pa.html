@@ -47,9 +47,10 @@
   </div>
   {% endif %}
 
-  {% set has_fields = row.data.origin_label or row.data.signer or row.data.tool or row.data.claim_generator_info or signature_info.time or row.data.manifest_format or (row.data.provenance_depth is defined and row.data.provenance_depth is not none) %}
+  {% set has_fields = row.data.producer or row.data.origin_label or row.data.signer or row.data.tool or row.data.claim_generator_info or signature_info.time or row.data.manifest_format or (row.data.provenance_depth is defined and row.data.provenance_depth is not none) %}
   {% if has_fields or row.data.signature_status or row.data.manifest_label %}
   <dl class="kv">
+    {% if row.data.producer %}<dt>Product</dt><dd>{{ row.data.producer }}</dd>{% endif %}
     {% if row.data.origin_label %}<dt>Origin signal</dt><dd>{{ row.data.origin_label }}</dd>{% endif %}
     {% if row.data.signer %}<dt>Signer</dt><dd>{{ row.data.signer }}</dd>{% endif %}
     {% if row.data.tool %}<dt>Tool</dt><dd>{{ row.data.tool }}</dd>{% endif %}

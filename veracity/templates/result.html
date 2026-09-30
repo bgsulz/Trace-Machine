@@ -31,7 +31,7 @@
 
     <figure class="specimen">
       <div class="crop-stage" id="crop-stage" data-min-px="150">
-        <img src="{{ image_url }}" alt="Analyzed image" id="result-image" draggable="false" />
+        <img src="{{ preview_url }}" alt="Analyzed image" id="result-image" draggable="false" />
         {% for region in regions %}
         <button
           type="button"
@@ -68,7 +68,7 @@
         {% if regions and regions[0].kind == "suggested" %}
         <button type="button" class="btn btn--sm" data-select-region="region-suggested" title="{{ auto_crop.method }}">{{ icon("scan") }} Use suggested crop</button>
         {% endif %}
-        {{ drag_chip(image_url, "Drag out", "Drag this image into another window, such as a verification portal") }}
+        {{ drag_chip(preview_url, "Drag out", "Drag this image into another window, such as a verification portal") }}
         <a class="btn btn--sm btn--ghost" href="{{ image_url }}" download="trace-machine-{{ analysis_id[:8] }}">{{ icon("download") }} Image</a>
       </div>
 
