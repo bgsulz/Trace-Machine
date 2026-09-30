@@ -38,21 +38,25 @@ def test_bad_schemes_and_credentials_are_refused(url):
         check_url(url)
 
 
+class FakeResponse:
+    def __init__(self, status=200, headers=None, chunks=()):
+        self.status = status
+        self.headers = headers or {}
+        self._chunks = chunks
+
+    def stream(self, size):
+        yield from self._chunks
+
+    def release_conn(self):
+        pass
+
+
 def test_redirects_are_rechecked_at_every_hop(monkeypatch):
     """A public URL that redirects to an internal address is refused."""
-
-    class Redirect:
-        status_code = 302
-        is_redirect = True
-        headers = {"Location": "http://metadata.internal/latest"}
-
-        def __enter__(self):
-            return self
-
-        def __exit__(self, *exc):
-            return False
-
-    monkeypatch.setattr("veracity.safe_fetch.requests.get", lambda url, **kw: Redirect())
+    monkeypatch.setattr(
+        "veracity.safe_fetch._request",
+        lambda target: FakeResponse(302, {"Location": "http://metadata.internal/latest"}),
+    )
     monkeypatch.setattr(
         "veracity.safe_fetch.socket.getaddrinfo",
         lambda host, port, **kw: [
@@ -64,25 +68,72 @@ def test_redirects_are_rechecked_at_every_hop(monkeypatch):
 
 
 def test_size_limit_is_enforced(monkeypatch):
-    class Big:
-        status_code = 200
-        is_redirect = False
-        headers = {"Content-Type": "image/png"}
-
-        def iter_content(self, chunk_size=8192):
-            for _ in range(10):
-                yield b"x" * 1000
-
-        def __enter__(self):
-            return self
-
-        def __exit__(self, *exc):
-            return False
-
     _resolve_to(monkeypatch, "93.184.216.34")
-    monkeypatch.setattr("veracity.safe_fetch.requests.get", lambda url, **kw: Big())
+    monkeypatch.setattr(
+        "veracity.safe_fetch._request",
+        lambda target: FakeResponse(200, {"Content-Type": "image/png"}, [b"x" * 1000] * 10),
+    )
     with pytest.raises(FetchError):
         safe_get("https://example.com/big", max_bytes=5000)
+
+
+def test_connects_to_the_checked_address(monkeypatch):
+    """The connection uses the address that passed the check (no re-resolve)."""
+    _resolve_to(monkeypatch, "93.184.216.34")
+    seen = {}
+
+    def fake_request(target):
+        seen.update(address=target.address, host=target.host, path=target.path)
+        return FakeResponse(200, {"Content-Type": "image/png"}, [b"ok"])
+
+    monkeypatch.setattr("veracity.safe_fetch._request", fake_request)
+    result = safe_get("https://example.com/a.png?x=1", max_bytes=100)
+    assert result.content == b"ok"
+    assert seen == {"address": "93.184.216.34", "host": "example.com", "path": "/a.png?x=1"}
+
+
+def test_slow_downloads_hit_the_deadline(monkeypatch):
+    _resolve_to(monkeypatch, "93.184.216.34")
+    clock = iter(range(0, 1000, 5))
+    monkeypatch.setattr("veracity.safe_fetch.time.monotonic", lambda: next(clock))
+    monkeypatch.setattr(
+        "veracity.safe_fetch._request",
+        lambda target: FakeResponse(200, {}, [b"x"] * 100),
+    )
+    with pytest.raises(FetchError, match="too long"):
+        safe_get("https://example.com/slow", max_bytes=10_000)
+
+
+@pytest.mark.parametrize(
+    "address",
+    ["64:ff9b::a9fe:a9fe", "64:ff9b::7f00:1", "::127.0.0.1", "fec0::1", "64:ff9b:1::1"],
+)
+def test_ipv6_forms_hiding_internal_addresses_are_refused(monkeypatch, address):
+    _resolve_to(monkeypatch, address)
+    with pytest.raises(UnsafeURLError):
+        check_url("http://sneaky.example/")
+
+
+def test_bad_ports_are_refused_cleanly(monkeypatch):
+    _resolve_to(monkeypatch, "93.184.216.34")
+    for url in ("http://example.com:99999/", "http://example.com:22/"):
+        with pytest.raises(UnsafeURLError):
+            check_url(url)
+
+
+def test_unresolvable_and_private_hosts_look_the_same(monkeypatch):
+    import socket
+
+    def fail(*args, **kwargs):
+        raise socket.gaierror("nope")
+
+    monkeypatch.setattr("veracity.safe_fetch.socket.getaddrinfo", fail)
+    with pytest.raises(UnsafeURLError) as unresolvable:
+        check_url("http://db.internal/")
+    _resolve_to(monkeypatch, "10.0.0.5")
+    with pytest.raises(UnsafeURLError) as private:
+        check_url("http://db2.internal/")
+    assert str(unresolvable.value) == str(private.value)
 
 
 def test_analyze_url_refuses_internal_addresses(client, monkeypatch):

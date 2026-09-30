@@ -90,9 +90,14 @@ _ACTION_NAME_OVERRIDES = {
 
 _REMOTE_MANIFEST_MAX_BYTES = 5 * 1024 * 1024
 _REMOTE_URL_IN_ERROR = re.compile(r"remote manifests? from url (\S+)", re.IGNORECASE)
+# Bounded on purpose: this runs on attacker-supplied bytes, so no unbounded
+# repetition that could backtrack across a large file.
 _PROVENANCE_XMP = re.compile(
-    rb"dcterms:provenance(?:=\"([^\"]+)\"|>\s*([^<\s]+)\s*<)"
+    rb'dcterms:provenance(?:="([^"<>]{1,2048})"|>[ \t\r\n]{0,64}([^<\s]{1,2048})[ \t\r\n]{0,64}<)'
 )
+_XMP_START = b"<x:xmpmeta"
+_XMP_END = b"</x:xmpmeta>"
+_XMP_SCAN_LIMIT = 64 * 1024
 _thread_state = threading.local()
 
 
@@ -115,7 +120,13 @@ def _remote_manifest_url(error_message: str, image_bytes: bytes) -> str | None:
         return match.group(1)
     if "remote" not in error_message.lower():
         return None
-    if match := _PROVENANCE_XMP.search(image_bytes):
+    # Only look inside the XMP packet, and only so far into it.
+    start = image_bytes.find(_XMP_START)
+    if start < 0:
+        return None
+    end = image_bytes.find(_XMP_END, start, start + _XMP_SCAN_LIMIT)
+    packet = image_bytes[start : end if end >= 0 else start + _XMP_SCAN_LIMIT]
+    if match := _PROVENANCE_XMP.search(packet):
         return (match.group(1) or match.group(2)).decode("utf-8", "replace")
     return None
 
@@ -314,8 +325,15 @@ def run_c2pa(context: AnalysisContext) -> dict[str, object]:
 
     status = str(result.get("status", "UNKNOWN"))
 
-    # 2. If we found fresh metadata, save it to the DB.
-    if status == "FOUND":
+    # 2. If we found fresh metadata, save it to the DB. A remote manifest's
+    # host is chosen by whoever made the image, so only record it as a fact
+    # when it validated cleanly.
+    data_for_fact = result.get("data") or {}
+    unverified_remote = bool(data_for_fact.get("remote_manifest_url")) and (
+        (data_for_fact.get("trust_assessment") or {}).get("overall_severity") == "error"
+        or data_for_fact.get("signature_status") == "invalid"
+    )
+    if status == "FOUND" and not unverified_remote:
         fact = ProvenanceFact(
             image_id=context.registry_id,
             analyzer="c2pa",

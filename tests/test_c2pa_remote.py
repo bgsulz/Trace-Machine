@@ -89,7 +89,8 @@ def test_private_manifest_url_is_never_requested(app, manifest_server):
     assert manifest_server["hits"] == []  # neither c2pa nor we fetched it
     assert result["status"] == "REFERENCED"
     assert result["data"]["remote_manifest_url"] == manifest_server["url"]
-    assert "public internet" in result["data"]["remote_error"]
+    # Refused before any connection (non-standard port and private address).
+    assert result["data"]["remote_error"]
 
 
 def test_remote_manifest_is_fetched_and_validated(app, manifest_server):
@@ -118,3 +119,24 @@ def test_unreachable_remote_manifest_is_reported(app, manifest_server):
 
     assert result["status"] == "REFERENCED"
     assert "404" in result["data"]["remote_error"]
+
+
+def test_provenance_regex_is_linear_on_hostile_input():
+    """Crafted XMP must not stall the server (the regex runs on uploads)."""
+    import time
+
+    from veracity.analyzers.c2pa import _remote_manifest_url
+
+    hostile = b"<x:xmpmeta>" + b"dcterms:provenance>" * 50_000
+    start = time.perf_counter()
+    assert _remote_manifest_url("remote url is badly formed", hostile) is None
+    assert time.perf_counter() - start < 0.5
+
+
+def test_provenance_url_is_read_from_xmp():
+    from veracity.analyzers.c2pa import _remote_manifest_url
+
+    xmp = b'junk<x:xmpmeta><rdf:Description dcterms:provenance="https://cdn.example/m.c2pa"/></x:xmpmeta>'
+    assert _remote_manifest_url("remote: something", xmp) == "https://cdn.example/m.c2pa"
+    element = b"<x:xmpmeta><dcterms:provenance> https://cdn.example/e.c2pa </dcterms:provenance></x:xmpmeta>"
+    assert _remote_manifest_url("remote", element) == "https://cdn.example/e.c2pa"

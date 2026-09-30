@@ -1,7 +1,7 @@
 import base64
 
 import pytest
-import requests
+import urllib3
 
 from veracity.ingestion import IngestionError, fetch_image_bytes, validate_image_bytes
 from conftest import _make_test_image_bytes
@@ -23,28 +23,24 @@ def test_validate_image_bytes_rejects_invalid():
 
 def test_fetch_image_bytes_success(app, monkeypatch):
     class DummyResponse:
-        status_code = 200
-        is_redirect = False
+        status = 200
         headers = {"Content-Type": "image/png"}
 
         def __init__(self, content: bytes):
             self._content = content
 
-        def iter_content(self, chunk_size=8192):
+        def stream(self, size=8192):
             yield self._content
 
-        def __enter__(self):
-            return self
-
-        def __exit__(self, exc_type, exc, tb):
-            return False
+        def release_conn(self):
+            pass
 
     dummy_image_bytes = _make_test_image_bytes()
 
-    def fake_get(url, **kwargs):  # noqa: ARG001
+    def fake_get(target):  # noqa: ARG001
         return DummyResponse(dummy_image_bytes)
 
-    monkeypatch.setattr("veracity.safe_fetch.requests.get", fake_get)
+    monkeypatch.setattr("veracity.safe_fetch._request", fake_get)
 
     with app.app_context():
         data, mime_type = fetch_image_bytes("https://example.com/image.png")
@@ -54,33 +50,29 @@ def test_fetch_image_bytes_success(app, monkeypatch):
 
 def test_fetch_image_bytes_non_image_content_type(monkeypatch):
     class DummyResponse:
-        status_code = 200
-        is_redirect = False
+        status = 200
         headers = {"Content-Type": "text/html"}
 
-        def iter_content(self, chunk_size=8192):  # noqa: ARG002
+        def stream(self, size=8192):  # noqa: ARG002
             yield b"<html></html>"
 
-        def __enter__(self):
-            return self
+        def release_conn(self):
+            pass
 
-        def __exit__(self, exc_type, exc, tb):
-            return False
-
-    def fake_get(url, **kwargs):  # noqa: ARG001
+    def fake_get(target):  # noqa: ARG001
         return DummyResponse()
 
-    monkeypatch.setattr("veracity.safe_fetch.requests.get", fake_get)
+    monkeypatch.setattr("veracity.safe_fetch._request", fake_get)
 
     with pytest.raises(IngestionError):
         fetch_image_bytes("https://example.com/not-image")
 
 
 def test_fetch_image_bytes_request_exception(app, monkeypatch):
-    def fake_get(url, **kwargs):  # noqa: ARG001
-        raise requests.RequestException("network error")
+    def fake_get(target):  # noqa: ARG001
+        raise urllib3.exceptions.HTTPError("network error")
 
-    monkeypatch.setattr("veracity.safe_fetch.requests.get", fake_get)
+    monkeypatch.setattr("veracity.safe_fetch._request", fake_get)
 
     with app.app_context():
         with pytest.raises(IngestionError):
