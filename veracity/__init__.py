@@ -121,6 +121,12 @@ def create_app(test_config=None):
 
     app.register_blueprint(main_bp)
 
+    @app.after_request
+    def _security_headers(response):
+        # Never let browsers reinterpret a served file (e.g. an upload) as HTML.
+        response.headers.setdefault("X-Content-Type-Options", "nosniff")
+        return response
+
     return app
 
 

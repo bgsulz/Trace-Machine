@@ -14,6 +14,9 @@ class IngestionError(Exception):
 
 _FORMAT_MIME_TYPES = {
     "JPEG": "image/jpeg",
+    # Multi-picture JPEGs (Ultra HDR / gain-map photos from Pixel, Samsung,
+    # iPhone) are ordinary JPEGs as far as browsers and C2PA are concerned.
+    "MPO": "image/jpeg",
     "PNG": "image/png",
     "WEBP": "image/webp",
     "GIF": "image/gif",
@@ -33,14 +36,21 @@ def sniff_mime_type(data: bytes, fallback: str | None = None) -> str:
     """Return the MIME type of image bytes, preferring what Pillow detects.
 
     Browser-supplied and server-supplied types are unreliable (Windows often
-    sends HEIC as application/octet-stream), so they're only a fallback.
+    sends HEIC as application/octet-stream), so they're only a fallback, and
+    only an ``image/*`` fallback is ever returned: the type is later used to
+    serve the bytes back, and e.g. ``text/html`` there would be stored XSS.
     """
     try:
         with Image.open(BytesIO(data)) as img:
             detected = _FORMAT_MIME_TYPES.get((img.format or "").upper())
-    except (UnidentifiedImageError, OSError):
+    except (UnidentifiedImageError, OSError, Image.DecompressionBombError):
         detected = None
-    return detected or fallback or "application/octet-stream"
+    if detected:
+        return detected
+    fallback = (fallback or "").split(";")[0].strip().lower()
+    if fallback.startswith("image/") and "svg" not in fallback:
+        return fallback
+    return "application/octet-stream"
 
 
 def validate_image_bytes(data: bytes) -> None:
@@ -92,7 +102,7 @@ def fetch_image_bytes(url: str) -> tuple[bytes, str]:
             raise IngestionError("Provided data URL is too large.")
 
         validate_image_bytes(data_bytes)
-        return data_bytes, media_type
+        return data_bytes, sniff_mime_type(data_bytes, media_type)
 
     if parsed.scheme not in {"http", "https"}:
         raise IngestionError("Only HTTP/HTTPS URLs are supported.")

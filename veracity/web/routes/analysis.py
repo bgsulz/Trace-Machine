@@ -21,6 +21,7 @@ from ...analyzers.manager import _format_result, get_analyzer_spec
 from ...services.containment_service import save_containment_link
 from ...services.remote_image_service import fetch_remote_image
 from ...registry import prepare_analysis_context
+from ...services.preview_service import PreviewError, cached_display_jpeg
 from ...services.reporting import build_report_payload
 from ...services.voting_service import VOTE_CHOICES
 
@@ -65,7 +66,16 @@ def register_analysis_routes(
 
         image_bytes, metadata = payload
         mime_type = metadata.get("mime_type", "application/octet-stream")
-        return send_file(BytesIO(image_bytes), mimetype=mime_type, max_age=3600)
+        if not mime_type.startswith("image/") or "svg" in mime_type:
+            mime_type = "application/octet-stream"
+        return send_file(
+            BytesIO(image_bytes),
+            mimetype=mime_type,
+            max_age=3600,
+            # Anything a browser can't show inline is offered as a download.
+            as_attachment=mime_type not in ingestion.BROWSER_DISPLAYABLE,
+            download_name=f"trace-machine-{analysis_id[:8]}",
+        )
 
     @bp.route("/analysis/<analysis_id>/preview")
     def serve_analysis_preview(analysis_id: str):
@@ -84,14 +94,10 @@ def register_analysis_routes(
             return send_file(BytesIO(image_bytes), mimetype=mime_type, max_age=3600)
 
         try:
-            with Image.open(BytesIO(image_bytes)) as img:
-                img = ImageOps.exif_transpose(img)
-                buffer = BytesIO()
-                img.convert("RGB").save(buffer, format="JPEG", quality=90)
-        except (OSError, ValueError):
+            data = cached_display_jpeg(analysis_id, image_bytes)
+        except PreviewError:
             abort(415)
-        buffer.seek(0)
-        return send_file(buffer, mimetype="image/jpeg", max_age=3600)
+        return send_file(BytesIO(data), mimetype="image/jpeg", max_age=3600)
 
     @bp.route("/analysis/<analysis_id>/export.json")
     def export_analysis_json(analysis_id: str):

@@ -79,6 +79,14 @@ _GENERATOR_TOKENS = (
     "bing image creator",
     "image creator from microsoft designer",
     "nano banana",
+    # Versioned FLUX names can't be ordinary words ("Fluxus", "in flux").
+    "flux.1",
+    "flux 1",
+    "flux1",
+    "flux pro",
+    "flux dev",
+    "flux schnell",
+    "flux kontext",
 )
 # Names that are also ordinary words or people ("Firefly season", "Leonardo
 # da Vinci", "Gemini"), so they only count in fields that name the software.
@@ -97,7 +105,9 @@ _AMBIGUOUS_GENERATOR_TOKENS = (
     "grok",
     "deepai",
 )
-_SOFTWARE_FIELDS = {"software", "xmp:xmp:creatortool", "creator", "creatortool"}
+# Fields that name the software. PNG "Creator" is deliberately excluded: it
+# often holds a person's name, so only unambiguous product names count there.
+_SOFTWARE_FIELDS = {"software", "xmp:xmp:creatortool"}
 _PREVIEW_LIMIT = 200
 _BASIC_METADATA_KEYS = {"FileType", "ImageSize", "ColorMode", "BitDepth"}
 
@@ -583,9 +593,14 @@ def _looks_like_json_object(value: str) -> bool:
     return value.strip().startswith("{")
 
 
+def _normalize_generator_text(value: str) -> str:
+    # "nano-banana", "Stable_Diffusion", "DALL·E" -> spaced words
+    return re.sub(r"[\s_\-·]+", " ", value.lower())
+
+
 def _matches_generator_token(value: str, *, software_field: bool = False) -> bool:
-    normalized = value.lower().replace("·", "-")
-    if any(token in normalized for token in _GENERATOR_TOKENS):
+    normalized = _normalize_generator_text(value)
+    if any(_normalize_generator_text(token) in normalized for token in _GENERATOR_TOKENS):
         return True
     if not software_field:
         return False

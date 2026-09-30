@@ -1174,6 +1174,53 @@ def test_generator_vocabulary_scopes_ambiguous_names_to_software_fields():
     assert tools({"Artist": "Leonardo da Vinci"}) == []
     assert tools({"Software": "Adobe Firefly"})
     assert tools({"Software": "Sora"})
-    assert tools({"Creator": "Kling 2.1"})
+    # PNG "Creator" often holds a person's name, so only unambiguous names count.
+    assert tools({"Creator": "Luma Chen"}) == []
+    assert tools({"Creator": "Midjourney"})
+    # Versioned names and hyphenated spellings.
+    assert tools({"ImageDescription": "Generated with FLUX.1 [dev]"})
+    assert tools({"Software": "nano-banana"})
     # Whole words only: "Fluxus" isn't FLUX.
     assert tools({"Software": "Fluxus Editor"}) == []
+
+
+
+def test_identify_producer_matches_whole_words_only():
+    from veracity.analyzers.c2pa import identify_producer
+
+    def label(agent="", generator="", issuer=""):
+        return identify_producer(
+            software_agents=[agent] if agent else [],
+            claim_generators=[generator] if generator else [],
+            issuer=issuer,
+        )
+
+    assert label("Pixelmator Pro") == ""
+    assert label("Affinity Designer 2") == ""
+    assert label("Soraya Studio") == ""
+    assert label(generator="CanonicalCorp") == ""
+    assert label(generator="Microsoft Designer") == "Microsoft"
+    # The first action (usually "created") wins over later edits.
+    assert identify_producer(
+        software_agents=["Google Pixel Camera", "Gemini"], claim_generators=[], issuer=""
+    ) == "Google Pixel camera"
+    # The issuer can name a vendor but never implies a device.
+    assert label(issuer="Sony Corporation") == ""
+    assert label(issuer="OpenAI") == "OpenAI"
+
+
+def test_c2pa_mime_detection_handles_mpo_and_tiff():
+    import io
+    from PIL import Image
+    from veracity.analyzers.c2pa import _detect_mime_type
+
+    def encode(fmt, **kwargs):
+        buf = io.BytesIO()
+        Image.new("RGB", (32, 32)).save(buf, format=fmt, **kwargs)
+        return buf.getvalue()
+
+    frames = [Image.new("RGB", (32, 32)), Image.new("RGB", (32, 32), (9, 9, 9))]
+    mpo = io.BytesIO()
+    frames[0].save(mpo, format="MPO", save_all=True, append_images=frames[1:])
+    assert _detect_mime_type(mpo.getvalue()) == "image/jpeg"
+    assert _detect_mime_type(encode("TIFF")) == "image/tiff"

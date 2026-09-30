@@ -5,7 +5,7 @@ Flask-Migrate
 Flask-Limiter
 Flask-Compress
 Pillow
-pillow-heif
+pillow-heif>=1.8,<2
 requests
 python-dotenv
 pytest
