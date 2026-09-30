@@ -870,6 +870,33 @@ def test_exif_detects_iptc_digital_source_and_ai_system():
     assert "IPTC AI disclosure" in tools
 
 
+def test_exif_findings_without_parsed_json_render(client):
+    """Regression: a finding with no parsed JSON (e.g. IPTC) crashed the fragment."""
+    xmp = (
+        b'<x:xmpmeta xmlns:x="adobe:ns:meta/">'
+        b'<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">'
+        b'<rdf:Description xmlns:Iptc4xmpExt="http://iptc.org/std/Iptc4xmpExt/2008-02-29/">'
+        b"<Iptc4xmpExt:DigitalSourceType>trainedAlgorithmicMedia</Iptc4xmpExt:DigitalSourceType>"
+        b"</rdf:Description></rdf:RDF></x:xmpmeta>"
+    )
+    data = {"file": (BytesIO(_make_png_with_suffix(xmp)), "a.png"), "image_url": ""}
+    resp = client.post("/analyze", data=data, content_type="multipart/form-data")
+    analysis_id = resp.headers["Location"].rsplit("/", 1)[-1]
+
+    fragment = client.get(f"/analysis/{analysis_id}/analyzers/exif")
+
+    assert fragment.status_code == 200
+    assert "trainedAlgorithmicMedia" in fragment.data.decode()
+
+
+def test_graph_outline_tolerates_odd_node_ids():
+    from veracity.web.ui import graph_outline
+
+    node = {"class_type": "KSampler", "inputs": {"seed": 1}}
+    outline = graph_outline({"2": node, "²": node, "9" * 5000: node, "10": node})
+    assert [n["id"] for n in outline][:2] == ["2", "10"]
+
+
 def test_exif_detects_xai_signature_pair_and_requires_both_fields():
     signature = "Signature: " + "A" * 120
     uuid = "123e4567-e89b-12d3-a456-426614174000"

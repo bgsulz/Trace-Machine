@@ -85,7 +85,10 @@ def graph_outline(parsed: Any) -> list[dict[str, Any]] | None:
     ):
         def order(item: tuple[str, Any]) -> tuple[int, str]:
             key = str(item[0])
-            return (int(key), key) if key.isdigit() else (1 << 30, key)
+            # ASCII digits only, capped: isdigit() also accepts e.g. "²", which int() rejects.
+            if key.isascii() and key.isdigit() and len(key) <= 9:
+                return (int(key), key)
+            return (1 << 30, key)
 
         outline = []
         for node_id, node in sorted(parsed.items(), key=order):
