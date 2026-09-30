@@ -889,6 +889,14 @@ def test_exif_findings_without_parsed_json_render(client):
     assert "trainedAlgorithmicMedia" in fragment.data.decode()
 
 
+def test_graph_outline_tolerates_odd_node_ids():
+    from veracity.web.ui import graph_outline
+
+    node = {"class_type": "KSampler", "inputs": {"seed": 1}}
+    outline = graph_outline({"2": node, "²": node, "9" * 5000: node, "10": node})
+    assert [n["id"] for n in outline][:2] == ["2", "10"]
+
+
 def test_exif_detects_xai_signature_pair_and_requires_both_fields():
     signature = "Signature: " + "A" * 120
     uuid = "123e4567-e89b-12d3-a456-426614174000"
