@@ -9,6 +9,16 @@
 {% set current_report = row.data.current_report %}
 {% set checker_rows = row.data.checker_rows or [] %}
 {% set analysis_id = row.context.analysis_id if row.context else None %}
+{% set openai_check = row.context.openai_check if row.context else False %}
+{% set automated = row.data.automated %}
+{% macro signal_line(label, signal) -%}
+<dt>{{ label }}</dt>
+<dd>
+  {% if signal is none %}<span class="faint">Not reported</span>
+  {% elif signal.detected %}<strong>Detected</strong>{% if signal.validation_state and signal.validation_state != "not_present" %} <span class="faint">· {{ signal.validation_state }}</span>{% endif %}{% if signal.model %} <span class="faint">· {{ signal.model }}</span>{% endif %}
+  {% else %}Not detected{% endif %}
+</dd>
+{%- endmacro %}
 {% macro report_form(checker, label, extra_class="") -%}
 <form
   action="{{ url_for('main.synthid_report') }}"
@@ -45,6 +55,24 @@
   </div>
   {% endif %}
 
+  {% if automated %}
+  <section class="automated automated--{{ 'positive' if automated.detected else 'negative' }}" aria-label="Automated check">
+    <p class="automated__head">
+      <span class="pill" data-state="{{ 'found' if automated.detected else 'none' }}"><span class="dot"></span>Automated check</span>
+      <span class="faint">OpenAI Verify API · {{ automated.checked_at|replace("T", " ")|replace("+00:00", " UTC") }}{% if automated.source != "this image" %} · on {{ automated.source }}{% endif %}</span>
+    </p>
+    <dl class="kv">
+      {{ signal_line("SynthID", automated.synthid) }}
+      {{ signal_line("OpenAI C2PA", automated.c2pa) }}
+    </dl>
+    <p class="faint">
+      Checked directly with OpenAI, not reported by a person. It only recognizes images made by OpenAI's tools.
+      {% if automated.converted %}This format was sent as a converted copy, so embedded Content Credentials weren't checked.{% endif %}
+      {% if automated.source != "this image" %}The result is for a near-identical copy of this image.{% endif %}
+    </p>
+  </section>
+  {% endif %}
+
   {% if row.data.phash %}
   <ul class="portal-list" role="list">
     {% for checker in checker_rows if checker.url %}
@@ -67,6 +95,24 @@
         >{{ checker.check_label }} {{ icon("external") }}</a>
         {{ report_form(checker, "Positive") }}
       </div>
+      {% if checker.provider == "openai" and openai_check and analysis_id %}
+      <form
+        class="portal__auto"
+        method="post"
+        action="{{ url_for('main.openai_check', analysis_id=analysis_id) }}"
+        hx-post="{{ url_for('main.openai_check', analysis_id=analysis_id) }}"
+        hx-target="#analyzer-row-synthid"
+        hx-swap="outerHTML"
+        hx-disabled-elt="find button"
+      >
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+        <button type="submit" class="btn btn--sm btn--primary">
+          {{ icon("search") }} {% if automated and automated.source == "this image" %}Check again automatically{% else %}Check automatically{% endif %}
+          <span class="htmx-indicator dot" data-state="loading" aria-hidden="true"></span>
+        </button>
+        <span class="faint">Sends this image to OpenAI's checker. Trace Machine keeps only the result.</span>
+      </form>
+      {% endif %}
     </li>
     {% endfor %}
   </ul>

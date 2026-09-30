@@ -5,10 +5,11 @@ from collections.abc import Callable
 
 from flask import Blueprint, abort, current_app, flash, jsonify, make_response, redirect, request, url_for
 
-from ... import csrf
+from ... import csrf, limiter
 from ...analysis_cache import load_analysis_payload
 from ...services.analysis_service import render_analyzer_fragment_html
 from ...services.config_service import increment_total_donated, parse_amount_to_cents
+from ...services import openai_verify_service
 from ...services.synthid_service import apply_synthid_report, normalize_portal_result
 from ...services.voting_service import VOTE_CHOICES, apply_vote, get_voter_id
 
@@ -136,6 +137,39 @@ def register_community_routes(
 
         flash("Thanks for your report.")
         return redirect(url_for("main.index"))
+
+    @bp.route("/analysis/<analysis_id>/openai-check", methods=["POST"])
+    @limiter.limit("10/hour")
+    @limiter.limit("300/day", key_func=lambda: "openai-check-global")
+    def openai_check(analysis_id: str):
+        """Run OpenAI's provenance API on this image (on demand, htmx)."""
+        if not openai_verify_service.is_configured():
+            abort(404)
+        payload = load_analysis_payload(analysis_id)
+        if payload is None:
+            return expired_analysis_response()
+        image_bytes, metadata = payload
+        registry_id = metadata.get("registry_id")
+
+        try:
+            result = openai_verify_service.run_check(
+                image_bytes, metadata.get("mime_type", "application/octet-stream")
+            )
+        except openai_verify_service.OpenAIVerifyError as exc:
+            response = make_response("", 200)
+            response.headers["HX-Reswap"] = "none"
+            response.headers["HX-Trigger"] = json.dumps({"showToast": str(exc)})
+            return response
+
+        if registry_id is not None:
+            openai_verify_service.record(registry_id, result)
+        html = _refresh_analyzer_fragment(analysis_id, "synthid", mini=False, link_target=None)
+        message = (
+            "OpenAI's API found OpenAI signals in this image."
+            if result["detected"]
+            else "OpenAI's API found no OpenAI signals."
+        )
+        return _toast_response(html, message)
 
     @bp.route("/webhooks/kofi", methods=["POST"])
     @csrf.exempt

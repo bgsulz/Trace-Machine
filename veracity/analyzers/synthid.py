@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from .context import AnalysisContext
 from .hash_utils import iter_neighbor_views
+from ..services.openai_verify_service import results_from_facts
 from ..services.synthid_service import (
     GOOGLE_POSITIVE,
     META_POSITIVE,
@@ -127,10 +128,27 @@ def run_synthid(context: AnalysisContext) -> dict[str, object]:
             "vary across different copies of an image."
         )
 
+    # Automated results from OpenAI's API are more trustworthy than community
+    # reports, so a positive one decides the status.
+    automated = _automated_result(context)
+    if automated and automated["detected"]:
+        status = "DETECTED"
+        display_state = "detected"
+        found = [
+            label
+            for key, label in (("synthid", "a SynthID watermark"), ("c2pa", "OpenAI Content Credentials"))
+            if (automated.get(key) or {}).get("detected")
+        ]
+        summary = f"OpenAI's API detected {' and '.join(found)} on {automated['source']}."
+        caveat = None
+    elif automated and automated["source"] == "this image" and status == "MANUAL":
+        summary = "OpenAI's API found no OpenAI signals. Google and Meta still need a manual check."
+
     return {
         "status": status,
         "summary": summary,
         "data": {
+            "automated": automated,
             "header_action": {"type": "verification_portals"},
             "display_state": display_state,
             "contested": contested,
@@ -145,6 +163,28 @@ def run_synthid(context: AnalysisContext) -> dict[str, object]:
             "caveat": caveat,
         },
     }
+
+
+def _automated_result(context: AnalysisContext) -> dict[str, object] | None:
+    """The most relevant stored OpenAI API result for this image.
+
+    This image's own latest check wins; otherwise a positive check on a
+    near-identical copy; otherwise any check on a copy.
+    """
+    own = None
+    similar: list[dict[str, object]] = []
+    for view in iter_neighbor_views(context):
+        results = results_from_facts(getattr(view["neighbor"], "facts", None))
+        if not results:
+            continue
+        if view["is_self_match"]:
+            own = {**results[0], "source": "this image"}
+        else:
+            similar.append({**results[0], "source": "a similar image"})
+    if own:
+        return own
+    positive = [result for result in similar if result.get("detected")]
+    return (positive or similar or [None])[0]
 
 
 def _empty_counts() -> dict[str, int]:
