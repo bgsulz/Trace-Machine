@@ -17,7 +17,7 @@
           <span class="finding__preview">{{ finding.preview }}</span>
         </summary>
         {% set meta = finding.metadata or {} %}
-        {% set parsed = meta.parsed_json %}
+        {% set parsed = meta.get("parsed_json") %}
         {% set outline = graph_outline(parsed) if parsed is not none else None %}
         {% set fields = [] %}
         {% for key, value in meta.items() if key not in ("category", "kind", "field", "parsed_json") and value is not mapping %}
