@@ -38,7 +38,7 @@
   <button
     type="submit"
     class="btn btn--sm {{ extra_class }}"
-    aria-label="Report {{ aria_label }}"
+    aria-label="Report {{ aria_label }}{% if count is not none %} ({{ count }} report{{ 's' if count != 1 }} so far){% endif %}"
     aria-pressed="{{ 'true' if current_report == result else 'false' }}"
   >{% if current_report == result %}{{ icon("check") }}{% endif %}{{ label }}{% if count is not none %} <span class="mono faint" title="Community reports for this image and close copies">{{ count }}</span>{% endif %}</button>
 </form>
@@ -125,7 +125,7 @@
       <span class="faint">Sends this image to OpenAI, which may retain it under its own terms. The result is saved here and shown to anyone viewing this image.</span>
     </form>
     {% endif %}
-    {% if not (own_automated and automated.detected) %}
+    {% if not (automated and automated.detected) %}
     <p class="faint">This only finds OpenAI images. If it finds nothing or fails, continue below.</p>
     {% endif %}
   </section>

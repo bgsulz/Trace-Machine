@@ -567,7 +567,6 @@
   .portal__name { font-weight: 600; font-size: var(--text-sm); }
   .portal__hint { font-size: var(--text-sm); color: var(--text-2); }
   .portal__count {
-    grid-area: count;
     font-size: var(--text-xs);
     white-space: nowrap;
   }

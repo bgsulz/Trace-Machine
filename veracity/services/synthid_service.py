@@ -73,23 +73,6 @@ PORTALS = (
     },
 )
 
-# Compatibility for old callers/templates during the UI transition.
-SYNTHID_DETECTORS = {
-    "google_about_this_image": {
-        "provider": "google",
-        "label": "Google Gemini",
-        "short_label": "Google",
-        "check_label": "Open Gemini",
-    },
-    "openai_verify": {
-        "provider": "openai",
-        "label": "OpenAI Verify",
-        "short_label": "OpenAI",
-        "check_label": "OpenAI Verify",
-    },
-}
-
-
 def apply_synthid_report(
     phash: str,
     result: str,
