@@ -395,14 +395,18 @@ def test_synthid_fragment_includes_checker_actions(client):
     fragment = client.get(f"/analysis/{analysis_id}/analyzers/synthid")
 
     assert fragment.status_code == 200
-    assert b"OpenAI Verify" in fragment.data
-    assert b"Open Gemini" in fragment.data
-    assert b"Meta Identify" in fragment.data
-    assert b"Google Positive" in fragment.data
-    assert b"OpenAI Positive" in fragment.data
-    assert b"Meta Positive" in fragment.data
-    assert b"Negative" in fragment.data
-    assert b'aria-label="Open Meta Identify"' in fragment.data
+    html = fragment.data.decode()
+    assert "https://synthid.com/" in html
+    assert "Gemini" not in html
+    assert 'aria-label="Report Google SynthID Detector: Says Google"' in html
+    assert 'aria-label="Report Google SynthID Detector: Says OpenAI"' in html
+    assert 'aria-label="Report Meta Identify: Positive"' in html
+    assert 'aria-label="Report Negative"' in html
+    assert 'aria-label="Open Meta Identify"' in html
+    # SynthID Detector comes first; OpenAI Verify is a fallback behind a disclosure.
+    assert html.index("Google SynthID Detector") < html.index("Meta Identify")
+    assert html.index("Can't use the SynthID Detector?") < html.index("OpenAI Verify")
+    assert 'aria-label="Report OpenAI Verify: Positive"' in html
 
 
 def test_htmx_synthid_report_mini_returns_mini_fragment(client):

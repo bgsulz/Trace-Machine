@@ -8,9 +8,13 @@
 {% set caveat = row.data.caveat %}
 {% set current_report = row.data.current_report %}
 {% set checker_rows = row.data.checker_rows or [] %}
+{% set portals = row.data.portals or [] %}
 {% set analysis_id = row.context.analysis_id if row.context else None %}
 {% set openai_check = row.context.openai_check if row.context else False %}
 {% set automated = row.data.automated %}
+{% set own_automated = automated and automated.source == "this image" %}
+{% set offer_auto = openai_check and analysis_id and not (own_automated and automated.recent) %}
+{% set has_auto_step = automated or offer_auto %}
 {% macro signal_line(label, signal) -%}
 <dt>{{ label }}</dt>
 <dd>
@@ -20,7 +24,7 @@
   {% else %}Not detected{% endif %}
 </dd>
 {%- endmacro %}
-{% macro report_form(checker, label, extra_class="") -%}
+{% macro report_form(result, label, aria_label, count=none, extra_class="") -%}
 <form
   action="{{ url_for('main.synthid_report') }}"
   method="post"
@@ -30,21 +34,48 @@
 >
   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
   <input type="hidden" name="analysis_id" value="{{ analysis_id }}" />
-  <input type="hidden" name="report" value="{{ checker.result }}" />
+  <input type="hidden" name="report" value="{{ result }}" />
   <button
     type="submit"
     class="btn btn--sm {{ extra_class }}"
-    aria-label="Report {{ checker.label }}"
-    aria-pressed="{{ 'true' if current_report == checker.result else 'false' }}"
-  >{% if current_report == checker.result %}{{ icon("check") }}{% endif %}{{ label }}</button>
+    aria-label="Report {{ aria_label }}"
+    aria-pressed="{{ 'true' if current_report == result else 'false' }}"
+  >{% if current_report == result %}{{ icon("check") }}{% endif %}{{ label }}{% if count is not none %} <span class="mono faint" title="Community reports for this image and close copies">{{ count }}</span>{% endif %}</button>
 </form>
+{%- endmacro %}
+{% macro portal_row(portal, step=none) -%}
+<li class="portal">
+  {{ portal_logo(portal.provider) }}
+  <div class="portal__text">
+    <span class="portal__name">{% if step %}<span class="portal__step mono">{{ step }}</span> {% endif %}{{ portal.name }}</span>
+    <span class="portal__hint">{{ portal.hint }}{% if portal.access %} <span class="faint">{{ portal.access }}</span>{% endif %}</span>
+  </div>
+  <div class="portal__actions">
+    <a
+      class="btn btn--sm synthid-check-action"
+      href="{{ portal.url }}"
+      target="_blank"
+      rel="noopener noreferrer"
+      aria-label="Open {{ portal.name }}"
+    >Open {{ icon("external") }}</a>
+    {% for report in portal.reports %}
+    {{ report_form(
+      report.result,
+      report.label,
+      portal.name ~ ": " ~ report.label,
+      none if portal.fallback else totals[report.result]|default(0)
+    ) }}
+    {% endfor %}
+  </div>
+</li>
 {%- endmacro %}
 
 <div class="stack" id="synthid-detail">
   <p class="muted">
-    Google, OpenAI, and Meta each offer a checker for their own invisible watermarks.
-    Open a portal, give it this image, then record what it showed. Each portal only
-    recognizes its own provider, so a negative result rules out that provider only.
+    Some AI providers hide an invisible watermark in the images they make, and offer
+    a checker that can read it. Work through the steps below and record what each
+    checker said. A negative result only rules out the watermarks that checker reads,
+    not AI in general.
   </p>
   {% if analysis_id %}
   {% set raw_url = url_for('main.serve_analysis_image', analysis_id=analysis_id) %}
@@ -56,85 +87,97 @@
   </div>
   {% endif %}
 
-  {% if automated %}
-  <section class="automated automated--{{ 'positive' if automated.detected else 'negative' }}" aria-label="Automated check">
-    <p class="automated__head">
-      <span class="pill" data-state="{{ 'found' if automated.detected else 'none' }}"><span class="dot"></span>Automated check</span>
-      <span class="faint">OpenAI Verify API · {{ (automated.checked_at or "")|replace("T", " ")|replace("+00:00", " UTC") }}{% if automated.source != "this image" %} · on a near-identical copy{% endif %}</span>
-    </p>
-    <dl class="kv">
-      {{ signal_line("SynthID", automated.synthid) }}
-      {{ signal_line("OpenAI C2PA", automated.c2pa) }}
-    </dl>
-    <p class="faint">
-      Checked directly with OpenAI, not reported by a person. It only recognizes images made by OpenAI's tools.
-      {% if automated.converted %}This format was sent as a converted copy, so embedded Content Credentials weren't checked.{% endif %}
-      {% if automated.source != "this image" %}This result is for a near-identical copy, which may be an edited variant; it isn't proof about this image.{% endif %}
-    </p>
+  {% if has_auto_step %}
+  <section class="portal-step stack" aria-label="Automated check">
+    <p class="portal__name"><span class="portal__step mono">1</span> Automated check</p>
+    {% if automated %}
+    <div class="automated automated--{{ 'positive' if automated.detected else 'negative' }}">
+      <p class="automated__head">
+        <span class="pill" data-state="{{ 'found' if automated.detected else 'none' }}"><span class="dot"></span>Automated check</span>
+        <span class="faint">OpenAI Verify API · {{ (automated.checked_at or "")|replace("T", " ")|replace("+00:00", " UTC") }}{% if not own_automated %} · on a near-identical copy{% endif %}</span>
+      </p>
+      <dl class="kv">
+        {{ signal_line("SynthID", automated.synthid) }}
+        {{ signal_line("OpenAI C2PA", automated.c2pa) }}
+      </dl>
+      <p class="faint">
+        Checked directly with OpenAI, not reported by a person. It only recognizes images made by OpenAI's tools.
+        {% if automated.converted %}This format was sent as a converted copy, so embedded Content Credentials weren't checked.{% endif %}
+        {% if not own_automated %}This result is for a near-identical copy, which may be an edited variant; it isn't proof about this image.{% endif %}
+      </p>
+    </div>
+    {% endif %}
+    {% if offer_auto %}
+    <form
+      class="portal__auto"
+      method="post"
+      action="{{ url_for('main.openai_check', analysis_id=analysis_id) }}"
+      hx-post="{{ url_for('main.openai_check', analysis_id=analysis_id) }}"
+      hx-target="#analyzer-row-synthid"
+      hx-swap="outerHTML"
+      hx-disabled-elt="find button"
+    >
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+      <button type="submit" class="btn btn--sm btn--primary">
+        {{ icon("search") }} {% if own_automated %}Check again automatically{% else %}Check automatically{% endif %}
+        <span class="htmx-indicator dot" data-state="loading" aria-hidden="true"></span>
+      </button>
+      <span class="faint">Sends this image to OpenAI, which may retain it under its own terms. The result is saved here and shown to anyone viewing this image.</span>
+    </form>
+    {% endif %}
+    {% if not (own_automated and automated.detected) %}
+    <p class="faint">This only finds OpenAI images. If it finds nothing or fails, continue below.</p>
+    {% endif %}
   </section>
   {% endif %}
 
   {% if row.data.phash %}
-  <ul class="portal-list" role="list">
-    {% for checker in checker_rows if checker.url %}
-    <li class="portal{% if current_report == checker.result %} is-reported{% endif %}">
-      {{ portal_logo(checker.provider) }}
-      <div class="portal__text">
-        <span class="portal__name">{{ checker.short_label }} <span class="faint">· {{ checker.tool }}</span></span>
-        <span class="portal__hint">{{ checker.hint }}</span>
-      </div>
-      <span class="portal__count mono faint" title="Community reports for this image and close copies">
-        {{ totals[checker.result]|default(0) }} report{{ "s" if totals[checker.result]|default(0) != 1 }}
-      </span>
-      <div class="portal__actions">
-        <a
-          class="btn btn--sm synthid-check-action"
-          href="{{ checker.url }}"
-          target="_blank"
-          rel="noopener noreferrer"
-          aria-label="Open {{ checker.short_label }} {{ checker.tool }}"
-        >{{ checker.check_label }} {{ icon("external") }}</a>
-        {{ report_form(checker, "Positive") }}
-      </div>
-      {% set checked_recently = automated and automated.source == "this image" and automated.recent %}
-      {% if checker.provider == "openai" and openai_check and analysis_id and not checked_recently %}
-      <form
-        class="portal__auto"
-        method="post"
-        action="{{ url_for('main.openai_check', analysis_id=analysis_id) }}"
-        hx-post="{{ url_for('main.openai_check', analysis_id=analysis_id) }}"
-        hx-target="#analyzer-row-synthid"
-        hx-swap="outerHTML"
-        hx-disabled-elt="find button"
-      >
-        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
-        <button type="submit" class="btn btn--sm btn--primary">
-          {{ icon("search") }} {% if automated and automated.source == "this image" %}Check again automatically{% else %}Check automatically{% endif %}
-          <span class="htmx-indicator dot" data-state="loading" aria-hidden="true"></span>
-        </button>
-        <span class="faint">Sends this image to OpenAI, which may retain it under its own terms. The result is saved here and shown to anyone viewing this image.</span>
-      </form>
-      {% endif %}
-    </li>
+  {% set step_offset = 1 if has_auto_step else 0 %}
+  {% set manual_steps %}
+  <ol class="portal-list" role="list">
+    {% for portal in portals if not portal.fallback %}
+    {{ portal_row(portal, loop.index + step_offset) }}
     {% endfor %}
-  </ul>
+  </ol>
 
   {% for checker in checker_rows if checker.result == "negative" %}
   <div class="portal-none">
-    <span class="muted">Checked the portals and nothing was flagged?</span>
+    <span class="muted">Checked and nothing was flagged?</span>
     <span class="portal__count mono faint">{{ totals.negative|default(0) }} report{{ "s" if totals.negative|default(0) != 1 }}</span>
-    {{ report_form(checker, "None flagged it") }}
+    {{ report_form(checker.result, "None flagged it", checker.label) }}
   </div>
   {% endfor %}
+
+  {% set fallbacks = portals|selectattr("fallback")|list %}
+  {% if fallbacks %}
+  <details class="disclosure disclosure--nested">
+    <summary>Can't use the SynthID Detector?</summary>
+    <ul class="portal-list" role="list">
+      {% for portal in fallbacks %}
+      {{ portal_row(portal) }}
+      {% endfor %}
+    </ul>
+  </details>
+  {% endif %}
+  {% endset %}
+
+  {% if own_automated and automated.detected %}
+  <details class="disclosure">
+    <summary>Check manually anyway</summary>
+    <div class="stack">{{ manual_steps }}</div>
+  </details>
+  {% else %}
+  {{ manual_steps }}
+  {% endif %}
 
   {% if current_report %}
   <p class="faint">You reported <strong>{{ (checker_rows|selectattr("result", "equalto", current_report)|first or {}).label|default(current_report) }}</strong>. Pick another option to change your report.</p>
   {% endif %}
   {% else %}
   <div class="cluster">
-    {% for checker in checker_rows if checker.url %}
-    <a class="btn btn--sm synthid-check-action" href="{{ checker.url }}" target="_blank" rel="noopener noreferrer" aria-label="Open {{ checker.short_label }} {{ checker.tool }}">
-      {{ portal_logo(checker.provider) }} {{ checker.short_label }} {{ icon("external") }}
+    {% for portal in portals if not portal.fallback %}
+    <a class="btn btn--sm synthid-check-action" href="{{ portal.url }}" target="_blank" rel="noopener noreferrer" aria-label="Open {{ portal.name }}">
+      {{ portal_logo(portal.provider) }} {{ portal.short_name }} {{ icon("external") }}
     </a>
     {% endfor %}
   </div>

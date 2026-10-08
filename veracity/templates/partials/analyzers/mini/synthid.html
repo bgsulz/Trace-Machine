@@ -3,12 +3,13 @@
 {% set totals = row.data.totals or {} %}
 {% set current_report = row.data.current_report %}
 {% set checker_rows = row.data.checker_rows or [] %}
+{% set portals = row.data.portals or [] %}
 
 <div class="mini-card-content" data-status="{{ row.status }}">
   <div class="mini-card-title">
     Portals
-    {% for checker in checker_rows if checker.url %}
-    <a href="{{ checker.url }}" target="_blank" rel="noopener noreferrer" class="mini-check-link">{{ checker.tool if checker.provider == "google" else checker.short_label }}</a>
+    {% for portal in portals if not portal.fallback %}
+    <a href="{{ portal.url }}" target="_blank" rel="noopener noreferrer" class="mini-check-link">{{ portal.short_name }}</a>
     {% endfor %}
   </div>
 

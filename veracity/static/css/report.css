@@ -516,10 +516,10 @@
   }
   .portal {
     display: grid;
-    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-columns: auto minmax(0, 1fr);
     grid-template-areas:
-      "logo text count"
-      "logo actions actions";
+      "logo text"
+      "logo actions";
     align-items: center;
     gap: var(--space-2) var(--space-3);
     padding: var(--space-3);
@@ -528,11 +528,22 @@
   .portal + .portal { border-top: var(--hairline); }
   @media (min-width: 48rem) {
     .portal {
-      grid-template-columns: auto minmax(0, 1fr) auto auto;
-      grid-template-areas: "logo text count actions";
+      grid-template-columns: auto minmax(0, 1fr) auto;
+      grid-template-areas: "logo text actions";
     }
   }
-  .portal.is-reported { background: var(--accent-bg); }
+  .portal__step {
+    display: inline-grid;
+    place-items: center;
+    width: 1.4em;
+    height: 1.4em;
+    margin-right: var(--space-1);
+    border: var(--hairline);
+    border-radius: 999px;
+    font-size: var(--text-xs);
+    font-weight: 600;
+  }
+  .portal-step > .portal__name { margin: 0; }
   .portal-logo {
     grid-area: logo;
     display: grid;
@@ -567,7 +578,6 @@
     gap: var(--space-2);
   }
   .portal__auto {
-    grid-column: 2 / -1;
     display: flex;
     flex-wrap: wrap;
     align-items: center;

@@ -131,7 +131,7 @@ def run_synthid(context: AnalysisContext) -> dict[str, object]:
         source = " on a similar image" if only_similar else ""
         summary = (
             f"{total} user{'s' if total != 1 else ''} "
-            f"reported {label} portal positive{source}."
+            f"reported a portal naming {label} as the maker{source}."
         )
         caveat = None if status == "DETECTED" else (
             "Verify this yourself; portal checks are provider-specific and can "
@@ -292,7 +292,6 @@ def _build_checker_rows(counts: dict[str, int]) -> list[dict[str, object]]:
             "provider": spec["provider"],
             "label": spec["label"],
             "short_label": spec["short_label"],
-            "check_label": spec["check_label"],
             "count": int(counts.get(result) or 0),
         }
         for result, spec in PORTAL_RESULTS.items()
