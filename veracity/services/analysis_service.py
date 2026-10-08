@@ -32,7 +32,7 @@ from ..registry import prepare_analysis_context
 from .trace_service import build_direct_and_distant_traces
 from ..tools import generate_external_tools
 from . import openai_verify_service, voting_service
-from .synthid_service import PORTAL_RESULTS
+from .synthid_service import PORTAL_RESULTS, PORTALS
 from ..analyzers.human import _build_vote_breakdown
 
 
@@ -397,14 +397,11 @@ def _ensure_synthid_detector_defaults(row_data: dict[str, Any]) -> None:
             "provider": spec["provider"],
             "label": spec["label"],
             "short_label": spec["short_label"],
-            "check_label": spec["check_label"],
-            "tool": spec.get("tool", ""),
-            "url": spec.get("url", ""),
-            "hint": spec.get("hint", ""),
             "count": normalized_totals[result],
         }
         for result, spec in PORTAL_RESULTS.items()
     ]
+    row_data["portals"] = PORTALS
 
 
 def _ensure_human_vote_defaults(row_data: dict[str, Any]) -> None:

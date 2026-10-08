@@ -10,61 +10,68 @@ META_POSITIVE = "meta_positive"
 NEGATIVE = "negative"
 
 SYNTHID_CHOICES = {GOOGLE_POSITIVE, OPENAI_POSITIVE, META_POSITIVE, NEGATIVE}
-# Each provider-positive result doubles as the description of that provider's
-# public checker ("portal"). Result keys are stored in the database; labels,
-# URLs, and hints are display-only and safe to change.
+# A positive result names the provider that made the image, whichever portal
+# reported it. Result keys are stored in the database; labels are display-only
+# and safe to change.
 PORTAL_RESULTS = {
     GOOGLE_POSITIVE: {
         "provider": "google",
         "label": "Google Positive",
         "short_label": "Google",
-        "check_label": "Open Gemini",
-        "tool": "Gemini",
-        "url": "https://gemini.google.com/app",
-        "hint": "Sign in, upload the image, and ask whether it was made with Google AI. Gemini checks for SynthID.",
     },
     OPENAI_POSITIVE: {
         "provider": "openai",
         "label": "OpenAI Positive",
         "short_label": "OpenAI",
-        "check_label": "OpenAI Verify",
-        "tool": "Verify",
-        "url": "https://openai.com/verify",
-        "hint": "Upload the image. Verify checks for OpenAI's C2PA manifest and SynthID watermark.",
     },
     META_POSITIVE: {
         "provider": "meta",
         "label": "Meta Positive",
         "short_label": "Meta",
-        "check_label": "Meta Identify",
-        "tool": "Identify",
-        "url": "https://meta.ai/identification",
-        "hint": "Upload the image and look for a Content Seal watermark match.",
     },
     NEGATIVE: {
         "provider": "portal",
         "label": "Negative",
         "short_label": "Negative",
-        "check_label": "",
     },
 }
 
-# Compatibility for old callers/templates during the UI transition.
-SYNTHID_DETECTORS = {
-    "google_about_this_image": {
+# Public checkers ("portals") in the order people should try them, each with
+# the results it can report. Fallback portals sit behind a disclosure.
+PORTALS = (
+    {
         "provider": "google",
-        "label": "Google Gemini",
-        "short_label": "Google",
-        "check_label": "Open Gemini",
+        "name": "Google SynthID Detector",
+        "short_name": "SynthID Detector",
+        "url": "https://synthid.com/",
+        "hint": "Names the maker of SynthID images from Google and partners like OpenAI.",
+        "access": "Sign in with a Google, Apple, or ChatGPT account.",
+        "reports": (
+            {"result": GOOGLE_POSITIVE, "label": "Says Google"},
+            {"result": OPENAI_POSITIVE, "label": "Says OpenAI"},
+        ),
     },
-    "openai_verify": {
+    {
+        "provider": "meta",
+        "name": "Meta Identify",
+        "short_name": "Meta Identify",
+        "url": "https://meta.ai/identification",
+        "hint": "Checks for Meta's Content Seal watermark, which the SynthID Detector can't read.",
+        "reports": ({"result": META_POSITIVE, "label": "Positive"},),
+    },
+    {
         "provider": "openai",
-        "label": "OpenAI Verify",
-        "short_label": "OpenAI",
-        "check_label": "OpenAI Verify",
+        "name": "OpenAI Verify",
+        "short_name": "OpenAI Verify",
+        "url": "https://openai.com/verify",
+        "hint": (
+            "Checks OpenAI images for Content Credentials and SynthID. Useful if the "
+            "SynthID Detector is rate-limited or you'd rather not sign in."
+        ),
+        "fallback": True,
+        "reports": ({"result": OPENAI_POSITIVE, "label": "Positive"},),
     },
-}
-
+)
 
 def apply_synthid_report(
     phash: str,

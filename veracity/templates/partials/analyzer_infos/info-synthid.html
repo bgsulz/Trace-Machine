@@ -6,33 +6,41 @@
   and records what people report back.
 </p>
 
-<h3>The portals</h3>
-<ul>
+<h3>The checks, in order</h3>
+<ol>
   <li>
-    <strong>Google (SynthID):</strong> Google embeds its SynthID watermark in
-    images from Gemini and its Nano Banana models. To check an image, sign in to
-    Gemini, upload it, and ask whether it was made with Google AI.
+    <strong>Automated check (OpenAI):</strong> OpenAI licensed SynthID from
+    Google and embeds it, alongside a C2PA manifest, in images from ChatGPT
+    Images and its API. Where it's enabled, Trace Machine can check for both
+    with one click through OpenAI's API. Those results are labeled as automated
+    checks and count for more than community reports. It only finds OpenAI
+    images, so if it finds nothing or fails, move on.
   </li>
   <li>
-    <strong>OpenAI (Verify):</strong> OpenAI licensed SynthID from Google and now
-    embeds it, alongside a C2PA manifest, in images from ChatGPT Images and its
-    API. OpenAI Verify checks for both. Use it for suspected OpenAI images; Google
-    says Gemini only recognizes content made by Google's own tools. Where it's
-    enabled, Trace Machine can also run this check for you with one click
-    through OpenAI's API. Those results are labeled as automated checks and
-    count for more than community reports.
+    <strong>Google SynthID Detector:</strong> Google embeds SynthID in images
+    from Gemini and its Nano Banana models, and partners like OpenAI embed it
+    too. Google's official
+    <a href="https://synthid.com/" target="_blank" rel="noopener noreferrer">SynthID Detector</a>
+    reads all of them and says which provider made the image, so you report
+    "Says Google" or "Says OpenAI". You'll need to sign in with a Google,
+    Apple, or ChatGPT account.
   </li>
   <li>
-    <strong>Meta (Identify):</strong> Meta uses its own imperceptible watermark,
+    <strong>Meta Identify:</strong> Meta uses its own imperceptible watermark,
     Content Seal, for images from Meta AI. It isn't compatible with SynthID or
-    C2PA, so it has its own checker, Meta Identify.
+    C2PA, so it has its own checker.
   </li>
-</ul>
+</ol>
+<p>
+  If you can't use the SynthID Detector (it's rate-limited, or you'd rather
+  not sign in), OpenAI Verify also checks OpenAI images for both Content
+  Credentials and SynthID.
+</p>
 
 <div class="flash-warning">
-  <strong>Important limitation:</strong> Each portal only recognizes its own
-  provider's watermark. A negative result rules out that provider, not AI in
-  general, and many generators don't watermark at all. Portal reports on Trace
+  <strong>Important limitation:</strong> Each portal only recognizes the
+  watermarks it was built for. A negative result rules out those watermarks,
+  not AI in general, and many generators don't watermark at all. Portal reports on Trace
   Machine are community evidence: a negative report means someone checked and
   got no positive result.
 </div>
@@ -43,7 +51,7 @@
     <a href="https://deepmind.google/technologies/synthid/" target="_blank" rel="noopener noreferrer">Google DeepMind: SynthID</a>
   </li>
   <li>
-    <a href="https://support.google.com/gemini/answer/16722517" target="_blank" rel="noopener noreferrer">Gemini Help: Verify AI-generated images</a>
+    <a href="https://synthid.com/" target="_blank" rel="noopener noreferrer">Google SynthID Detector</a>
   </li>
   <li>
     <a href="https://openai.com/verify" target="_blank" rel="noopener noreferrer">OpenAI Verify</a>

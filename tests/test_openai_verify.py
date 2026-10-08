@@ -103,6 +103,8 @@ def test_positive_check_lights_up_portals(client, openai_api):
     again = client.get(f"/analysis/{analysis_id}/analyzers/synthid?refresh=1").data.decode()
     assert "Automated check" in again
     assert "Check again automatically" in again
+    # A positive on this image settles it, so the manual steps collapse.
+    assert "Check manually anyway" in again
 
 
 def test_negative_check_keeps_manual_portals(client, openai_api):
@@ -110,6 +112,8 @@ def test_negative_check_keeps_manual_portals(client, openai_api):
     analysis_id = _upload(client)
     body = html.unescape(client.post(f"/analysis/{analysis_id}/openai-check", headers={"HX-Request": "true"}).data.decode())
     assert "Google and Meta still need a manual check" in body
+    assert "continue below" in body
+    assert "Check manually anyway" not in body
     chip = re.search(r'<a\s+class="signal"\s+id="signal-synthid"[^>]*data-state="(\w+)"', body)
     assert chip and chip.group(1) == "action"
 
@@ -203,11 +207,11 @@ def test_automated_negative_overrides_community_openai_reports(app, client, open
     for _ in range(5):  # five different visitors report an OpenAI positive
         other = app.test_client()
         other.post("/synthid-report", data={"analysis_id": analysis_id, "report": "openai_positive"})
-    assert "reported OpenAI portal positive" in _synthid_row(client, analysis_id)
+    assert "reported a portal naming OpenAI as the maker" in _synthid_row(client, analysis_id)
 
     client.post(f"/analysis/{analysis_id}/openai-check", headers={"HX-Request": "true"})
     row = _synthid_row(client, analysis_id)
-    assert "reported OpenAI portal positive" not in row
+    assert "reported a portal naming OpenAI as the maker" not in row
     assert "found no OpenAI signals" in row
 
 
